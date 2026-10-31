@@ -69,3 +69,13 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
   .chatwrap{grid-template-columns:1fr;height:auto}.chans{border-right:0;max-height:200px}.msgs{min-height:50vh}
   .liveroom{grid-template-columns:1fr}.chatcol{height:420px}
 }
+
+/* library, quotes, admin */
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tile{background:none;border:0;padding:0;text-align:left;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.tile img,.tile .art{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:var(--panel-2)}
+.tile .art{display:grid;place-items:center;padding:12px;font:800 1rem var(--display);text-align:center}
+.video{aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000}.video iframe{width:100%;height:100%;border:0}
+.big{font:800 2rem var(--display);font-variant-numeric:tabular-nums}
+@media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}

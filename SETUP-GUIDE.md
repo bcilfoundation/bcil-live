@@ -75,6 +75,16 @@ In Supabase, go to Authentication, then URL Configuration, and add the site addr
 
 ## What's built and what's next
 
-**Built in this first version:** sign-in, Home (FCB banner, next live session, today's quote), the live room (listen, request to call in, host queue, bring on air, live chat, lock chat, end session), the chat room with real-time messages, invite codes and reporting, forms with "My responses", and Mobile Money giving with history.
+**Built:** sign-in (phone or Google); Home (FCB banner, next live session, today's quote); the live room (listen, request to call in, host queue, bring on air, live chat, lock chat, end session); the chat room (real-time messages, invite codes, reporting); the Library (YouTube talks inside the app, likes, save, share, comments); Daily Quotes (today, earlier days, filter by theme, share); forms with "My responses"; Mobile Money giving with history; and an Admin page for admins and moderators:
 
-**Next:** Library from YouTube, the Daily Quotes page, the admin screens (today admins use the Supabase dashboard), live session recording to the Library, notifications, and then phase 2 (notes, booking, needs, photos, Play Store and App Store).
+| Admin tab | What it does |
+| --- | --- |
+| Quotes | Add a quote for any date, including future days |
+| Live sessions | Schedule a session, Go live, End |
+| Talks | Paste a YouTube link to add a talk to the Library |
+| Form responses | See responses per form, set accepted, waitlist or declined, copy to Google Sheets |
+| Gifts | Total received, totals by purpose, every gift |
+| Reports | Hide or keep reported messages and comments (moderators see only this tab) |
+| People | Make someone a mentor, moderator or admin; mark under-18s |
+
+**Next:** live session recording into the Library, push notifications ("Remind me" and the morning quote), then phase 2 (notes, mentorship booking, needs, photos, Play Store and App Store).

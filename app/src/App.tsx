@@ -7,7 +7,9 @@ import Live from "./pages/Live";
 import Chat from "./pages/Chat";
 import Forms from "./pages/Forms";
 import Give from "./pages/Give";
-import Soon from "./pages/Soon";
+import Library from "./pages/Library";
+import Quotes from "./pages/Quotes";
+import Admin from "./pages/Admin";
 
 const NAV = [
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/quotes", "Daily Quotes"],
@@ -15,7 +17,7 @@ const NAV = [
 ] as const;
 
 export default function App() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, isStaff } = useAuth();
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;
 
@@ -25,6 +27,7 @@ export default function App() {
         <div className="brand"><span className="mark">BCIL</span><b>BCIL<span>Live</span></b></div>
         <nav className="menu">
           {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
+          {isStaff && <NavLink to="/admin">Admin</NavLink>}
         </nav>
       </aside>
       <div className="app">
@@ -40,8 +43,13 @@ export default function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/forms" element={<Forms />} />
             <Route path="/give" element={<Give />} />
-            <Route path="/library" element={<Soon title="Library" />} />
-            <Route path="/quotes" element={<Soon title="Daily Quotes" />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/quotes" element={<Quotes />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/more" element={
+              <section className="view"><h1>More</h1>
+                <div className="list">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
+                  {isStaff && <NavLink to="/admin">Admin</NavLink>}</div></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
@@ -49,6 +57,7 @@ export default function App() {
       <nav className="tabbar">
         {NAV.filter(([to]) => ["/", "/live", "/chat", "/give"].includes(to)).map(([to, label]) =>
           <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
+        <NavLink to="/more">More</NavLink>
       </nav>
     </div>
   );
