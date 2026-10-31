@@ -74,6 +74,7 @@ export default function Live() {
     if (/NotFound|device/i.test(msg)) return "No microphone was found on this device.";
     if (/UID_CONFLICT/i.test(msg)) return "You are already in this session on another device. Leave there first.";
     if (/network|timeout|WS_ABORT|CAN_NOT_GET_GATEWAY/i.test(msg)) return "Connection problem. Check your internet and try again.";
+    if (/^Setup problem/.test(msg)) return msg;
     return "Could not join the live room: " + msg;
   }
 
@@ -82,7 +83,12 @@ export default function Live() {
     joining.current = true; setBusy(true); setError("");
     try {
       const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: live.id } });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "Could not get a pass for this session");
+      if (error) {
+        // the function explains what went wrong in its response body
+        const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(detail?.error ?? error.message);
+      }
+      if (data?.error) throw new Error(data.error);
       const c = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
       client.current = c;
       c.on("user-published", async (user, type) => { await c.subscribe(user, type); if (type === "audio") user.audioTrack?.play(); });
