@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AddAudioTalk, { PROGRAMS } from "../components/AddAudioTalk";
 import { clock } from "../lib/recorder";
 
@@ -134,6 +134,7 @@ export default function Library() {
         {isStaff && <button className="btn primary" onClick={() => setAdding((a) => !a)}>{adding ? "Close" : "🎙 Record or upload audio"}</button>}
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search talks" aria-label="Search talks" style={{ maxWidth: 260 }} />
       </div>
+      <Link to="/reading" className="card row readlink"><span style={{ fontSize: 28 }}>📚</span><div className="grow"><b>Reading room</b><br /><small className="muted">Books and guides for mentorship. Read them in the app.</small></div><span aria-hidden>›</span></Link>
       {adding && <AddAudioTalk onSaved={() => { setAdding(false); loadTalks(); }} />}
       {isStaff && drafts.length > 0 && <>
         <h2>Drafts <span className="muted">· only hosts can see these</span></h2>

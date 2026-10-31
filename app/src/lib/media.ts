@@ -9,7 +9,7 @@ export async function uploadPhoto(userId: string, file: File, maxSide = 1200): P
   return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
 }
 
-async function shrink(file: File, maxSide: number): Promise<Blob> {
+export async function shrink(file: File, maxSide: number): Promise<Blob> {
   if (!file.type.startsWith("image/")) throw new Error("Please choose a photo.");
   const url = URL.createObjectURL(file);
   try {

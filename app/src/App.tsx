@@ -18,16 +18,17 @@ import Groups, { GroupPage, JoinWithLink } from "./pages/Groups";
 // Live (audio library) and Admin load only when opened, to keep the app light on mobile data
 const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Reading = lazy(() => import("./pages/Reading"));
 
 // Turn giving on once Paystack has approved BCIL and the payment functions are deployed
 const GIVING_ENABLED = false;
 
 const NAV = ([
-  ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/quotes", "Daily Quotes"],
+  ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
   ["/chat", "Chat"], ["/groups", "Groups & Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
 ] as const).filter(([to]) => GIVING_ENABLED || to !== "/give");
 
-const ICONS: Record<string, string> = { "/": "home", "/live": "live", "/library": "library", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
+const ICONS: Record<string, string> = { "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/forms" element={<Forms />} />
             {GIVING_ENABLED && <Route path="/give" element={<Give />} />}
             <Route path="/library" element={<Library />} />
+            <Route path="/reading" element={<Reading />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
@@ -83,7 +85,7 @@ export default function App() {
       <nav className="tabbar">
         {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/chat", "Chat", "chat"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}
-            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|friends|join)/.test(pathname)) ? "active" : "")}>
+            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|friends|join)/.test(pathname)) || (to === "/library" && pathname === "/reading") ? "active" : "")}>
             <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
       </nav>
     </div>

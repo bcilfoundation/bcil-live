@@ -411,3 +411,35 @@ main.inroom{display:flex;flex-direction:column}
 .signin-hero .eyebrow{color:#ffd54a;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 .signin-hero b{font-size:1.25rem}
 .signin-wrap .card.signin{border-top-left-radius:0;border-top-right-radius:0;margin-top:0}
+
+/* reading room */
+.reading h1{margin:0}
+.shelf-h{font-size:1rem;margin:18px 0 8px}
+.shelf-tools{margin:16px 0 8px}.shelf-tools .search{flex:1;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:18px 12px;margin-top:12px}
+.shelf-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px}.shelf-row .book{flex:0 0 120px}
+.book{display:flex;flex-direction:column;gap:4px;text-align:left;background:none;border:0;padding:0;color:var(--text);cursor:pointer;font:inherit;min-width:0}
+.book b{font-size:.88rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.book small{font-size:.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bookcover{position:relative;display:block;aspect-ratio:2/3;border-radius:6px 10px 10px 6px;overflow:hidden;background:var(--panel-2);box-shadow:0 6px 14px rgba(10,25,60,.18),inset 4px 0 0 rgba(0,0,0,.12)}
+.bookcover img{width:100%;height:100%;object-fit:cover;display:block}
+.nocover{display:grid;place-items:center;height:100%;padding:10px;text-align:center;font-weight:700;color:#fff;background:linear-gradient(160deg,var(--navy),#3c63a8)}
+.newbadge{position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.04em}
+.newbadge.draft{background:#555}
+.bookbar{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(0,0,0,.35)}.bookbar i{display:block;height:100%;background:#ffd54a}
+.readlink{margin:12px 0}
+.reader{position:fixed;inset:0;z-index:200;background:#2b2f36;display:flex;flex-direction:column;color:#fff}
+.reader-top,.reader-bottom{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1d2026}
+.reader-top{padding-top:max(10px,env(safe-area-inset-top))}.reader-bottom{justify-content:space-between;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.reader-top .grow{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reader .iconbtn{background:#2f343c;border-color:#444;color:#fff;font-size:1.1rem}
+.reader .muted{color:#b8c0cc}
+.reader-info{background:#1d2026;padding:4px 16px 14px;border-top:1px solid #333}
+.reader-page{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:8px;-webkit-overflow-scrolling:touch}
+.reader-page canvas{background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.4);max-width:none}
+.reader-bottom .btn{background:#2f343c;color:#fff;border-color:#444}
+.pagebox{width:3.2em;text-align:center;padding:4px;border-radius:8px;border:1px solid #555;background:#2f343c;color:#fff;font:inherit}
+.btn.danger{color:var(--live)}
+.rr-back{position:fixed;inset:0;z-index:150;background:rgba(10,20,40,.5);display:grid;place-items:end center}
+.rr-sheet{width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--panel);border-radius:20px 20px 0 0;padding:20px 18px max(20px,env(safe-area-inset-bottom))}
+@media (min-width:761px){.rr-back{place-items:center}.rr-sheet{border-radius:20px}}
