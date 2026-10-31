@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 // Sign in with a Ghana phone number and a 6-digit SMS code (Supabase phone auth),
 // or with Google. Turn on the providers in Supabase > Authentication > Providers.
 export default function SignIn() {
+  const [mode, setMode] = useState<"email" | "phone">("email");
+  const [email, setEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -23,6 +26,16 @@ export default function SignIn() {
     setBusy(false);
     if (error) setError(error.message); else setSent(true);
   }
+  async function sendEmail() {
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setError("Enter a valid email address."); return; }
+    setBusy(true); setError("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL, data: { full_name: name.trim() } },
+    });
+    setBusy(false);
+    if (error) setError(error.message); else setEmailSent(true);
+  }
   async function verify() {
     setBusy(true); setError("");
     const { error } = await supabase.auth.verifyOtp({ phone: e164(), token: code.trim(), type: "sms" });
@@ -36,11 +49,21 @@ export default function SignIn() {
         <div className="brand"><span className="mark">BCIL</span><b>BCIL<span>Live</span></b></div>
         <h1>Welcome</h1>
         <p className="muted">Live sessions, talks, daily quotes and the BCIL community.</p>
-        {!sent ? <>
+        <div className="chips">
+          <button className="chip" aria-pressed={mode === "email"} onClick={() => setMode("email")}>Email</button>
+          <button className="chip" aria-pressed={mode === "phone"} onClick={() => setMode("phone")}>Phone</button>
+        </div>
+        {mode === "email" ? (emailSent ? <>
+          <p><b>Check your email.</b> We sent a sign-in link to {email}. Open it on this device to continue.</p>
+          <button className="btn ghost" onClick={() => setEmailSent(false)}>Use a different email</button>
+        </> : <>
+          <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
+          <label className="field">Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" /></label>
+          <button className="btn primary" disabled={busy} onClick={sendEmail}>Email me a sign-in link</button>
+        </>) : !sent ? <>
           <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
           <label className="field">Phone number<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="024 123 4567" /></label>
           <button className="btn primary" disabled={busy} onClick={sendCode}>Send me a code</button>
-          <button className="btn ghost" onClick={() => supabase.auth.signInWithOAuth({ provider: "google" })}>Continue with Google</button>
         </> : <>
           <label className="field">Code sent to {phone}<input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" maxLength={6} /></label>
           <button className="btn primary" disabled={busy} onClick={verify}>Sign in</button>
