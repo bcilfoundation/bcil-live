@@ -6,6 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 // BASE_PATH lets the app live in a sub-folder, e.g. /bcil-live/ on GitHub Pages
 export default defineConfig({
   base: process.env.BASE_PATH || "/",
+  define: { __APP_VERSION__: JSON.stringify(new Date().toISOString().slice(0, 16).replace("T", " ")) },
   plugins: [
     react(),
     VitePWA({

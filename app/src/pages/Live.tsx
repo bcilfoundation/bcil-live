@@ -146,11 +146,22 @@ export default function Live() {
     if (shouldSpeak !== speakerRef.current) { leave().then(() => join()); }
   }, [mine?.status]);
 
+  // Every listener's app silences callers the host has muted, so a muted caller is never heard
+  const silenced = useRef<Set<number>>(new Set());
+  const silencedKey = requests.filter((r) => r.muted_by_host || r.status !== "on_air").map((r) => r.user_id).sort().join(",");
+  useEffect(() => {
+    silenced.current = new Set(requests.filter((r) => r.muted_by_host || r.status !== "on_air").map((r) => agoraUid(r.user_id)));
+    for (const u of client.current?.remoteUsers ?? []) {
+      if (!u.audioTrack) continue;
+      if (silenced.current.has(Number(u.uid))) u.audioTrack.stop(); else if (!u.audioTrack.isPlaying) u.audioTrack.play();
+    }
+  }, [silencedKey, joined]);
+
   // If the host mutes me, switch my microphone off; I can unmute myself only after the host allows it
   const wasHostMuted = useRef(false);
   useEffect(() => {
     if (!mic.current || mine?.status !== "on_air") return;
-    if (mine.muted_by_host) { mic.current.setEnabled(false); setMuted(true); setNotice("The host has muted your microphone."); }
+    if (mine.muted_by_host) { mic.current.setEnabled(false).catch(() => {}); setMuted(true); setNotice("The host has muted your microphone."); }
     else if (wasHostMuted.current) { setNotice("The host has unmuted you. Tap Unmute to speak."); }
     wasHostMuted.current = !!mine.muted_by_host;
   }, [mine?.muted_by_host, joined]);
@@ -178,7 +189,10 @@ export default function Live() {
       if (data?.error) throw new Error(data.error);
       const c = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
       client.current = c;
-      c.on("user-published", async (user, type) => { await c.subscribe(user, type); if (type === "audio") user.audioTrack?.play(); });
+      c.on("user-published", async (user, type) => {
+        await c.subscribe(user, type);
+        if (type === "audio" && !silenced.current.has(Number(user.uid))) user.audioTrack?.play();
+      });
       c.enableAudioVolumeIndicator();
       c.on("volume-indicator", (vols) => {
         const set = new Set<number>();

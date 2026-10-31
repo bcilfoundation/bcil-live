@@ -313,3 +313,8 @@ insert into forms (slug, title, subtitle, sensitive, fields) values
 
 -- ---------- Update: host can mute callers (added 31 Oct 2026) ----------
 alter table public.call_requests add column if not exists muted_by_host boolean not null default false;
+
+-- Everyone in a session can see who is on air (and whether the host muted them),
+-- so every listener's app can silence a muted caller.
+drop policy if exists "everyone sees on-air callers" on call_requests;
+create policy "everyone sees on-air callers" on call_requests for select to authenticated using (status = 'on_air');

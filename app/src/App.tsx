@@ -55,7 +55,8 @@ export default function App() {
             <Route path="/more" element={
               <section className="view"><h1>More</h1>
                 <div className="list">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
-                  {isStaff && <NavLink to="/admin">Admin</NavLink>}</div></section>} />
+                  {isStaff && <NavLink to="/admin">Admin</NavLink>}</div>
+                <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           </Suspense>
