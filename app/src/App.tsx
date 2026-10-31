@@ -26,7 +26,7 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="brand"><span className="mark">BCIL</span><b>BCIL<span>Live</span></b></div>
+        <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <nav className="menu">
           {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
           {isStaff && <NavLink to="/admin">Admin</NavLink>}
@@ -34,7 +34,7 @@ export default function App() {
       </aside>
       <div className="app">
         <header className="top">
-          <span className="org">BCIL Foundation</span>
+          <span className="org"><img className="toplogo" src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" />BCIL Foundation</span>
           <span className="sp" />
           <button className="me" onClick={() => confirmSignOut()} aria-label="Sign out">{initials(profile?.full_name ?? "")}</button>
         </header>

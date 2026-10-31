@@ -46,7 +46,7 @@ export default function SignIn() {
   return (
     <div className="center">
       <div className="card signin">
-        <div className="brand"><span className="mark">BCIL</span><b>BCIL<span>Live</span></b></div>
+        <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <h1>Welcome</h1>
         <p className="muted">Live sessions, talks, daily quotes and the BCIL community.</p>
         <div className="chips">
