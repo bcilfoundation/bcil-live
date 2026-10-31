@@ -399,3 +399,15 @@ main.inroom{display:flex;flex-direction:column}
 .room-filter{position:static}
 @media (max-width:760px){ .app:has(main.inroom){padding-bottom:calc(70px + env(safe-area-inset-bottom))} }
 .room-compose{background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.45) 25%);margin:0 -14px;padding:8px 14px 4px}
+
+/* FCB photos */
+.banner.hero.photo{background-size:cover;background-position:center 40%;color:#fff}
+.banner.hero.photo h1,.banner.hero.photo p,.banner.hero.photo .eyebrow{color:#fff}
+.fcb-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin:10px 0 2px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.fcb-strip img{flex:0 0 auto;width:120px;height:150px;object-fit:cover;border-radius:12px;scroll-snap-align:start}
+.fcb-credit{display:block;margin-bottom:12px;font-size:.75rem}
+.signin-wrap{align-content:center;row-gap:0}
+.signin-hero{width:min(420px,100%);height:200px;border-radius:18px 18px 0 0;background-size:cover;background-position:center 35%;display:flex;flex-direction:column;justify-content:flex-end;padding:16px 20px;color:#fff}
+.signin-hero .eyebrow{color:#ffd54a;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.signin-hero b{font-size:1.25rem}
+.signin-wrap .card.signin{border-top-left-radius:0;border-top-right-radius:0;margin-top:0}

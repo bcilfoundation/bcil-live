@@ -92,7 +92,11 @@ export default function SignIn() {
   const codeField = <label className="field">6-digit code<input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="123456" /></label>;
 
   return (
-    <div className="center">
+    <div className="center signin-wrap">
+      <div className="signin-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.15), rgba(10,25,60,.85)), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` }}>
+        <span className="eyebrow">Finding Campus Balance 2026</span>
+        <b>Join the BCIL community</b>
+      </div>
       <div className="card signin">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <h1>{step === "signup" || step === "confirm" ? "Create your account" : step === "forgot" || step === "reset" ? "Reset your password" : "Welcome back"}</h1>

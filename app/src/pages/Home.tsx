@@ -25,13 +25,17 @@ export default function Home() {
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} · Welcome to BCIL Live</p>
       {/* 1. the main thing: the flagship event */}
-      <div className="banner hero">
+      <div className="banner hero photo" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.55), rgba(10,25,60,.92)), url(${import.meta.env.BASE_URL}fcb/hero.jpg)` }}>
         <span className="eyebrow">6th edition · Saturday 23 January 2027</span>
         <h1>Finding Campus Balance 2027</h1>
         <p>Digital safety, academic wellbeing, a campus life panel, and a CV and cover letter clinic.</p>
         <p className="venue">📍 Auditorium 900, University of Cape Coast</p>
         <Link className="btn primary" to="/forms">Register for FCB 2027</Link>
       </div>
+      <div className="fcb-strip" aria-label="Photos from FCB 2026">
+        {[1, 2, 3, 4, 5, 6].map((i) => <img key={i} src={`${import.meta.env.BASE_URL}fcb/p${i}.jpg`} alt="" loading="lazy" />)}
+      </div>
+      <small className="muted fcb-credit">FCB 2026 at UCC · photos by Kingdave Studios</small>
       {/* 2. what's on live */}
       {next && (
         <Link to="/live" className="card row">
