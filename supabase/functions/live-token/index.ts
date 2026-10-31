@@ -23,7 +23,14 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { session_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { session_id } = body;
+    if (body?.diag === true) {
+      // Safe setup check: reports only lengths/format, never the values
+      const id = Deno.env.get("AGORA_APP_ID") ?? "", c = Deno.env.get("AGORA_APP_CERTIFICATE") ?? "";
+      const fmt = (v: string) => ({ length: v.length, trimmedLength: v.trim().length, hex32: /^[0-9a-f]{32}$/i.test(v.trim()) });
+      return json({ appId: fmt(id), certificate: fmt(c) });
+    }
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, publicKey(), {
       global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     });
