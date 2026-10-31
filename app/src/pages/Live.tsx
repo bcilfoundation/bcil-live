@@ -5,7 +5,7 @@ import { supabase, initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 
 type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null };
-type Req = { id: number; user_id: string; topic: string | null; status: string; profiles?: { full_name: string } | null };
+type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 type Line = { id: number; user_id: string; body: string; profiles?: { full_name: string } | null };
 type Person = { id: string; name: string; role: "host" | "listener" };
 type Float = { id: number; emoji: string; left: number };
@@ -78,7 +78,7 @@ export default function Live() {
   // ---------- call-in queue + comments (database, real time) ----------
   useEffect(() => {
     if (!live) return;
-    const loadReqs = () => supabase.from("call_requests").select("id, user_id, topic, status, profiles(full_name)")
+    const loadReqs = () => supabase.from("call_requests").select("id, user_id, topic, status, muted_by_host, profiles(full_name)")
       .eq("session_id", live.id).in("status", ["waiting", "on_air"]).order("created_at")
       .then(({ data }) => setRequests((data ?? []) as unknown as Req[]));
     loadReqs();
@@ -130,6 +130,15 @@ export default function Live() {
     const shouldSpeak = mine?.status === "on_air";
     if (shouldSpeak !== speakerRef.current) { leave().then(() => join()); }
   }, [mine?.status]);
+
+  // If the host mutes me, switch my microphone off; I can unmute myself only after the host allows it
+  const wasHostMuted = useRef(false);
+  useEffect(() => {
+    if (!mic.current || mine?.status !== "on_air") return;
+    if (mine.muted_by_host) { mic.current.setEnabled(false); setMuted(true); setNotice("The host has muted your microphone."); }
+    else if (wasHostMuted.current) { setNotice("The host has unmuted you. Tap Unmute to speak."); }
+    wasHostMuted.current = !!mine.muted_by_host;
+  }, [mine?.muted_by_host, joined]);
 
   function explain(e: unknown) {
     const msg = String((e as { message?: string })?.message ?? e);
@@ -185,6 +194,7 @@ export default function Live() {
   }
   async function toggleMute() {
     if (!mic.current) return;
+    if (muted && mine?.muted_by_host) { setNotice("The host has muted you. Wait for the host to unmute you."); return; }
     await mic.current.setEnabled(muted);
     setMuted(!muted);
   }
@@ -201,6 +211,8 @@ export default function Live() {
       setNotice("Request sent. The host will bring you on when it's your turn.");
   }
   const setStatus = (id: number, status: string) => run("Updating the call", supabase.from("call_requests").update({ status }).eq("id", id));
+  const hostMute = (id: number, value: boolean) => run(value ? "Muting" : "Unmuting", supabase.from("call_requests").update({ muted_by_host: value }).eq("id", id));
+  const muteAll = () => run("Muting all callers", supabase.from("call_requests").update({ muted_by_host: true }).eq("session_id", live!.id).eq("status", "on_air"));
   const toggleLock = () => run("Locking chat", supabase.from("live_sessions").update({ chat_locked: !live!.chat_locked }).eq("id", live!.id))
     .then((ok) => ok && setLive((s) => (s ? { ...s, chat_locked: !s.chat_locked } : s)));
   const endSession = async () => {
@@ -275,9 +287,12 @@ export default function Live() {
           ))}
           {onStage.map((r) => (
             <div key={r.id} className={`pod-spk${isTalking(r.user_id) ? " talking" : ""}`}>
-              <div className="pod-ava big caller">{initials(r.profiles?.full_name ?? "")}</div>
-              <b>{r.user_id === me ? "You" : r.profiles?.full_name}</b><small>Caller</small>
-              {isStaff && <button className="chip" onClick={() => setStatus(r.id, "done")}>End call</button>}
+              <div className="pod-ava big caller">{initials(r.profiles?.full_name ?? "")}{r.muted_by_host && <span className="pod-muted" title="Muted by host">🔇</span>}</div>
+              <b>{r.user_id === me ? "You" : r.profiles?.full_name}</b><small>{r.muted_by_host ? "Muted by host" : "Caller"}</small>
+              {isStaff && <div className="row" style={{ gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                <button className="chip" onClick={() => hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button>
+                <button className="chip" onClick={() => setStatus(r.id, "done")}>End call</button>
+              </div>}
             </div>
           ))}
         </div>
@@ -304,6 +319,7 @@ export default function Live() {
             {!waiting.length && <div className="muted">No one is waiting. Listeners tap “Call in” to join the queue.</div>}
           </div>
           <div className="row" style={{ flexWrap: "wrap" }}>
+            {onStage.length > 0 && <button className="btn ghost" onClick={muteAll}>🔇 Mute all callers</button>}
             <button className="btn ghost" onClick={toggleLock}>{live.chat_locked ? "Unlock chat" : "Lock chat"}</button>
             <button className="btn ghost" style={{ color: "var(--live)" }} onClick={endSession}>End session</button>
           </div>
@@ -333,7 +349,7 @@ export default function Live() {
           {REACTIONS.map((r) => <button key={r} className="pod-react" onClick={() => react(r)} aria-label={`React ${r}`}>{r}{r === "❤️" && likes > 0 ? <small>{likes}</small> : null}</button>)}
           <span className="sp" />
           {speaker ? (
-            <button className={`btn ${muted ? "primary" : "ghost"}`} onClick={toggleMute}>{muted ? "🎙 Unmute" : "Mute"}</button>
+            <button className={`btn ${muted ? "primary" : "ghost"}`} onClick={toggleMute} disabled={muted && !!mine?.muted_by_host}>{muted && mine?.muted_by_host ? "🔇 Muted by host" : muted ? "🎙 Unmute" : "Mute"}</button>
           ) : mine?.status === "waiting" ? (
             <button className="btn ghost" onClick={() => setStatus(mine.id, "cancelled")}>✋ #{waiting.findIndex((r) => r.user_id === me) + 1} · Cancel</button>
           ) : (

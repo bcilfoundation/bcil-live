@@ -125,3 +125,6 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
   .pod-cover{padding:16px}.pod-art{width:64px;height:64px}
 }
 @media (prefers-reduced-motion: reduce){.pod-spk.talking .pod-ava.big,.pod-floats span{animation:none}}
+
+.pod-ava.big{position:relative}
+.pod-muted{position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--line);display:grid;place-items:center;font-size:.85rem}

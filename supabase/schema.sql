@@ -310,3 +310,6 @@ insert into forms (slug, title, subtitle, fields) values
 insert into forms (slug, title, subtitle, sensitive, fields) values
  ('student-support-laptop', 'Student Support Initiative (laptop)', 'For deserving UCC undergraduates', true,
   '[{"key":"full_name","label":"Full name","type":"text","required":true},{"key":"student_id","label":"Student ID","type":"text","required":true},{"key":"programme","label":"Programme and level","type":"text","required":true},{"key":"need","label":"Why do you need a laptop?","type":"textarea","required":true}]');
+
+-- ---------- Update: host can mute callers (added 31 Oct 2026) ----------
+alter table public.call_requests add column if not exists muted_by_host boolean not null default false;
