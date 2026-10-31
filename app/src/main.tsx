@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
 import App from "./App";
 import "./styles.css";
+import { applyTheme } from "./lib/theme";
+applyTheme();
 import { registerSW } from "virtual:pwa-register";
 
 // Always pick up the newest version: check on load and every 10 minutes, reload when an update is ready

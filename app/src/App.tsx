@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth";
-import { initials } from "./lib/supabase";
+import TopBar from "./components/TopBar";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -9,6 +9,8 @@ import Forms from "./pages/Forms";
 import Give from "./pages/Give";
 import Library from "./pages/Library";
 import Quotes from "./pages/Quotes";
+import Friends from "./pages/Friends";
+import Groups, { GroupPage, JoinWithLink } from "./pages/Groups";
 // Live (audio library) and Admin load only when opened, to keep the app light on mobile data
 const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -18,11 +20,11 @@ const GIVING_ENABLED = false;
 
 const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/quotes", "Daily Quotes"],
-  ["/chat", "Chat room"], ["/forms", "Forms"], ["/give", "Give"],
+  ["/chat", "Chat"], ["/groups", "Groups & Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
 ] as const).filter(([to]) => GIVING_ENABLED || to !== "/give");
 
 export default function App() {
-  const { session, profile, loading, isStaff } = useAuth();
+  const { session, loading, isStaff } = useAuth();
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;
 
@@ -39,7 +41,7 @@ export default function App() {
         <header className="top">
           <span className="org"><img className="toplogo" src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" />BCIL Foundation</span>
           <span className="sp" />
-          <button className="me" onClick={() => confirmSignOut()} aria-label="Sign out">{initials(profile?.full_name ?? "")}</button>
+          <TopBar />
         </header>
         <main>
           <Suspense fallback={<div className="center muted">Loading…</div>}>
@@ -47,6 +49,10 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/live" element={<Live />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/groups" element={<Groups />} />
+            <Route path="/groups/:id" element={<GroupPage />} />
+            <Route path="/join/:code" element={<JoinWithLink />} />
+            <Route path="/friends" element={<Friends />} />
             <Route path="/forms" element={<Forms />} />
             {GIVING_ENABLED && <Route path="/give" element={<Give />} />}
             <Route path="/library" element={<Library />} />
@@ -63,15 +69,10 @@ export default function App() {
         </main>
       </div>
       <nav className="tabbar">
-        {NAV.filter(([to]) => ["/", "/live", "/chat", "/library"].includes(to)).map(([to, label]) =>
+        {([["/", "Home"], ["/live", "Live"], ["/chat", "Chat"], ["/groups", "Groups"]] as const).map(([to, label]) =>
           <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
         <NavLink to="/more">More</NavLink>
       </nav>
     </div>
   );
-}
-
-async function confirmSignOut() {
-  const { supabase } = await import("./lib/supabase");
-  if (window.confirm("Sign out of BCIL Live?")) await supabase.auth.signOut();
 }

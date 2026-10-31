@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase, type Profile } from "./supabase";
 
-type Auth = { session: Session | null; profile: Profile | null; loading: boolean; isStaff: boolean };
-const Ctx = createContext<Auth>({ session: null, profile: null, loading: true, isStaff: false });
+type Auth = { session: Session | null; profile: Profile | null; loading: boolean; isStaff: boolean; refreshProfile: () => Promise<void> };
+const Ctx = createContext<Auth>({ session: null, profile: null, loading: true, isStaff: false, refreshProfile: async () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -16,14 +16,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
+  async function refreshProfile() {
     if (!session) { setProfile(null); return; }
-    supabase.from("profiles").select("id, full_name, role").eq("id", session.user.id).single()
-      .then(({ data }) => setProfile(data as Profile | null));
-  }, [session]);
+    const { data } = await supabase.from("profiles").select("id, full_name, role, avatar_url, bio").eq("id", session.user.id).single();
+    setProfile(data as Profile | null);
+  }
+  useEffect(() => { refreshProfile(); }, [session?.user.id]);
 
   const isStaff = profile?.role === "admin" || profile?.role === "moderator";
-  return <Ctx.Provider value={{ session, profile, loading, isStaff }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ session, profile, loading, isStaff, refreshProfile }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => useContext(Ctx);
