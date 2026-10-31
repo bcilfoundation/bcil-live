@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { signInWithGoogle } from "../lib/google";
 
 // Turn on once the Google provider is switched on in Supabase
-const GOOGLE_READY = false;
+const GOOGLE_READY = true;
 
 // Sign in / create an account with email and password (works in any country).
 // New accounts confirm their email with a 6-digit code; forgotten passwords are reset with a code too.
