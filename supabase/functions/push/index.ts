@@ -18,9 +18,19 @@ Deno.serve(async (req) => {
   const { data: cfg, error: cfgErr } = await admin.rpc("push_config");
   const c = Array.isArray(cfg) ? cfg[0] : cfg;
   if (cfgErr || !c) return json({ error: "push not configured" }, 500);
+  const body = await req.json().catch(() => ({}));
+
+  // first use: create the notification keys here, so the private key never leaves the server
+  if (!c.vapid_private) {
+    const keys = webpush.generateVAPIDKeys();
+    await admin.rpc("push_save_keys", { p_public: keys.publicKey, p_private: keys.privateKey });
+    if (body.action === "init") return json({ ok: true, initialised: true });
+    c.vapid_public = keys.publicKey; c.vapid_private = keys.privateKey;
+  }
+  if (body.action === "init") return json({ ok: true });
   if (req.headers.get("x-push-secret") !== c.secret) return json({ error: "forbidden" }, 403);
 
-  const { id } = await req.json().catch(() => ({ id: null }));
+  const { id } = body;
   if (!id) return json({ error: "missing id" }, 400);
   const { data: n } = await admin.from("notifications").select("id, user_id, kind, body, link").eq("id", id).single();
   if (!n) return json({ error: "not found" }, 404);
