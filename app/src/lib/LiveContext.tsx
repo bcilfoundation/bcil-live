@@ -23,6 +23,8 @@ export const GIFTS: Gift[] = [{ emoji: "🌹", name: "Rose" }, { emoji: "⭐", n
 let rtcPromise: Promise<typeof import("agora-rtc-sdk-ng").default> | null = null;
 const rtc = () => (rtcPromise ??= import("agora-rtc-sdk-ng").then((m) => m.default));
 
+import { applyCamBg, savedCamBg, saveCamBg, type CamBg } from "./camBackground";
+
 function useLiveEngine() {
   const { session: auth, profile, isStaff } = useAuth();
   const me = auth!.user.id;
@@ -45,7 +47,11 @@ function useLiveEngine() {
   const [talking, setTalking] = useState<Set<number>>(new Set());
   const [remoteVideo, setRemoteVideo] = useState<Record<string, IRemoteVideoTrack>>({});
   const [camOn, setCamOn] = useState(false);
-  const [canVideo, setCanVideo] = useState(false);   // video sessions: anyone may turn on their camera
+  const [canVideo, setCanVideo] = useState(false);
+  const [camBg, setCamBgState] = useState<CamBg>(savedCamBg);
+  const camBgRef = useRef(camBg); camBgRef.current = camBg;
+  const [previewOn, setPreviewOn] = useState(false);   // camera preview before joining a video session
+  const camOnRef = useRef(false);   // video sessions: anyone may turn on their camera
   const [musicName, setMusicName] = useState("");
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [musicVol, setMusicVol] = useState(35);
@@ -161,12 +167,13 @@ function useLiveEngine() {
     room.current?.send({ type: "broadcast", event: "react", payload: { emoji } });
   }
 
+  useEffect(() => { camOnRef.current = camOn; }, [camOn]);
   // ---------- audio (Agora) ----------
   const mine = requests.find((r) => r.user_id === me);
   useEffect(() => {
     if (!joined || isStaff) return;
     const shouldSpeak = mine?.status === "on_air";
-    if (shouldSpeak !== speakerRef.current) { leave().then(() => join()); }
+    if (shouldSpeak !== speakerRef.current) { const keep = camOnRef.current; leave().then(() => join(undefined, { cam: keep })); }
   }, [mine?.status]);
 
   // Every listener's app silences callers the host has muted, so a muted caller is never heard
@@ -200,7 +207,7 @@ function useLiveEngine() {
     return "Could not join the live room: " + msg;
   }
 
-  async function join(target?: Session, attempt = 0): Promise<boolean> {
+  async function join(target?: Session, opts: { cam?: boolean } = {}, attempt = 0): Promise<boolean> {
     const sess = target ?? live;
     if (!sess || joining.current) return false;
     if (client.current) await leave();   // never keep two connections (that caused "already in this session")
@@ -240,16 +247,22 @@ function useLiveEngine() {
       if (data.speaker) {
         mic.current = await (await rtc()).createMicrophoneAudioTrack();
         await c.publish(mic.current);
-        // video sessions: speakers also turn on their camera (they can switch it off)
-        if (sess.kind === "video") {
-          try {
-            cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" });
-            await c.publish(cam.current); setCamOn(true);
-          } catch { setNotice("Camera not available. You're on audio only; check camera permission to turn it on."); }
-        }
         // after a reconnect, keep recording with the new microphone
         if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack().clone()); }
       }
+      // video sessions: the camera only comes on if the person chose it before joining (never by itself on a rejoin)
+      if (sess.kind === "video" && opts.cam && (data.speaker || data.canVideo)) {
+        try {
+          if (!data.speaker) await c.setClientRole("host");
+          if (!cam.current) { cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: data.speaker ? "480p_1" : "360p_1", facingMode: "user" }); withBg(cam.current); }
+          await c.publish(cam.current); setCamOn(true);
+        } catch {
+          cam.current?.close(); cam.current = null;
+          if (!data.speaker) await c.setClientRole("audience", { level: 1 }).catch(() => {});
+          setNotice("Camera not available. Check camera permission, then tap Cam on.");
+        }
+      } else if (cam.current && !camOnRef.current) { cam.current.close(); cam.current = null; }
+      setPreviewOn(false);
       speakerRef.current = !!data.speaker;
       setCanVideo(!!(data.canVideo ?? data.speaker));
       stayIn.current = true;
@@ -265,7 +278,7 @@ function useLiveEngine() {
       if (/UID_CONFLICT/i.test(String((e as Error)?.message ?? e)) && attempt < 2) {
         joining.current = false;
         await new Promise((r) => setTimeout(r, 3000));
-        return join(sess, attempt + 1);
+        return join(sess, opts, attempt + 1);
       }
       setError(explain(e));
       return false;
@@ -293,8 +306,9 @@ function useLiveEngine() {
     reconnecting.current = true;
     try {
       setNotice("Reconnecting…");
+      const keep = camOnRef.current;
       await leave();
-      const ok = await join(liveRef.current ?? undefined);
+      const ok = await join(liveRef.current ?? undefined, { cam: keep });
       if (ok) setNotice("You're back in the room.");
     } finally { reconnecting.current = false; }
   }
@@ -375,7 +389,7 @@ function useLiveEngine() {
         // listeners become video senders only (their microphone stays off unless the host brings them on air)
         if (guest) await c.setClientRole("host");
         cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: guest ? "360p_1" : "480p_1", facingMode: "user" });
-        await c.publish(cam.current); setCamOn(true);
+        await c.publish(cam.current); setCamOn(true); withBg(cam.current);
       } catch (e) {
         cam.current?.close(); cam.current = null;
         if (guest) await c.setClientRole("audience", { level: 1 }).catch(() => {});
@@ -391,6 +405,30 @@ function useLiveEngine() {
       return;
     }
     await cam.current.setEnabled(!camOn); setCamOn(!camOn);
+  }
+  // camera background (blur / colour / picture); remembered on this phone
+  function withBg(t: NonNullable<typeof cam.current>) {
+    if (camBgRef.current.type !== "none") applyCamBg(t, camBgRef.current).then((ok) => { if (!ok) setNotice("Camera backgrounds don't work on this phone or browser yet."); }).catch(() => {});
+  }
+  async function startPreview() {
+    if (cam.current) { setPreviewOn(true); return; }
+    try {
+      cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" });
+      withBg(cam.current); setPreviewOn(true);
+    } catch (e) { setError(/NotAllowed|Permission|denied/i.test(String(e)) ? "Allow camera access for this app, then try again." : "Could not start the camera."); }
+  }
+  function stopPreview() {
+    if (!client.current && !joining.current && cam.current) { cam.current.close(); cam.current = null; }
+    setPreviewOn(false);
+  }
+  async function setCamBg(bg: CamBg) {
+    setCamBgState(bg); saveCamBg(bg);
+    if (!cam.current) return true;
+    try {
+      const ok = await applyCamBg(cam.current, bg);
+      if (!ok) setError("Camera backgrounds don't work on this phone or browser. Try Chrome, or a newer phone.");
+      return ok;
+    } catch { setError("Could not set that background."); return false; }
   }
   async function flipCam() {
     if (!cam.current) return;
@@ -512,7 +550,7 @@ function useLiveEngine() {
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
-  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean }) {
+  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean }) {
     const title = opts.title.trim() || `BCIL Live · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const { data, error } = await supabase.from("live_sessions")
       .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind })
@@ -521,7 +559,7 @@ function useLiveEngine() {
     setLive(data as Session);
     liveRef.current = data as Session;
     left.current.delete(data.id);
-    const ok = await join(data as Session);
+    const ok = await join(data as Session, { cam: opts.kind === "video" && opts.cam !== false });
     if (ok && opts.record) await startRecording();
     return ok;
   }
@@ -552,6 +590,7 @@ function useLiveEngine() {
     if (!live || live.status !== "live" || joined || joining.current || left.current.has(live.id)) return;
     const amHost = live.host_id === me;
     if (isStaff && !amHost) return;              // other admins choose to join (they would be on the microphone)
+    if (live.kind === "video") return;           // video: everyone first chooses camera on or off
     join(live);
   }, [live?.id, live?.status, isStaff, joined]);
 
@@ -559,7 +598,7 @@ function useLiveEngine() {
     me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn,
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
-    join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
+    join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind,
   };

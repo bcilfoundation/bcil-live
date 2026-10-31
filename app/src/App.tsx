@@ -108,7 +108,7 @@ function MiniPlayer() {
       </button>
       {L.joined && L.needTap && <button className="mp-btn" onClick={L.tapToHear} aria-label="Tap to hear">🔊</button>}
       {L.joined && L.speaker && <button className="mp-btn" onClick={L.toggleMute} aria-label={L.muted ? "Unmute" : "Mute"}>{L.muted ? "🔇" : "🎙"}</button>}
-      {!L.joined && <button className="mp-btn join" onClick={() => L.join()}>Join</button>}
+      {!L.joined && <button className="mp-btn join" onClick={() => (L.live?.kind === "video" ? nav("/live") : L.join())}>Join</button>}
       {L.joined && !amHost && <button className="mp-btn" onClick={L.leaveRoom} aria-label="Leave">✕</button>}
     </div>
   );

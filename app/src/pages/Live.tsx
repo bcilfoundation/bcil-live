@@ -4,6 +4,7 @@ import type { ICameraVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
+import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
 
 // Room backgrounds the host can pick (or upload a photo)
@@ -34,9 +35,10 @@ export default function Live() {
   const [topic, setTopic] = useState("");
   const [kind, setKind] = useState<"audio" | "video">("audio");
   const [record, setRecord] = useState(true);
+  const [startCam, setStartCam] = useState(true);
   const [text, setText] = useState("");
   const [asQuestion, setAsQuestion] = useState(false);
-  const [sheet, setSheet] = useState<"" | "people" | "gifts" | "host" | "bg">("");
+  const [sheet, setSheet] = useState<"" | "people" | "gifts" | "host" | "bg" | "cambg">("");
   const [filter, setFilter] = useState<"all" | "questions">("all");
   const chatEnd = useRef<HTMLDivElement>(null);
 
@@ -48,14 +50,14 @@ export default function Live() {
       L.join(live);
     }
   }, [live?.id, isStaff]);
-  useEffect(() => { chatEnd.current?.scrollIntoView({ block: "end" }); }, [chat.length]);
+  useEffect(() => { if (joined) chatEnd.current?.scrollIntoView({ block: "end" }); }, [chat.length, joined]);
 
   // ---------- nothing live ----------
   if (!live) return (
     <section className="view">
       <h1>Live</h1>
       {isStaff ? (
-        <form className="pod-golive" onSubmit={async (e) => { e.preventDefault(); if (await L.goLiveNow({ title, topic, kind, record })) { setTitle(""); setTopic(""); } }}>
+        <form className="pod-golive" onSubmit={async (e) => { e.preventDefault(); if (await L.goLiveNow({ title, topic, kind, record, cam: startCam })) { setTitle(""); setTopic(""); } }}>
           <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. Mentorship hour: planning your semester" aria-label="Session title" />
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
@@ -63,6 +65,7 @@ export default function Live() {
             <button type="button" role="radio" aria-checked={kind === "audio"} className={kind === "audio" ? "on" : ""} onClick={() => setKind("audio")}>🎙 Audio<small>Like a podcast</small></button>
             <button type="button" role="radio" aria-checked={kind === "video"} className={kind === "video" ? "on" : ""} onClick={() => setKind("video")}>🎥 Video<small>Like Zoom</small></button>
           </div>
+          {kind === "video" && <label className="pod-recopt"><input type="checkbox" checked={startCam} onChange={(e) => setStartCam(e.target.checked)} /> Start with my camera on</label>}
           <label className="pod-recopt"><input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} /> Record this session (saved as a draft in the Library{kind === "video" ? "; audio only" : ""})</label>
           <button className="btn pod-golive-btn" disabled={busy}>{busy ? "Starting…" : "● Go live now"}</button>
         </form>
@@ -129,7 +132,9 @@ export default function Live() {
       </div>
       {live.topic && <p className="room-topic">{live.topic} · Hosted by {L.hostName}</p>}
 
-      {!joined ? (
+      {!joined && live.kind === "video" ? (
+        <PreJoin openBg={() => setSheet("cambg")} label={isStaff ? (amHost ? "Continue hosting" : "Join (you'll be on the mic)") : "Join the session"} />
+      ) : !joined ? (
         <button className="room-tap" onClick={() => L.join()} disabled={busy}>{busy ? "Connecting…" : isStaff ? (amHost ? "▶ Continue hosting" : "▶ Join (you'll be on the mic)") : "🎧 Tap to listen"}</button>
       ) : L.needTap ? (
         <button className="room-tap" onClick={L.tapToHear}>🔊 Tap to hear the room</button>
@@ -187,6 +192,7 @@ export default function Live() {
         <button onClick={() => setSheet("people")}><span>👥</span>People <em>{Math.max(people.length, joined ? 1 : 0)}</em></button>
         <button onClick={() => setSheet("gifts")} disabled={!joined}><span>🎁</span>Gifts</button>
         {joined && live.kind === "video" && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
+        {L.camOn && live.kind === "video" && <button onClick={() => setSheet("cambg")} className={L.camBg.type !== "none" ? "on" : ""}><span>🖼</span>Background</button>}
       </div>
 
       {pinned && (
@@ -244,6 +250,7 @@ export default function Live() {
         <HostTools waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} close={() => setSheet("")} />
       )}
       {sheet === "bg" && <BackgroundPicker close={() => setSheet("")} />}
+      {sheet === "cambg" && <CamBgPicker close={() => setSheet("")} />}
     </section>
   );
 }
@@ -344,6 +351,56 @@ function VideoTile({ track, name, label, talking, muted, mirror, children }: {
       {!track && <div className="vnocam"><div className="ava">{initials(name === "You" ? "Me" : name)}</div></div>}
       <div className="vname">{muted ? "🔇 " : ""}{name} · <small>{label}</small></div>
       {children}
+    </div>
+  );
+}
+
+// Pick a background behind your face on camera: blur, a colour, an FCB photo, or your own photo
+function CamBgPicker({ close }: { close: () => void }) {
+  const L = useLive();
+  const [busy, setBusy] = useState("");
+  const pick = async (bg: CamBg) => { setBusy(bg.id); const ok = await L.setCamBg(bg); setBusy(""); if (ok) close(); };
+  const preview = (b: CamBg): React.CSSProperties =>
+    b.type === "color" ? { background: b.color } : b.type === "img" ? { backgroundImage: `url(${b.src})` } : {};
+  const all = L.camBg.id === "custom" ? [...CAM_BGS, L.camBg] : CAM_BGS;
+  return (
+    <div className="sheet tall"><h3>Camera background</h3>
+      <p className="muted small">Only your camera changes. It may take a few seconds the first time.</p>
+      <div className="cambg-grid">
+        {all.map((b) => (
+          <button key={b.id} className={`cambg ${L.camBg.id === b.id ? "on" : ""} ${b.type}`} style={preview(b)} onClick={() => pick(b)} disabled={!!busy}>
+            <span>{busy === b.id ? "…" : b.type === "none" ? "🚫" : b.type === "blur" ? (b.blur === 3 ? "◎" : "○") : ""}</span><b>{b.label}</b>
+          </button>
+        ))}
+        <label className="cambg upload">
+          <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) pick(await photoToBg(f)); }} />
+          <span>＋</span><b>My photo</b>
+        </label>
+      </div>
+      <button className="btn ghost" onClick={close}>Done</button>
+    </div>
+  );
+}
+
+// Before joining a video session: choose camera on or off (with a preview and background), like Zoom's waiting screen
+function PreJoin({ openBg, label }: { openBg: () => void; label: string }) {
+  const L = useLive();
+  useEffect(() => () => L.stopPreview(), []);
+  return (
+    <div className="prejoin">
+      <div className="prejoin-view">
+        {L.previewOn && L.cam.current
+          ? <VideoTile track={L.cam.current} name="You" label="Preview" mirror />
+          : <div className="prejoin-off"><div className="ava">{initials(L.myName)}</div><small>Camera is off</small></div>}
+      </div>
+      <div className="prejoin-ctl">
+        <button className={L.previewOn ? "on" : ""} onClick={() => (L.previewOn ? L.stopPreview() : L.startPreview())}>
+          <span>📷</span>{L.previewOn ? "Camera on" : "Camera off"}</button>
+        {L.previewOn && <button onClick={openBg}><span>🖼</span>Background</button>}
+      </div>
+      <p className="muted small">{L.previewOn ? "People will see you when you join." : "You can turn your camera on later."} Your microphone stays off until you call in.</p>
+      <button className="btn primary prejoin-go" disabled={L.busy} onClick={() => L.join(undefined, { cam: L.previewOn })}>
+        {L.busy ? "Joining…" : `${label}${L.previewOn ? " with camera" : ""}`}</button>
     </div>
   );
 }

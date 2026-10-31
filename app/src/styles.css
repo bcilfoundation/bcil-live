@@ -448,3 +448,25 @@ main.inroom{display:flex;flex-direction:column}
 .btn.google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--panel);color:var(--text);border:1px solid var(--line);font-weight:600;margin-top:4px}
 .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.82rem;margin:12px 0 4px}.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 .vgrid.many{grid-template-columns:repeat(3,1fr)}@media (max-width:560px){.vgrid.many{grid-template-columns:1fr 1fr}}
+
+.cambg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0 14px}
+@media (max-width:420px){.cambg-grid{grid-template-columns:repeat(3,1fr)}}
+.cambg{position:relative;aspect-ratio:16/10;border-radius:12px;border:2px solid var(--line);background:#2b2f36 center/cover;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;overflow:hidden;font:inherit;padding:4px}
+.cambg.blur{background:linear-gradient(135deg,#6b7a99,#9fb0c9);backdrop-filter:blur(2px)}
+.cambg.none{background:var(--panel-2);color:var(--text)}
+.cambg.upload{background:var(--panel);color:var(--navy);border-style:dashed}
+.cambg.on{border-color:#ffd54a;box-shadow:0 0 0 2px #ffd54a}
+.cambg span{font-size:1.2rem}.cambg b{font-size:.7rem;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.cambg.none b,.cambg.upload b{text-shadow:none}
+
+/* before joining a video session */
+.prejoin{display:flex;flex-direction:column;align-items:center;gap:10px;margin:8px auto 12px;max-width:420px;width:100%;text-align:center}
+.prejoin-view{width:100%;aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:rgba(0,0,0,.35)}
+.prejoin-view .vtile{height:100%}
+.prejoin-off{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#dbe5f4}
+.prejoin-off .ava{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.15);display:grid;place-items:center;font-weight:800;font-size:1.5rem;color:#fff}
+.prejoin-ctl{display:flex;gap:8px}
+.prejoin-ctl button{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font:inherit;cursor:pointer}
+.prejoin-ctl button.on{background:#fff;color:var(--navy)}
+.prejoin .muted{color:#c7d3e6}
+.prejoin-go{width:100%}
