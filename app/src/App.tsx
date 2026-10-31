@@ -67,7 +67,7 @@ export default function App() {
               <section className="view"><h1>More</h1>
                 <div className="list">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
                   {isStaff && <NavLink to="/admin">Admin</NavLink>}</div>
-                {!isNative && <a className="btn primary" href="https://github.com/bcilfoundation/bcil-live/releases/latest/download/bcil-live.apk">Get the Android app</a>}
+                {!isNative && <a className="btn primary" href={`${import.meta.env.BASE_URL}bcil-live.apk`} download>Get the Android app</a>}
                 <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

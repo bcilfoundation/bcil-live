@@ -6,8 +6,8 @@
 - **Category:** Education
 - **Contact email:** info@bcilfoundation.org
 - **Website:** https://bcilfoundation.org
-- **Privacy policy:** https://bcilfoundation.github.io/bcil-live/privacy
-- **Account deletion page:** https://bcilfoundation.github.io/bcil-live/privacy#delete
+- **Privacy policy:** https://live.bcilfoundation.org/privacy
+- **Account deletion page:** https://live.bcilfoundation.org/privacy#delete
 - **Price:** Free, no ads, no in-app purchases (keeps Apple's nonprofit fee waiver valid)
 - **Android package / iOS bundle ID:** org.bcilfoundation.live
 

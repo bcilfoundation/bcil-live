@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "BCIL Live",
   webDir: "dist",
   // The app opens the live BCIL website, so every website update reaches the app straight away (no reinstall).
-  server: { url: "https://bcilfoundation.github.io/bcil-live/", androidScheme: "https", allowNavigation: ["bcilfoundation.github.io", "*.supabase.co"] },
+  server: { url: "https://live.bcilfoundation.org/", androidScheme: "https", allowNavigation: ["live.bcilfoundation.org", "bcilfoundation.github.io", "*.supabase.co"] },
   android: { backgroundColor: "#1e3f78" },
   ios: { backgroundColor: "#1e3f78", contentInset: "always" },
 };
