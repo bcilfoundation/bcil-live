@@ -55,8 +55,10 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
     if (!title) setTitle(f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
   }
 
-  async function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const status = submitter?.value === "draft" ? "draft" : "published";
     if (!blob) { setMsg(mode === "record" ? "Record something first." : "Choose an audio file first."); return; }
     if (!title.trim()) { setMsg("Give the talk a title."); return; }
     setBusy(true); setMsg("Uploading… keep this page open.");
@@ -65,10 +67,10 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
       const duration = (await audioDuration(blob)) ?? (mode === "record" ? secs : null);
       const { error } = await supabase.from("talks").insert({
         kind: "audio", audio_url: url, title: title.trim(), program, description: description.trim() || null,
-        published_on: date || null, duration_seconds: duration, created_by: session!.user.id,
+        published_on: date || null, duration_seconds: duration, created_by: session!.user.id, status,
       });
       if (error) throw error;
-      setMsg("Published to the Library."); useFile(null); setTitle(""); setDescription(""); setSecs(0);
+      setMsg(status === "draft" ? "Saved as a draft. Find it under Drafts in the Library." : "Published to the Library."); useFile(null); setTitle(""); setDescription(""); setSecs(0);
       onSaved?.();
     } catch (err) {
       setMsg("Could not save: " + ((err as Error).message ?? "unknown error"));
@@ -110,7 +112,10 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
       </div>
       <label className="field">Short description (optional)<textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ minHeight: 70 }} /></label>
       <p className="muted" role="status">{msg}</p>
-      <button className="btn primary" disabled={busy || state !== "idle"}>{busy ? "Uploading…" : "Publish to Library"}</button>
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <button className="btn primary" value="publish" disabled={busy || state !== "idle"}>{busy ? "Uploading…" : "Publish to Library"}</button>
+        <button className="btn ghost" value="draft" disabled={busy || state !== "idle"}>Save as draft</button>
+      </div>
     </form>
   );
 }

@@ -273,3 +273,21 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 @keyframes recpulse{0%,100%{opacity:1}50%{opacity:.3}}
 .pill.rec{background:var(--live);color:#fff;animation:recpulse 1.6s infinite}
 .pod-recopt{display:flex;align-items:center;gap:10px;font-size:.92rem;color:#dbe5f4;cursor:pointer}.pod-recopt input{width:18px;height:18px;accent-color:#e0342c;margin:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+.pwrow{display:flex;align-items:center;gap:8px}.pwrow input{flex:1}
+.editor{border-color:var(--navy)}.trim{display:flex;flex-direction:column;gap:6px;border:1px dashed var(--line);border-radius:12px;padding:12px}
+/* video sessions */
+.vgrid{display:grid;gap:10px;grid-template-columns:1fr}
+.vgrid.n2{grid-template-columns:1fr 1fr}.vgrid.n3,.vgrid.n4{grid-template-columns:1fr 1fr}
+@media (max-width:560px){.vgrid.n2{grid-template-columns:1fr}}
+.vtile{position:relative;aspect-ratio:16/10;background:#0f2d52;border-radius:16px;overflow:hidden;outline:3px solid transparent;transition:outline-color .15s}
+.vtile.talking{outline-color:#4ade80}
+.vvideo{position:absolute;inset:0}.vvideo video{object-fit:cover}
+.vnocam{position:absolute;inset:0;display:grid;place-items:center}
+.vname{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;font-weight:700;font-size:.85rem;padding:4px 10px;border-radius:999px}
+.vname small{font-weight:500;opacity:.85}
+.vctl{position:absolute;right:8px;top:8px;display:flex;gap:6px}.vctl .chip{background:rgba(255,255,255,.92)}
+.kindpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kindpick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-weight:800;text-align:left;cursor:pointer}
+.kindpick button small{font-weight:500;color:#cfdcf0}
+.kindpick button.on{background:#fff;color:var(--navy);border-color:#fff}.kindpick button.on small{color:var(--muted)}

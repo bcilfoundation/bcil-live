@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useSearchParams } from "react-router-dom";
-import AddAudioTalk from "../components/AddAudioTalk";
+import AddAudioTalk, { PROGRAMS } from "../components/AddAudioTalk";
 import { clock } from "../lib/recorder";
 
-type Talk = { id: string; youtube_id: string | null; title: string; program: string; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null };
+type Talk = { id: string; youtube_id: string | null; title: string; program: string; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null; status: string; trim_start: number | null; trim_end: number | null };
 type Comment = { id: number; user_id: string; body: string; created_at: string; profiles?: { full_name: string } | null };
 
 export default function Library() {
@@ -14,6 +14,7 @@ export default function Library() {
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const player = useRef<HTMLAudioElement | null>(null);
   const [talks, setTalks] = useState<Talk[]>([]);
   const [filter, setFilter] = useState("All");
   const [q, setQ] = useState("");
@@ -24,7 +25,7 @@ export default function Library() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
 
-  const loadTalks = () => supabase.from("talks").select("id, youtube_id, title, program, published_on, kind, audio_url, description, duration_seconds, live_session_id")
+  const loadTalks = () => supabase.from("talks").select("id, youtube_id, title, program, published_on, kind, audio_url, description, duration_seconds, live_session_id, status, trim_start, trim_end")
     .order("published_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false })
     .then(({ data }) => {
       const list = (data ?? []) as Talk[];
@@ -92,16 +93,21 @@ export default function Library() {
       {open.kind === "audio" && open.audio_url && (
         <div className="audiocard">
           <div className="audioart"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><span>{open.live_session_id ? "Live session recording" : "Audio talk"}</span></div>
-          <audio controls preload="metadata" src={open.audio_url} style={{ width: "100%" }}
-            ref={(el) => { if (el) el.playbackRate = speed; }} />
+          <audio controls preload="metadata" src={open.audio_url + (open.trim_start || open.trim_end ? `#t=${open.trim_start ?? 0}${open.trim_end ? "," + open.trim_end : ""}` : "")} style={{ width: "100%" }}
+            ref={(el) => { player.current = el; if (el) el.playbackRate = speed; }}
+            onPlay={(e) => { const a = e.currentTarget; if (open.trim_start && a.currentTime < open.trim_start) a.currentTime = open.trim_start; }}
+            onTimeUpdate={(e) => { const a = e.currentTarget; if (open.trim_end && a.currentTime >= open.trim_end) { a.pause(); a.currentTime = open.trim_start ?? 0; } }} />
           <div className="row" style={{ gap: 6 }}><small className="muted">Speed</small>
             {[1, 1.25, 1.5, 2].map((v) => <button key={v} className="chip" aria-pressed={speed === v} onClick={() => setSpeed(v)}>{v}×</button>)}
           </div>
         </div>
       )}
-      <h1>{open.title}</h1>
+      {isStaff && open.kind === "audio" && <TalkEditor talk={open} player={player}
+        onChange={(t) => { setOpen(t); setTalks((list) => list.map((x) => (x.id === t.id ? t : x))); }}
+        onDelete={() => { setTalks((list) => list.filter((x) => x.id !== open.id)); setOpen(null); setParams({}, { replace: true }); }} />}
+      <h1>{open.title}{open.status === "draft" && <span className="pill" style={{ marginLeft: 10, verticalAlign: "middle" }}>Draft</span>}</h1>
       {open.description && <p>{open.description}</p>}
-      <p className="muted">{open.program}{open.duration_seconds ? ` · ${clock(open.duration_seconds)}` : ""}{open.published_on ? ` · ${new Date(open.published_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
+      <p className="muted">{open.program}{playLength(open) ? ` · ${clock(playLength(open)!)}` : ""}{open.published_on ? ` · ${new Date(open.published_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
       <div className="row" style={{ flexWrap: "wrap" }}>
         <button className="btn ghost" onClick={toggleLike} aria-pressed={liked}>{liked ? "♥" : "♡"} {likes}</button>
         <button className="btn ghost" onClick={toggleSave}>{saved ? "Saved" : "Save for later"}</button>
@@ -116,8 +122,9 @@ export default function Library() {
     </section>
   );
 
-  const programs = ["All", ...new Set(talks.map((t) => t.program))];
-  const shown = talks.filter((t) => (filter === "All" || t.program === filter) && (t.title + t.program).toLowerCase().includes(q.toLowerCase()));
+  const programs = ["All", ...new Set(talks.filter((t) => t.status !== "draft").map((t) => t.program))];
+  const drafts = talks.filter((t) => t.status === "draft");
+  const shown = talks.filter((t) => t.status !== "draft" && (filter === "All" || t.program === filter) && (t.title + t.program).toLowerCase().includes(q.toLowerCase()));
   return (
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
@@ -126,17 +133,104 @@ export default function Library() {
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search talks" aria-label="Search talks" style={{ maxWidth: 260 }} />
       </div>
       {adding && <AddAudioTalk onSaved={() => { setAdding(false); loadTalks(); }} />}
+      {isStaff && drafts.length > 0 && <>
+        <h2>Drafts <span className="muted">· only hosts can see these</span></h2>
+        <div className="list">{drafts.map((t) => (
+          <button key={t.id} onClick={() => loadTalk(t)}>
+            <span className="pill rec" style={{ animation: "none" }}>Draft</span>
+            <div className="grow"><b>{t.title}</b><br /><small className="muted">{t.live_session_id ? "Live recording" : "Audio"} · {t.program}{playLength(t) ? ` · ${clock(playLength(t)!)}` : ""}</small></div>
+            <span className="btn ghost">Review</span>
+          </button>))}</div>
+      </>}
       <div className="chips">{programs.map((p) => <button key={p} className="chip" aria-pressed={p === filter} onClick={() => setFilter(p)}>{p}</button>)}</div>
       <div className="grid3">
         {shown.map((t) => (
           <button key={t.id} className="tile" onClick={() => loadTalk(t)}>
             {t.youtube_id ? <img src={`https://i.ytimg.com/vi/${t.youtube_id}/hqdefault.jpg`} alt="" loading="lazy" />
-              : <div className="art audio"><span className="badge">{t.live_session_id ? "● Live recording" : "🎧 Audio"}</span><span className="t">{t.title}</span>{t.duration_seconds ? <span className="dur">{clock(t.duration_seconds)}</span> : null}</div>}
+              : <div className="art audio"><span className="badge">{t.live_session_id ? "● Live recording" : "🎧 Audio"}</span><span className="t">{t.title}</span>{playLength(t) ? <span className="dur">{clock(playLength(t)!)}</span> : null}</div>}
             <b>{t.title}</b><small className="muted">{t.program}</small>
           </button>
         ))}
       </div>
       {!shown.length && <div className="empty"><b>No talks yet</b>Hosts can add YouTube talks from Admin, or record and upload audio here.</div>}
     </section>
+  );
+}
+
+const playLength = (t: Talk) => {
+  const end = t.trim_end ?? t.duration_seconds;
+  return end ? Math.max(0, end - (t.trim_start ?? 0)) : null;
+};
+const toSecs = (v: string) => {
+  const parts = v.trim().split(":").map(Number);
+  if (!v.trim() || parts.some((n) => Number.isNaN(n))) return null;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+};
+
+// Hosts: edit details, trim the start/end, publish or unpublish, delete
+function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: React.MutableRefObject<HTMLAudioElement | null>; onChange: (t: Talk) => void; onDelete: () => void }) {
+  const [f, setF] = useState({ title: talk.title, program: talk.program, description: talk.description ?? "", published_on: talk.published_on ?? "",
+    start: talk.trim_start ? clock(talk.trim_start) : "", end: talk.trim_end ? clock(talk.trim_end) : "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [openEd, setOpenEd] = useState(talk.status === "draft");
+  useEffect(() => { setF({ title: talk.title, program: talk.program, description: talk.description ?? "", published_on: talk.published_on ?? "",
+    start: talk.trim_start ? clock(talk.trim_start) : "", end: talk.trim_end ? clock(talk.trim_end) : "" }); }, [talk.id]);
+
+  async function save(status?: string) {
+    const start = toSecs(f.start), end = toSecs(f.end);
+    if (f.start && start === null) { setMsg("Start must look like 1:30 (minutes:seconds)."); return; }
+    if (f.end && end === null) { setMsg("End must look like 45:10 (minutes:seconds)."); return; }
+    if (start !== null && end !== null && end <= start) { setMsg("The end must be after the start."); return; }
+    if (!f.title.trim()) { setMsg("Add a title."); return; }
+    setBusy(true); setMsg("");
+    const patch = { title: f.title.trim(), program: f.program, description: f.description.trim() || null, published_on: f.published_on || null,
+      trim_start: start || null, trim_end: end || null, ...(status ? { status } : {}) };
+    const { error } = await supabase.from("talks").update(patch).eq("id", talk.id);
+    setBusy(false);
+    if (error) { setMsg("Could not save: " + error.message); return; }
+    onChange({ ...talk, ...patch });
+    setMsg(status === "published" ? "Published. Everyone can now see it in the Library." : status === "draft" ? "Moved back to drafts." : "Saved.");
+  }
+  async function remove() {
+    if (!window.confirm(`Delete “${talk.title}” permanently? This cannot be undone.`)) return;
+    const { error } = await supabase.from("talks").delete().eq("id", talk.id);
+    if (error) { setMsg("Could not delete: " + error.message); return; }
+    onDelete();
+  }
+  const here = () => clock(Math.floor(player.current?.currentTime ?? 0));
+
+  return (
+    <div className="card editor">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h3>{talk.status === "draft" ? "Review this draft" : "Edit talk"}</h3>
+        <button className="linkbtn" onClick={() => setOpenEd((o) => !o)}>{openEd ? "Hide" : "Edit"}</button>
+      </div>
+      {openEd && <>
+        <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
+        <div className="grid2">
+          <label className="field">Programme<select value={f.program} onChange={(e) => setF({ ...f, program: e.target.value })}>{[...new Set([f.program, ...PROGRAMS])].map((p) => <option key={p}>{p}</option>)}</select></label>
+          <label className="field">Date<input type="date" value={f.published_on} onChange={(e) => setF({ ...f, published_on: e.target.value })} /></label>
+        </div>
+        <label className="field">Description<textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} style={{ minHeight: 70 }} /></label>
+        <div className="trim">
+          <b>Trim</b><small className="muted">Cut the waiting time at the start or chatter at the end. Play the audio above, then tap “Use current time”.</small>
+          <div className="grid2">
+            <label className="field">Start at<span className="pwrow"><input value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} placeholder="0:00" inputMode="numeric" />
+              <button type="button" className="chip" onClick={() => setF({ ...f, start: here() })}>Use current time</button></span></label>
+            <label className="field">End at<span className="pwrow"><input value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} placeholder={talk.duration_seconds ? clock(talk.duration_seconds) : "end"} inputMode="numeric" />
+              <button type="button" className="chip" onClick={() => setF({ ...f, end: here() })}>Use current time</button></span></label>
+          </div>
+        </div>
+        <p className="muted" role="status">{msg}</p>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          {talk.status === "draft"
+            ? <button className="btn primary" disabled={busy} onClick={() => save("published")}>Save &amp; publish</button>
+            : <button className="btn ghost" disabled={busy} onClick={() => save("draft")}>Unpublish</button>}
+          <button className="btn ghost" disabled={busy} onClick={() => save()}>Save changes</button>
+          <button className="btn ghost" style={{ color: "var(--live)" }} disabled={busy} onClick={remove}>Delete</button>
+        </div>
+      </>}
+    </div>
   );
 }

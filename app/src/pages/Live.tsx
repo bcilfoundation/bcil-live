@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { startLiveService, stopLiveService } from "../lib/native";
 import { MixRecorder, uploadAudio } from "../lib/recorder";
 import { useLocation, useNavigate } from "react-router-dom";
-import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
+import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack, type ICameraVideoTrack, type IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 
-type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean };
+type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string };
 type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 type Line = { id: number; user_id: string; body: string; profiles?: { full_name: string } | null };
 type Person = { id: string; name: string; role: "host" | "listener" };
@@ -30,6 +30,9 @@ export default function Live() {
   const [busy, setBusy] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
   const [talking, setTalking] = useState<Set<number>>(new Set());
+  const [remoteVideo, setRemoteVideo] = useState<Record<string, IRemoteVideoTrack>>({});
+  const [camOn, setCamOn] = useState(false);
+  const [newKind, setNewKind] = useState<"audio" | "video">("audio");
   const [requests, setRequests] = useState<Req[]>([]);
   const [chat, setChat] = useState<Line[]>([]);
   const [text, setText] = useState("");
@@ -48,6 +51,7 @@ export default function Live() {
   const autostart = useRef(Boolean((location.state as { autostart?: boolean } | null)?.autostart));
   const client = useRef<IAgoraRTCClient | null>(null);
   const mic = useRef<IMicrophoneAudioTrack | null>(null);
+  const cam = useRef<ICameraVideoTrack | null>(null);
   const room = useRef<RealtimeChannel | null>(null);
   const joining = useRef(false);
   const speakerRef = useRef(false);
@@ -205,12 +209,17 @@ export default function Live() {
       client.current = c;
       c.on("user-published", async (user, type) => {
         await c.subscribe(user, type);
+        if (type === "video" && user.videoTrack) setRemoteVideo((v) => ({ ...v, [String(user.uid)]: user.videoTrack! }));
         if (type === "audio" && !silenced.current.has(Number(user.uid))) {
           user.audioTrack?.play();
           recRef.current?.add(String(user.uid), user.audioTrack?.getMediaStreamTrack());
         }
       });
-      c.on("user-unpublished", (user, type) => { if (type === "audio") recRef.current?.remove(String(user.uid)); });
+      c.on("user-unpublished", (user, type) => {
+        if (type === "audio") recRef.current?.remove(String(user.uid));
+        if (type === "video") setRemoteVideo((v) => { const n = { ...v }; delete n[String(user.uid)]; return n; });
+      });
+      c.on("user-left", (user) => setRemoteVideo((v) => { const n = { ...v }; delete n[String(user.uid)]; return n; }));
       c.enableAudioVolumeIndicator();
       c.on("volume-indicator", (vols) => {
         const set = new Set<number>();
@@ -222,6 +231,13 @@ export default function Live() {
       if (data.speaker) {
         mic.current = await AgoraRTC.createMicrophoneAudioTrack();
         await c.publish(mic.current);
+        // video sessions: speakers also turn on their camera (they can switch it off)
+        if (sess.kind === "video") {
+          try {
+            cam.current = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" });
+            await c.publish(cam.current); setCamOn(true);
+          } catch { setNotice("Camera not available. You're on audio only; check camera permission to turn it on."); }
+        }
         // after a reconnect, keep recording with the new microphone
         if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack()); }
       }
@@ -243,6 +259,7 @@ export default function Live() {
     stayIn.current = false;
     if (!reconnecting.current) stopLiveService();
     mic.current?.close(); mic.current = null;
+    cam.current?.close(); cam.current = null; setCamOn(false); setRemoteVideo({});
     await client.current?.leave().catch(() => {}); client.current = null;
     speakerRef.current = false;
     setJoined(false); setSpeaker(false); setTalking(new Set());
@@ -291,6 +308,24 @@ export default function Live() {
     };
   }, [joined, live?.id]);
 
+  async function toggleCam() {
+    const c = client.current;
+    if (!c) return;
+    if (!cam.current) {
+      try { cam.current = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" }); await c.publish(cam.current); setCamOn(true); }
+      catch { setError("Could not turn on the camera. Allow camera access for this site."); }
+      return;
+    }
+    await cam.current.setEnabled(!camOn); setCamOn(!camOn);
+  }
+  async function flipCam() {
+    if (!cam.current) return;
+    const cams = await AgoraRTC.getCameras().catch(() => []);
+    if (cams.length < 2) return;
+    const cur = cam.current.getTrackLabel();
+    const next = cams.find((d) => d.label !== cur) ?? cams[0];
+    await cam.current.setDevice(next.deviceId).catch(() => {});
+  }
   async function toggleMute() {
     if (!mic.current) return;
     if (muted && mine?.muted_by_host) { setNotice("The host has muted you. Wait for the host to unmute you."); return; }
@@ -326,7 +361,7 @@ export default function Live() {
     r.start();
     recRef.current = r; setRecording(true);
     if (liveRef.current) await supabase.from("live_sessions").update({ recording: true }).eq("id", liveRef.current.id);
-    setNotice("Recording. Everyone sees a ● REC badge. It will be saved to the Library when you stop or end the session.");
+    setNotice("Recording. Everyone sees a ● REC badge. It will be saved as a draft in the Library when you stop or end the session.");
   }
   async function saveRecording() {
     const r = recRef.current, sess = liveRef.current;
@@ -341,10 +376,10 @@ export default function Live() {
       await supabase.from("talks").insert({
         kind: "audio", audio_url: url, title: sess?.title ?? "BCIL Live session", program: "Live sessions",
         description: sess?.topic ?? null, published_on: new Date().toISOString().slice(0, 10), duration_seconds: seconds,
-        live_session_id: sess?.id ?? null, created_by: me,
+        live_session_id: sess?.id ?? null, created_by: me, status: "draft",
       });
       if (sess) await supabase.from("live_sessions").update({ recording: false, recording_url: url }).eq("id", sess.id);
-      setNotice("Recording saved. It's in the Library under “Live sessions”.");
+      setNotice("Recording saved as a draft. Open the Library → Drafts to trim, edit and publish it.");
     } catch (e) {
       setError("The recording could not be saved: " + ((e as Error).message ?? "unknown error"));
     } finally { setSavingRec(false); }
@@ -382,7 +417,7 @@ export default function Live() {
     e?.preventDefault();
     const title = newTitle.trim() || `BCIL Live · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const { data, error } = await supabase.from("live_sessions")
-      .insert({ title, topic: newTopic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me })
+      .insert({ title, topic: newTopic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: newKind })
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return; }
     setLive(data as Session); setNewTitle(""); setNewTopic("");
@@ -410,7 +445,11 @@ export default function Live() {
           <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title, e.g. Mentorship hour: planning your semester" aria-label="Session title" />
           <input value={newTopic} onChange={(e) => setNewTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
-          <label className="pod-recopt"><input type="checkbox" checked={recordNew} onChange={(e) => setRecordNew(e.target.checked)} /> Record this session and save it to the Library</label>
+          <div className="kindpick" role="radiogroup" aria-label="Session type">
+            <button type="button" role="radio" aria-checked={newKind === "audio"} className={newKind === "audio" ? "on" : ""} onClick={() => setNewKind("audio")}>🎙 Audio<small>Like a podcast</small></button>
+            <button type="button" role="radio" aria-checked={newKind === "video"} className={newKind === "video" ? "on" : ""} onClick={() => setNewKind("video")}>🎥 Video<small>Like Zoom</small></button>
+          </div>
+          <label className="pod-recopt"><input type="checkbox" checked={recordNew} onChange={(e) => setRecordNew(e.target.checked)} /> Record this session (saved as a draft in the Library{newKind === "video" ? "; audio only" : ""})</label>
           <button className="btn pod-golive-btn" disabled={busy}>{busy ? "Starting…" : "● Go live now"}</button>
         </form>
       ) : (
@@ -445,7 +484,7 @@ export default function Live() {
         <img className="pod-art" src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
         <div className="grow">
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <span className="pill live">● LIVE</span>{(recording || live.recording) && <span className="pill rec" title="This session is being recorded">● REC</span>}<span className="pod-meta">{elapsed}</span>
+            <span className="pill live">● LIVE</span>{live.kind === "video" && <span className="pill soon">🎥 Video</span>}{(recording || live.recording) && <span className="pill rec" title="This session is being recorded">● REC</span>}<span className="pod-meta">{elapsed}</span>
             <span className="pod-meta">🎧 {Math.max(people.length, joined ? 1 : 0)} listening</span>
           </div>
           <h1 className="pod-title">{live.title}</h1>
@@ -455,6 +494,24 @@ export default function Live() {
 
       <div className="pod-stage card">
         <span className="eyebrow">On stage</span>
+        {live.kind === "video" ? (
+          <div className={`vgrid n${Math.min(onStage.length + 1, 4)}`}>
+            {(hostPeople.length ? hostPeople : [{ id: live.host_id ?? "host", name: hostName, role: "host" as const }]).map((h) => (
+              <VideoTile key={h.id} name={h.id === me ? "You" : h.name} label="Host" talking={isTalking(h.id)}
+                track={h.id === me ? (camOn ? cam.current : null) : remoteVideo[String(agoraUid(h.id))] ?? null} mirror={h.id === me} />
+            ))}
+            {onStage.map((r) => (
+              <VideoTile key={r.id} name={r.user_id === me ? "You" : r.profiles?.full_name ?? "Caller"} label={r.muted_by_host ? "Muted by host" : "Caller"}
+                talking={isTalking(r.user_id)} muted={r.muted_by_host}
+                track={r.user_id === me ? (camOn ? cam.current : null) : remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me}>
+                {isStaff && <div className="vctl">
+                  <button className="chip" onClick={() => hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button>
+                  <button className="chip" onClick={() => setStatus(r.id, "done")}>End call</button>
+                </div>}
+              </VideoTile>
+            ))}
+          </div>
+        ) : (
         <div className="pod-speakers">
           {(hostPeople.length ? hostPeople : [{ id: live.host_id ?? "host", name: hostName, role: "host" as const }]).map((h) => (
             <div key={h.id} className={`pod-spk${isTalking(h.id) ? " talking" : ""}`}>
@@ -472,6 +529,7 @@ export default function Live() {
             </div>
           ))}
         </div>
+        )}
         {listeners.length > 0 && <>
           <span className="eyebrow">Listening</span>
           <div className="pod-listeners">
@@ -527,6 +585,10 @@ export default function Live() {
         ) : <>
           {REACTIONS.map((r) => <button key={r} className="pod-react" onClick={() => react(r)} aria-label={`React ${r}`}>{r}{r === "❤️" && likes > 0 ? <small>{likes}</small> : null}</button>)}
           <span className="sp" />
+          {speaker && live.kind === "video" && <>
+            <button className={`btn ${camOn ? "ghost" : "primary"}`} onClick={toggleCam} aria-label={camOn ? "Turn camera off" : "Turn camera on"}>{camOn ? "📷 Camera off" : "📷 Camera on"}</button>
+            {camOn && <button className="btn ghost" onClick={flipCam} aria-label="Switch camera">🔄</button>}
+          </>}
           {speaker ? (
             <button className={`btn ${muted ? "primary" : "ghost"}`} onClick={toggleMute} disabled={muted && !!mine?.muted_by_host}>{muted && mine?.muted_by_host ? "🔇 Muted by host" : muted ? "🎙 Unmute" : "Mute"}</button>
           ) : mine?.status === "waiting" ? (
@@ -540,5 +602,25 @@ export default function Live() {
         </>}
       </div>
     </section>
+  );
+}
+
+// One person's video on stage; shows their initials when the camera is off
+function VideoTile({ track, name, label, talking, muted, mirror, children }: {
+  track: ICameraVideoTrack | IRemoteVideoTrack | null; name: string; label: string; talking?: boolean; muted?: boolean; mirror?: boolean; children?: React.ReactNode;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!track || !box.current) return;
+    track.play(box.current, { fit: "cover", ...(mirror ? { mirror: true } : {}) });
+    return () => { track.stop(); };
+  }, [track, mirror]);
+  return (
+    <div className={`vtile${talking ? " talking" : ""}`}>
+      <div className="vvideo" ref={box} />
+      {!track && <div className="vnocam"><div className="pod-ava big">{initials(name === "You" ? "Me" : name)}</div></div>}
+      <div className="vname">{muted ? "🔇 " : ""}{name} · <small>{label}</small></div>
+      {children}
+    </div>
   );
 }
