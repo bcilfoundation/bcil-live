@@ -148,6 +148,15 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
     else setMsg("Alerts are blocked. Allow notifications for this site in your browser settings.");
   }
 
+  async function deleteAccount() {
+    const typed = window.prompt("This permanently deletes your BCIL Live account, your messages, posts and friends. It cannot be undone.\n\nType DELETE to confirm.");
+    if (typed?.trim().toUpperCase() !== "DELETE") return;
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) { setMsg("Could not delete your account: " + error.message); return; }
+    await supabase.auth.signOut();
+    alert("Your account has been deleted.");
+  }
+
   if (editing) return <EditProfile onDone={() => setEditing(false)} />;
   return (
     <div className="pop memenu" role="dialog" aria-label="Your account">
@@ -166,6 +175,10 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
       </div>
       {msg && <p className="err">{msg}</p>}
       <button className="menubtn danger" onClick={() => supabase.auth.signOut()}><Icon name="logout" size={18} />Sign out</button>
+      <div className="menufoot">
+        <a href={`${import.meta.env.BASE_URL}privacy`} onClick={(e) => { e.preventDefault(); onClose(); nav("/privacy"); }}>Privacy</a>
+        <button className="linkbtn" onClick={deleteAccount}>Delete my account</button>
+      </div>
     </div>
   );
 }

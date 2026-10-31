@@ -29,7 +29,7 @@ export default function Quotes() {
       <h1>Daily Quotes</h1>
       {q ? (
         <div className="quote">
-          <span className="eyebrow">{i === 0 ? "Today · " : ""}{new Date(q.show_on).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · {q.theme}</span>
+          <span className="eyebrow">{i === 0 ? "Today · " : ""}{new Date(q.show_on + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · {q.theme}</span>
           <blockquote>“{q.body}”</blockquote>
           <cite>— {q.author}</cite>
           {q.reflection && <p className="muted">Reflect: {q.reflection}</p>}

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import Privacy from "./pages/Privacy";
 import { useAuth } from "./lib/auth";
 import { isNative } from "./lib/native";
 import TopBar from "./components/TopBar";
@@ -26,6 +27,9 @@ const NAV = ([
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
+  const { pathname } = useLocation();
+  // the privacy policy is public, so the app stores and visitors can read it without signing in
+  if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;
 

@@ -79,6 +79,7 @@ export default function SignIn() {
           <button className="btn ghost" onClick={() => setSent(false)}>Use a different number</button>
         </>}
         <p className="err" role="alert">{error}</p>
+        <small className="muted">By signing in you agree to our <a href={`${import.meta.env.BASE_URL}privacy`} style={{ textDecoration: "underline" }}>privacy policy</a>.</small>
       </div>
     </div>
   );
