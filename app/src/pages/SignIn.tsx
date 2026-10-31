@@ -7,6 +7,7 @@ export default function SignIn() {
   const [mode, setMode] = useState<"email" | "phone">("email");
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -36,6 +37,12 @@ export default function SignIn() {
     setBusy(false);
     if (error) setError(error.message); else setEmailSent(true);
   }
+  async function verifyEmail() {
+    setBusy(true); setError("");
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: emailCode.trim(), type: "email" });
+    setBusy(false);
+    if (error) setError("That code did not work. Check the email and try again, or request a new code.");
+  }
   async function verify() {
     setBusy(true); setError("");
     const { error } = await supabase.auth.verifyOtp({ phone: e164(), token: code.trim(), type: "sms" });
@@ -54,12 +61,14 @@ export default function SignIn() {
           <button className="chip" aria-pressed={mode === "phone"} onClick={() => setMode("phone")}>Phone</button>
         </div>
         {mode === "email" ? (emailSent ? <>
-          <p><b>Check your email.</b> We sent a sign-in link to {email}. Open it on this device to continue.</p>
-          <button className="btn ghost" onClick={() => setEmailSent(false)}>Use a different email</button>
+          <p><b>Check your email.</b> We sent a 6-digit code to {email}.</p>
+          <label className="field">Code<input value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="123456" /></label>
+          <button className="btn primary" disabled={busy || emailCode.length < 6} onClick={verifyEmail}>Sign in</button>
+          <button className="btn ghost" onClick={() => { setEmailSent(false); setEmailCode(""); }}>Use a different email</button>
         </> : <>
           <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
           <label className="field">Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" /></label>
-          <button className="btn primary" disabled={busy} onClick={sendEmail}>Email me a sign-in link</button>
+          <button className="btn primary" disabled={busy} onClick={sendEmail}>Email me a code</button>
         </>) : !sent ? <>
           <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
           <label className="field">Phone number<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="024 123 4567" /></label>
