@@ -1,15 +1,17 @@
+import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { initials } from "./lib/supabase";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
-import Live from "./pages/Live";
 import Chat from "./pages/Chat";
 import Forms from "./pages/Forms";
 import Give from "./pages/Give";
 import Library from "./pages/Library";
 import Quotes from "./pages/Quotes";
-import Admin from "./pages/Admin";
+// Live (audio library) and Admin load only when opened, to keep the app light on mobile data
+const Live = lazy(() => import("./pages/Live"));
+const Admin = lazy(() => import("./pages/Admin"));
 
 const NAV = [
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/quotes", "Daily Quotes"],
@@ -37,6 +39,7 @@ export default function App() {
           <button className="me" onClick={() => confirmSignOut()} aria-label="Sign out">{initials(profile?.full_name ?? "")}</button>
         </header>
         <main>
+          <Suspense fallback={<div className="center muted">Loading…</div>}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/live" element={<Live />} />
@@ -52,6 +55,7 @@ export default function App() {
                   {isStaff && <NavLink to="/admin">Admin</NavLink>}</div></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+          </Suspense>
         </main>
       </div>
       <nav className="tabbar">
