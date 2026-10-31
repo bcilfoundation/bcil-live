@@ -132,7 +132,7 @@ function TalksAdmin() {
   </>);
 }
 
-type Field = { key: string; label: string };
+type Field = { key: string; label: string; type?: string };
 type FormRow = { id: string; title: string; fields: Field[]; is_open: boolean };
 type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; profiles: { full_name: string } | null };
 
@@ -147,7 +147,8 @@ function FormsAdmin() {
   const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, profiles(full_name)")
     .eq("form_id", formId).order("created_at", { ascending: false }).then(({ data }) => setRows((data ?? []) as unknown as RespRow[]));
   useEffect(() => { load(); }, [formId]);
-  const form = forms.find((f) => f.id === formId);
+  const found = forms.find((f) => f.id === formId);
+  const form = found && { ...found, fields: found.fields.filter((f) => f.type !== "section") };
 
   // Download every response as an Excel file, like Google Forms' "Download responses"
   async function downloadExcel() {

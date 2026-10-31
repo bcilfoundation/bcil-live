@@ -259,3 +259,4 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .choice input{width:18px;height:18px;margin:0;accent-color:var(--navy);flex:none}
 .choice.on{border-color:var(--navy);background:var(--navy-soft)}
 [data-theme="dark"] .choice.on{background:#1b2c47}
+.qsection{background:var(--navy);color:#fff;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}.qsection h3{font-size:1.1rem}.qsection .muted{color:#dbe5f4}

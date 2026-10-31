@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 // Question types, matching what BCIL uses in Google Forms
 export type Field = {
   key: string; label: string; required?: boolean; help?: string;
-  type: "text" | "tel" | "email" | "date" | "number" | "textarea" | "select" | "radio" | "checkbox";
+  type: "text" | "tel" | "email" | "date" | "number" | "textarea" | "select" | "radio" | "checkbox" | "section";
   options?: string[];
 };
 type Form = { id: string; slug: string; title: string; subtitle: string | null; description: string | null; fields: Field[] };
@@ -49,8 +49,17 @@ export default function Forms() {
     e.preventDefault();
     const missing = open!.fields.find((f) => f.required && !answers[f.key]?.trim());
     if (missing) { setError(`Please answer “${missing.label}”.`); document.getElementById(`q-${missing.key}`)?.scrollIntoView({ block: "center" }); return; }
+    // fold "Other: ..." text into the answer, like Google Forms does
+    const final: Record<string, string> = {};
+    for (const f of open!.fields) {
+      if (f.type === "section") continue;
+      let v = answers[f.key] ?? "";
+      const other = answers[`${f.key}__other`]?.trim();
+      if (other && v.split(", ").includes("Other")) v = v.split(", ").map((x) => (x === "Other" ? `Other: ${other}` : x)).join(", ");
+      if (v) final[f.key] = v;
+    }
     setBusy(true);
-    const { error } = await supabase.from("form_responses").insert({ form_id: open!.id, user_id: session!.user.id, answers });
+    const { error } = await supabase.from("form_responses").insert({ form_id: open!.id, user_id: session!.user.id, answers: final });
     setBusy(false);
     if (error) { setError("Could not send. Check your connection and try again."); return; }
     setDone(open!.title); setOpen(null); setAnswers({}); load();
@@ -66,7 +75,9 @@ export default function Forms() {
           {open.description && <p>{open.description}</p>}
           <small className="muted">* Required</small>
         </div>
-        {open.fields.map((f) => (
+        {open.fields.map((f) => f.type === "section" ? (
+          <div className="qsection" key={f.key}><h3>{f.label}</h3>{f.help && <p className="muted">{f.help}</p>}</div>
+        ) : (
           <fieldset className="q" key={f.key} id={`q-${f.key}`}>
             <legend>{f.label}{f.required && <span className="req"> *</span>}</legend>
             {f.help && <small className="muted">{f.help}</small>}
@@ -89,6 +100,8 @@ export default function Forms() {
                 })}</div>)
               : <input type={f.type} value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}
                   inputMode={f.type === "tel" ? "tel" : f.type === "number" ? "numeric" : undefined} />}
+            {(f.type === "radio" || f.type === "checkbox") && (answers[f.key] ?? "").split(", ").includes("Other") &&
+              <input placeholder="Please specify" aria-label={`${f.label}: other`} value={answers[`${f.key}__other`] ?? ""} onChange={(e) => set(`${f.key}__other`, e.target.value)} />}
           </fieldset>
         ))}
         <p className="err" role="alert">{error}</p>
