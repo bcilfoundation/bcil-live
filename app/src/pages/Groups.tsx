@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ChatTabs from "../components/ChatTabs";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -49,7 +50,9 @@ export default function Groups() {
 
   return (
     <section className="view">
-      <div className="row"><h1 className="grow">Groups</h1>
+      <h1>Chat</h1>
+      <ChatTabs />
+      <div className="row"><h2 className="grow">Groups &amp; Campus Sync</h2>
         {isStaff && <button className="btn primary" onClick={() => setCreating(!creating)}>{creating ? "Close" : "+ New group"}</button>}</div>
       {creating && <CreateGroup onCreated={(id) => nav(`/groups/${id}`)} />}
       {error && <p className="err">{error}</p>}

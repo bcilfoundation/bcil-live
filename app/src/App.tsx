@@ -1,9 +1,10 @@
 import { lazy, Suspense } from "react";
-import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Privacy from "./pages/Privacy";
 import { useAuth } from "./lib/auth";
 import { isNative } from "./lib/native";
 import Icon from "./components/Icon";
+import { LiveProvider, useLive } from "./lib/LiveContext";
 import TopBar from "./components/TopBar";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
@@ -37,6 +38,7 @@ export default function App() {
   if (!session) return <SignIn />;
 
   return (
+    <LiveProvider>
     <div className="shell">
       <aside className="side">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
@@ -51,7 +53,7 @@ export default function App() {
           <span className="sp" />
           <TopBar />
         </header>
-        <main>
+        <main className={pathname === "/live" ? "inroom" : ""}>
           <Suspense fallback={<div className="center muted">Loading…</div>}>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -77,10 +79,35 @@ export default function App() {
           </Suspense>
         </main>
       </div>
+      <MiniPlayer />
       <nav className="tabbar">
-        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/chat", "Chat", "chat"], ["/groups", "Groups", "users"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
-          <NavLink key={to} to={to} end={to === "/"}><Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
+        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/chat", "Chat", "chat"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
+          <NavLink key={to} to={to} end={to === "/"}
+            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|friends|join)/.test(pathname)) ? "active" : "")}>
+            <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
       </nav>
+    </div>
+    </LiveProvider>
+  );
+}
+
+// Small bar above the tabs while a live session is on, so people keep listening anywhere in the app
+function MiniPlayer() {
+  const L = useLive();
+  const { pathname } = useLocation();
+  const nav = useNavigate();
+  if (!L.live || pathname === "/live") return null;
+  const amHost = L.live.host_id === L.me;
+  return (
+    <div className="miniplayer" role="region" aria-label="Live session">
+      <button className="mp-main" onClick={() => nav("/live")}>
+        <span className="mp-dot" aria-hidden="true" />
+        <span className="mp-text"><b>{L.live.title}</b><small>{L.joined ? (L.speaker ? (amHost ? "You're hosting" : "You're on stage") : L.needTap ? "Tap 🔊 to hear" : "Listening live") : "BCIL is live now"}</small></span>
+      </button>
+      {L.joined && L.needTap && <button className="mp-btn" onClick={L.tapToHear} aria-label="Tap to hear">🔊</button>}
+      {L.joined && L.speaker && <button className="mp-btn" onClick={L.toggleMute} aria-label={L.muted ? "Unmute" : "Mute"}>{L.muted ? "🔇" : "🎙"}</button>}
+      {!L.joined && <button className="mp-btn join" onClick={() => L.join()}>Join</button>}
+      {L.joined && !amHost && <button className="mp-btn" onClick={L.leaveRoom} aria-label="Leave">✕</button>}
     </div>
   );
 }

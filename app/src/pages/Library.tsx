@@ -17,6 +17,7 @@ export default function Library() {
   const player = useRef<HTMLAudioElement | null>(null);
   const [talks, setTalks] = useState<Talk[]>([]);
   const [filter, setFilter] = useState("All");
+  const [type, setType] = useState<"all" | "video" | "audio" | "live">("all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Talk | null>(null);
   const [likes, setLikes] = useState(0);
@@ -124,7 +125,8 @@ export default function Library() {
 
   const programs = ["All", ...new Set(talks.filter((t) => t.status !== "draft").map((t) => t.program))];
   const drafts = talks.filter((t) => t.status === "draft");
-  const shown = talks.filter((t) => t.status !== "draft" && (filter === "All" || t.program === filter) && (t.title + t.program).toLowerCase().includes(q.toLowerCase()));
+  const ofType = (t: Talk) => type === "all" || (type === "video" && t.kind !== "audio") || (type === "audio" && t.kind === "audio" && !t.live_session_id) || (type === "live" && !!t.live_session_id);
+  const shown = talks.filter((t) => t.status !== "draft" && ofType(t) && (filter === "All" || t.program === filter) && (t.title + t.program).toLowerCase().includes(q.toLowerCase()));
   return (
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
@@ -142,6 +144,10 @@ export default function Library() {
             <span className="btn ghost">Review</span>
           </button>))}</div>
       </>}
+      <div className="seg" role="tablist" aria-label="Type">
+        {([["all", "All"], ["video", "▶ Videos"], ["audio", "🎧 Audio"], ["live", "● Live recordings"]] as const).map(([k, label]) =>
+          <button key={k} role="tab" aria-selected={type === k} onClick={() => setType(k)}>{label}</button>)}
+      </div>
       <div className="chips">{programs.map((p) => <button key={p} className="chip" aria-pressed={p === filter} onClick={() => setFilter(p)}>{p}</button>)}</div>
       <div className="grid3">
         {shown.map((t) => (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ChatTabs from "../components/ChatTabs";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -102,6 +103,7 @@ export default function Chat() {
       <div className={`chatwrap${room ? " has-room" : ""}`}>
         <div className="chans">
           <div className="chanhead"><h1>Chat</h1><Link to="/friends" className="iconbtn sm" aria-label="Start a conversation with a friend"><Icon name="userplus" size={18} /></Link></div>
+          <div className="pad"><ChatTabs /></div>
           {convs === null ? <p className="muted pad">Loading…</p> : <>
             <ChanList title="Groups" items={convs.filter((c) => c.kind !== "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })} />
             <ChanList title="Direct messages" items={convs.filter((c) => c.kind === "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })}

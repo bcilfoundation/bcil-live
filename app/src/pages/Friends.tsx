@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ChatTabs from "../components/ChatTabs";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -85,7 +86,8 @@ export default function Friends() {
 
   return (
     <section className="view">
-      <h1>Friends</h1>
+      <h1>Chat</h1>
+      <ChatTabs />
       <div className="seg" role="tablist">
         <button role="tab" aria-selected={tab === "friends"} onClick={() => setTab("friends")}>My friends{friends.length ? ` · ${friends.length}` : ""}</button>
         <button role="tab" aria-selected={tab === "requests"} onClick={() => setTab("requests")}>Requests{incoming.length ? <span className="count inline">{incoming.length}</span> : ""}</button>
