@@ -39,14 +39,22 @@ Deno.serve(async (req) => {
       .eq("session_id", session_id).eq("user_id", user.id).eq("status", "on_air").maybeSingle();
     const speaker = isHost || !!onAir;
 
+    // Check the Agora settings (values are never returned, only what is wrong with them)
+    const appId = (Deno.env.get("AGORA_APP_ID") ?? "").trim();
+    const cert = (Deno.env.get("AGORA_APP_CERTIFICATE") ?? "").trim();
+    const hex32 = /^[0-9a-f]{32}$/i;
+    if (!hex32.test(appId)) return json({ error: `Setup problem: AGORA_APP_ID is not set correctly (expected 32 letters/numbers, found ${appId.length}).` }, 500);
+    if (!hex32.test(cert)) return json({ error: `Setup problem: AGORA_APP_CERTIFICATE is not set correctly (expected 32 letters/numbers, found ${cert.length}). Copy the Primary Certificate from Agora again.` }, 500);
+
     // Agora numeric uid derived from the user id; valid for 2 hours
     const uid = parseInt(user.id.replace(/-/g, "").slice(0, 8), 16) >>> 1;
     const expires = 2 * 60 * 60;
     const token = RtcTokenBuilder.buildTokenWithUid(
-      Deno.env.get("AGORA_APP_ID")!, Deno.env.get("AGORA_APP_CERTIFICATE")!,
+      appId, cert,
       session.channel, uid, speaker ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER, expires, expires,
     );
-    return json({ token, uid, channel: session.channel, appId: Deno.env.get("AGORA_APP_ID"), speaker });
+    if (!token) return json({ error: "Setup problem: Agora could not create a pass with these settings. Check that the certificate belongs to the bcil-live project." }, 500);
+    return json({ token, uid, channel: session.channel, appId, speaker });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
