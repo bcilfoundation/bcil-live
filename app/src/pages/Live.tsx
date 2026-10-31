@@ -57,34 +57,60 @@ export default function Live() {
   }, [live?.id]);
 
   const mine = requests.find((r) => r.user_id === me);
-  // when the host brings me on air, switch to speaker; when my call ends, back to listener
+  const [busy, setBusy] = useState(false);
+  const joining = useRef(false);
+  const speakerRef = useRef(false);
+
+  // When the host brings me on air (or ends my call), reconnect with the right role — once.
   useEffect(() => {
-    if (!joined) return;
-    const shouldSpeak = isStaff || mine?.status === "on_air";
-    if (shouldSpeak !== speaker) rejoin(shouldSpeak);
-  }, [mine?.status, joined]);
+    if (!joined || isStaff) return;
+    const shouldSpeak = mine?.status === "on_air";
+    if (shouldSpeak !== speakerRef.current) { leave().then(() => join()); }
+  }, [mine?.status]);
+
+  function explain(e: unknown) {
+    const msg = String((e as { message?: string })?.message ?? e);
+    if (/NotAllowed|Permission|denied/i.test(msg)) return "Please allow microphone access for this site in your browser settings, then try again.";
+    if (/NotFound|device/i.test(msg)) return "No microphone was found on this device.";
+    if (/UID_CONFLICT/i.test(msg)) return "You are already in this session on another device. Leave there first.";
+    if (/network|timeout|WS_ABORT|CAN_NOT_GET_GATEWAY/i.test(msg)) return "Connection problem. Check your internet and try again.";
+    return "Could not join the live room: " + msg;
+  }
 
   async function join() {
-    if (!live) return;
-    setError("");
-    const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: live.id } });
-    if (error || data?.error) { setError(data?.error ?? "Could not join. Try again."); return; }
-    const c = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
-    client.current = c;
-    c.on("user-published", async (user, type) => { await c.subscribe(user, type); if (type === "audio") user.audioTrack?.play(); });
-    c.on("user-joined", () => setListeners((n) => n + 1));
-    c.on("user-left", () => setListeners((n) => Math.max(0, n - 1)));
-    await c.setClientRole(data.speaker ? "host" : "audience", data.speaker ? undefined : { level: 1 });
-    await c.join(data.appId, data.channel, data.token, data.uid);
-    if (data.speaker) { mic.current = await AgoraRTC.createMicrophoneAudioTrack(); await c.publish(mic.current); }
-    setSpeaker(!!data.speaker); setJoined(true);
+    if (!live || joining.current) return;
+    joining.current = true; setBusy(true); setError("");
+    try {
+      const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: live.id } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "Could not get a pass for this session");
+      const c = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+      client.current = c;
+      c.on("user-published", async (user, type) => { await c.subscribe(user, type); if (type === "audio") user.audioTrack?.play(); });
+      c.on("user-joined", () => setListeners((n) => n + 1));
+      c.on("user-left", () => setListeners((n) => Math.max(0, n - 1)));
+      await c.setClientRole(data.speaker ? "host" : "audience", data.speaker ? undefined : { level: 1 });
+      await c.join(data.appId, data.channel, data.token, data.uid);
+      if (data.speaker) {
+        mic.current = await AgoraRTC.createMicrophoneAudioTrack();
+        await c.publish(mic.current);
+      }
+      speakerRef.current = !!data.speaker;
+      setSpeaker(!!data.speaker); setMuted(false); setJoined(true);
+    } catch (e) {
+      setError(explain(e));
+      mic.current?.close(); mic.current = null;
+      await client.current?.leave().catch(() => {}); client.current = null;
+      setJoined(false);
+    } finally {
+      joining.current = false; setBusy(false);
+    }
   }
   async function leave() {
     mic.current?.close(); mic.current = null;
     await client.current?.leave().catch(() => {}); client.current = null;
-    setJoined(false); setSpeaker(false);
+    speakerRef.current = false;
+    setJoined(false); setSpeaker(false); setListeners(0);
   }
-  async function rejoin(asSpeaker: boolean) { await leave(); await join(); setSpeaker(asSpeaker); }
 
   async function requestCall() {
     const topic = window.prompt("What do you want to ask? (optional)") ?? "";
@@ -135,11 +161,12 @@ export default function Live() {
               ))}
             </div>
             <div className="callbar">
-              {!joined ? <button className="btn primary" onClick={join}>Listen live</button>
+              {!joined ? <button className="btn primary" onClick={join} disabled={busy}>{busy ? "Connecting…" : isStaff ? "Start hosting" : "Listen live"}</button>
                 : speaker ? <>
-                    <b className="grow" style={{ color: "var(--live)" }}>● You're on air</b>
+                    <b className="grow" style={{ color: "var(--live)" }}>● {isStaff ? "You're live as host" : "You're on air"}</b>
                     <button className="btn ghost" onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
                     {mine && <button className="btn primary" onClick={() => setStatus(mine.id, "done")}>End call</button>}
+                    {isStaff && <button className="btn ghost" onClick={leave}>Leave</button>}
                   </>
                 : mine?.status === "waiting" ? <>
                     <span className="grow">You're #{waiting.findIndex((r) => r.user_id === me) + 1} in the call-in queue</span>
@@ -147,6 +174,7 @@ export default function Live() {
                   </>
                 : <><button className="btn primary" onClick={requestCall}>✋ Request to call in</button><button className="btn ghost" onClick={leave}>Leave</button></>}
             </div>
+            {error && <p className="err" role="alert">{error}</p>}
           </div>
           {isStaff && (
             <div className="card">
@@ -172,7 +200,6 @@ export default function Live() {
           <form className="composer" onSubmit={sendChat}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Say something" aria-label="Chat message" /><button className="btn primary">Send</button></form>
         </div>
       </div>
-      <p className="err" role="alert">{error}</p>
     </section>
   );
 }
