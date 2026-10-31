@@ -3,6 +3,16 @@
 // Secrets: supabase secrets set PAYSTACK_SECRET_KEY=sk_live_...
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Newer Supabase projects expose keys as JSON lists; older ones as single values.
+function publicKey() {
+  try { const k = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}"); const v = k.default ?? Object.values(k)[0]; if (v) return String(v); } catch { /* fall through */ }
+  return Deno.env.get("SUPABASE_ANON_KEY")!;
+}
+function secretKey() {
+  try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}"); const v = k.default ?? Object.values(k)[0]; if (v) return String(v); } catch { /* fall through */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+}
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,7 +24,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const { amount_cedis, purpose, network, phone } = await req.json();
-    const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const userClient = createClient(Deno.env.get("SUPABASE_URL")!, publicKey(), {
       global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
     });
     const { data: { user } } = await userClient.auth.getUser();
@@ -28,7 +38,7 @@ Deno.serve(async (req) => {
     if (!PROVIDERS[network]) return json({ error: "Choose MTN, Telecel or AT" }, 400);
 
     const reference = `bcil_${crypto.randomUUID()}`;
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
     await admin.from("gifts").insert({
       user_id: user.id, amount_pesewas: pesewas, purpose: purpose || "General support",
       method: "mobile_money", status: "pending", paystack_reference: reference,

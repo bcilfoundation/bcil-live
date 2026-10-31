@@ -13,10 +13,13 @@ import Quotes from "./pages/Quotes";
 const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
 
-const NAV = [
+// Turn giving on once Paystack has approved BCIL and the payment functions are deployed
+const GIVING_ENABLED = false;
+
+const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/quotes", "Daily Quotes"],
   ["/chat", "Chat room"], ["/forms", "Forms"], ["/give", "Give"],
-] as const;
+] as const).filter(([to]) => GIVING_ENABLED || to !== "/give");
 
 export default function App() {
   const { session, profile, loading, isStaff } = useAuth();
@@ -45,7 +48,7 @@ export default function App() {
             <Route path="/live" element={<Live />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/forms" element={<Forms />} />
-            <Route path="/give" element={<Give />} />
+            {GIVING_ENABLED && <Route path="/give" element={<Give />} />}
             <Route path="/library" element={<Library />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/admin" element={<Admin />} />
@@ -59,7 +62,7 @@ export default function App() {
         </main>
       </div>
       <nav className="tabbar">
-        {NAV.filter(([to]) => ["/", "/live", "/chat", "/give"].includes(to)).map(([to, label]) =>
+        {NAV.filter(([to]) => ["/", "/live", "/chat", "/library"].includes(to)).map(([to, label]) =>
           <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
         <NavLink to="/more">More</NavLink>
       </nav>

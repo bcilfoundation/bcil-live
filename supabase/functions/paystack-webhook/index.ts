@@ -4,6 +4,16 @@
 //   https://<your-project>.supabase.co/functions/v1/paystack-webhook
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Newer Supabase projects expose keys as JSON lists; older ones as single values.
+function publicKey() {
+  try { const k = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}"); const v = k.default ?? Object.values(k)[0]; if (v) return String(v); } catch { /* fall through */ }
+  return Deno.env.get("SUPABASE_ANON_KEY")!;
+}
+function secretKey() {
+  try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}"); const v = k.default ?? Object.values(k)[0]; if (v) return String(v); } catch { /* fall through */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+}
+
 Deno.serve(async (req) => {
   const raw = await req.text();
   const signature = req.headers.get("x-paystack-signature") ?? "";
@@ -13,7 +23,7 @@ Deno.serve(async (req) => {
   const reference = event?.data?.reference;
   if (!reference) return new Response("ok");
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
   if (event.event === "charge.success") {
     await admin.from("gifts").update({ status: "paid" }).eq("paystack_reference", reference);
   } else if (event.event === "charge.failed") {
