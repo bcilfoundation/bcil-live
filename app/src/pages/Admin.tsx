@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 
@@ -64,6 +65,7 @@ function QuotesAdmin() {
 
 function LiveAdmin() {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<{ id: string; title: string; starts_at: string; status: string }[]>([]);
   const [f, setF] = useState({ title: "", topic: "", starts_at: "" });
   const load = () => supabase.from("live_sessions").select("id, title, starts_at, status").order("starts_at", { ascending: false }).limit(30).then(({ data }) => setRows(data ?? []));
@@ -74,7 +76,12 @@ function LiveAdmin() {
     await supabase.from("live_sessions").insert({ title: f.title, topic: f.topic || null, starts_at: new Date(f.starts_at).toISOString(), host_id: session!.user.id });
     setF({ title: "", topic: "", starts_at: "" }); load();
   }
-  const set = async (id: string, status: string) => { await supabase.from("live_sessions").update({ status }).eq("id", id); load(); };
+  const set = async (id: string, status: string) => {
+    const patch = status === "live" ? { status, starts_at: new Date().toISOString(), host_id: session!.user.id } : { status };
+    const { error } = await supabase.from("live_sessions").update(patch).eq("id", id);
+    if (error) { alert("Could not update the session: " + error.message); return; }
+    if (status === "live") navigate("/live", { state: { autostart: true } }); else load();
+  };
   return (<>
     <form className="card" onSubmit={add}>
       <h3>Schedule a live session</h3>
@@ -86,7 +93,7 @@ function LiveAdmin() {
     <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{fmt(r.starts_at)} · {r.status}</small></div>
       {r.status === "scheduled" && <button className="btn primary" onClick={() => set(r.id, "live")}>Go live</button>}
       {r.status === "live" && <button className="btn ghost" onClick={() => set(r.id, "ended")}>End</button>}</div>)}</div>
-    <p className="muted">When you tap Go live, open the Live tab to host: you join as a speaker and see the call-in queue.</p>
+    <p className="muted">Tip: you can also go live straight from the Live tab without scheduling.</p>
   </>);
 }
 

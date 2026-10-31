@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, initials } from "../lib/supabase";
@@ -35,6 +36,11 @@ export default function Live() {
   const [elapsed, setElapsed] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newTopic, setNewTopic] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const autostart = useRef(Boolean((location.state as { autostart?: boolean } | null)?.autostart));
   const client = useRef<IAgoraRTCClient | null>(null);
   const mic = useRef<IMicrophoneAudioTrack | null>(null);
   const room = useRef<RealtimeChannel | null>(null);
@@ -62,6 +68,15 @@ export default function Live() {
     if (!live?.host_id) return;
     supabase.from("profiles").select("full_name").eq("id", live.host_id).single().then(({ data }) => data?.full_name && setHostName(data.full_name));
   }, [live?.host_id]);
+
+  // Arriving from Admin "Go live": start hosting straight away
+  useEffect(() => {
+    if (autostart.current && live && isStaff && !joined) {
+      autostart.current = false;
+      navigate(".", { replace: true, state: null });
+      join(live);
+    }
+  }, [live?.id, isStaff]);
 
   // elapsed timer since the scheduled start
   useEffect(() => {
@@ -150,11 +165,12 @@ export default function Live() {
     return "Could not join the live room: " + msg;
   }
 
-  async function join() {
-    if (!live || joining.current) return;
+  async function join(target?: Session) {
+    const sess = target ?? live;
+    if (!sess || joining.current) return;
     joining.current = true; setBusy(true); setError("");
     try {
-      const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: live.id } });
+      const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: sess.id } });
       if (error) {
         const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
         throw new Error(detail?.error ?? error.message);
@@ -233,6 +249,23 @@ export default function Live() {
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
+  async function goLiveNow(e?: React.FormEvent) {
+    e?.preventDefault();
+    const title = newTitle.trim() || `BCIL Live · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+    const { data, error } = await supabase.from("live_sessions")
+      .insert({ title, topic: newTopic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me })
+      .select("*").single();
+    if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return; }
+    setLive(data as Session); setNewTitle(""); setNewTopic("");
+    await join(data as Session);
+  }
+  async function startScheduled(s: Session) {
+    const { data, error } = await supabase.from("live_sessions")
+      .update({ status: "live", starts_at: new Date().toISOString(), host_id: me }).eq("id", s.id).select("*").single();
+    if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return; }
+    setLive(data as Session); setUpcoming((u) => u.filter((x) => x.id !== s.id));
+    await join(data as Session);
+  }
   async function remind(s: Session) {
     if (await run("Reminder", supabase.from("live_reminders").upsert({ session_id: s.id, user_id: me }))) setNotice("We will remind you when it starts.");
   }
@@ -241,15 +274,26 @@ export default function Live() {
   if (!live) return (
     <section className="view">
       <h1>Live</h1>
-      <div className="pod-empty">
-        <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
-        <div><b>Nothing is live right now</b><p className="muted">When BCIL goes live, it shows up here.</p></div>
-      </div>
+      {isStaff ? (
+        <form className="pod-golive" onSubmit={goLiveNow}>
+          <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
+          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title, e.g. Mentorship hour: planning your semester" aria-label="Session title" />
+          <input value={newTopic} onChange={(e) => setNewTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
+          <button className="btn pod-golive-btn" disabled={busy}>{busy ? "Starting…" : "● Go live now"}</button>
+        </form>
+      ) : (
+        <div className="pod-empty">
+          <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
+          <div><b>Nothing is live right now</b><p className="muted">When BCIL goes live, it shows up here.</p></div>
+        </div>
+      )}
+      {error && <p className="err" role="alert">{error}</p>}
       <h2>Coming up</h2>
       <div className="list">
         {upcoming.length ? upcoming.map((s) => (
           <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
-            <button className="btn primary" onClick={() => remind(s)}>Remind me</button></div>
+            {isStaff ? <button className="btn primary" onClick={() => startScheduled(s)}>● Go live</button>
+              : <button className="btn primary" onClick={() => remind(s)}>Remind me</button>}</div>
         )) : <div className="muted">No sessions scheduled yet.</div>}
       </div>
       {notice && <p className="ok">{notice}</p>}
@@ -344,7 +388,7 @@ export default function Live() {
 
       <div className="pod-bar">
         {!joined ? (
-          <button className="btn primary pod-join" onClick={join} disabled={busy}>{busy ? "Connecting…" : isStaff ? "▶ Start hosting" : "🎧 Listen live"}</button>
+          <button className="btn primary pod-join" onClick={() => join()} disabled={busy}>{busy ? "Connecting…" : isStaff ? "▶ Start hosting" : "🎧 Listen live"}</button>
         ) : <>
           {REACTIONS.map((r) => <button key={r} className="pod-react" onClick={() => react(r)} aria-label={`React ${r}`}>{r}{r === "❤️" && likes > 0 ? <small>{likes}</small> : null}</button>)}
           <span className="sp" />

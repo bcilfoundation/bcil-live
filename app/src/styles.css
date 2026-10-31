@@ -128,3 +128,8 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 
 .pod-ava.big{position:relative}
 .pod-muted{position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--line);display:grid;place-items:center;font-size:.85rem}
+.pod-golive{display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:20px;color:#fff;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%)}
+.pod-golive img{width:56px;height:56px;border-radius:12px;background:#fff}
+.pod-golive p{color:#cfdcf0;font-size:.9rem}
+.pod-golive input{background:rgba(255,255,255,.95);border-color:transparent}
+.pod-golive-btn{background:#e0342c;color:#fff;padding:14px 20px;font-size:1.05rem}
