@@ -133,31 +133,63 @@ function TalksAdmin() {
 }
 
 type Field = { key: string; label: string };
+type FormRow = { id: string; title: string; fields: Field[]; is_open: boolean };
+type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; profiles: { full_name: string } | null };
+
 function FormsAdmin() {
-  const [forms, setForms] = useState<{ id: string; title: string; fields: Field[] }[]>([]);
+  const [forms, setForms] = useState<FormRow[]>([]);
   const [formId, setFormId] = useState("");
-  const [rows, setRows] = useState<{ id: number; answers: Record<string, string>; status: string; created_at: string }[]>([]);
-  useEffect(() => { supabase.from("forms").select("id, title, fields").order("created_at").then(({ data }) => { setForms((data ?? []) as never); if (data?.[0]) setFormId(data[0].id); }); }, []);
-  const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at").eq("form_id", formId).order("created_at", { ascending: false }).then(({ data }) => setRows((data ?? []) as never));
+  const [rows, setRows] = useState<RespRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const loadForms = () => supabase.from("forms").select("id, title, fields, is_open").order("created_at")
+    .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
+  useEffect(() => { loadForms(); }, []);
+  const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, profiles(full_name)")
+    .eq("form_id", formId).order("created_at", { ascending: false }).then(({ data }) => setRows((data ?? []) as unknown as RespRow[]));
   useEffect(() => { load(); }, [formId]);
   const form = forms.find((f) => f.id === formId);
-  async function copyCsv() {
+
+  // Download every response as an Excel file, like Google Forms' "Download responses"
+  async function downloadExcel() {
     if (!form) return;
-    const cols = form.fields.map((f) => f.key);
-    const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const csv = [["Sent", "Status", ...form.fields.map((f) => f.label)].map(esc).join(","),
-      ...rows.map((r) => [r.created_at, r.status, ...cols.map((c) => r.answers[c])].map(esc).join(","))].join("\n");
-    await navigator.clipboard.writeText(csv); alert(`Copied ${rows.length} responses. Paste into Google Sheets.`);
+    setBusy(true);
+    try {
+      const { default: writeXlsxFile } = await import("write-excel-file/browser");
+      const head = ["Timestamp", "Account name", "Status", ...form.fields.map((f) => f.label)]
+        .map((value) => ({ value, fontWeight: "bold" as const, backgroundColor: "#e3ebf6", wrap: true }));
+      const body = [...rows].reverse().map((r) => [
+        { value: new Date(r.created_at), type: Date, format: "dd/mm/yyyy hh:mm" },
+        { value: r.profiles?.full_name ?? "" },
+        { value: r.status },
+        ...form.fields.map((f) => ({ value: String(r.answers[f.key] ?? "") })),
+      ]);
+      const safe = form.title.replace(/[^a-z0-9]+/gi, " ").trim();
+      await writeXlsxFile([head, ...body] as never, {
+        sheet: "Responses", stickyRowsCount: 1,
+        columns: [{ width: 18 }, { width: 24 }, { width: 12 }, ...form.fields.map(() => ({ width: 30 }))],
+      }).toFile(`${safe} (Responses).xlsx`);
+    } finally { setBusy(false); }
+  }
+  async function toggleOpen() {
+    if (!form) return;
+    await supabase.from("forms").update({ is_open: !form.is_open }).eq("id", form.id);
+    loadForms();
   }
   const setStatus = async (id: number, status: string) => { await supabase.from("form_responses").update({ status }).eq("id", id); load(); };
   return (<>
     <div className="row" style={{ flexWrap: "wrap" }}>
-      <select value={formId} onChange={(e) => setFormId(e.target.value)} aria-label="Form" style={{ maxWidth: 360 }}>{forms.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select>
+      <select value={formId} onChange={(e) => setFormId(e.target.value)} aria-label="Form" style={{ maxWidth: 360 }}>
+        {forms.map((f) => <option key={f.id} value={f.id}>{f.title}{f.is_open ? "" : " (closed)"}</option>)}</select>
       <span className="muted">{rows.length} responses</span>
-      <button className="btn ghost" onClick={copyCsv}>Copy for Google Sheets</button>
+      <button className="btn primary" onClick={downloadExcel} disabled={busy || !rows.length}>{busy ? "Preparing…" : "Download Excel"}</button>
+      {form && <button className="btn ghost" onClick={toggleOpen}>{form.is_open ? "Close form" : "Reopen form"}</button>}
     </div>
+    {form && !form.is_open && <p className="muted">This form is closed. Members can no longer see or fill it in.</p>}
     <div className="list">{rows.map((r) => (
-      <div key={r.id}><div className="grow">{form?.fields.map((f) => <div key={f.key}><small className="muted">{f.label}:</small> {r.answers[f.key]}</div>)}<small className="muted">{fmt(r.created_at)}</small></div>
+      <div key={r.id}><div className="grow">
+        <b>{r.answers.full_name || r.answers.name || r.profiles?.full_name || "Member"}</b> <small className="muted">· {fmt(r.created_at)}</small>
+        {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {r.answers[f.key]}</div> : null)}
+      </div>
         <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} aria-label="Status" style={{ width: 130 }}>{["received", "accepted", "waitlist", "declined"].map((s) => <option key={s}>{s}</option>)}</select></div>
     ))}</div>
   </>);

@@ -250,3 +250,12 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .menufoot a{color:var(--muted)}.menufoot .linkbtn{color:var(--live)}
 .public{height:100%;overflow-y:auto}
 .legal{max-width:760px;gap:12px}.legal h2{margin-top:10px;font-size:1.15rem}.legal ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}.legal a{color:var(--navy);text-decoration:underline}
+/* forms: Google-Forms-like questions */
+.formcard{gap:14px}.formhead{display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.q{border:1px solid var(--line);border-radius:14px;padding:14px;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.q legend{font-weight:700;padding:0 4px;float:left;width:100%;margin-bottom:2px}.q .req{color:var(--live)}
+.choices{display:flex;flex-direction:column;gap:6px}
+.choice{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer;font-weight:500}
+.choice input{width:18px;height:18px;margin:0;accent-color:var(--navy);flex:none}
+.choice.on{border-color:var(--navy);background:var(--navy-soft)}
+[data-theme="dark"] .choice.on{background:#1b2c47}
