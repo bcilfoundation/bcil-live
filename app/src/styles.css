@@ -68,8 +68,13 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .tabbar{display:none}
 @media (max-width:760px){
   .side{display:none}.view{padding:18px 16px 96px}
-  .tabbar{display:flex;position:fixed;inset:auto 0 0 0;background:var(--panel);border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around}
-  .tabbar a{color:var(--muted);font-size:.8rem;padding:6px}.tabbar a.active{color:var(--navy);font-weight:700}
+  .tabbar{display:flex;position:fixed;inset:auto 0 0 0;z-index:40;background:var(--panel);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;box-shadow:0 -4px 16px rgba(15,45,82,.06)}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:.8rem;font-weight:600;padding:6px 2px;border-radius:14px;min-height:56px;justify-content:center}
+  .tabbar a svg{width:26px;height:26px}
+  .tabbar a.active{color:var(--navy);font-weight:800}.tabbar a.active svg{stroke-width:2.3}
+  .tabbar a.active::before{content:"";position:absolute;width:44px;height:30px;margin-top:-22px;border-radius:999px;background:var(--navy-soft);z-index:-1}
+  .tabbar a{position:relative;isolation:isolate}
+  .view{padding-bottom:110px}
   .liveroom{grid-template-columns:1fr}.chatcol{height:420px}
 }
 
@@ -119,7 +124,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .pod-empty{display:flex;gap:14px;align-items:center;padding:18px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
 .pod-empty img{width:56px;height:56px;border-radius:12px}
 @media (max-width:760px){
-  .pod-bar{left:0;bottom:calc(52px + env(safe-area-inset-bottom));padding:10px 12px}
+  .pod-bar{left:0;bottom:calc(70px + env(safe-area-inset-bottom));padding:10px 12px}
   .pod{padding-bottom:200px}
   .pod-cover{padding:16px}.pod-art{width:64px;height:64px}
 }
@@ -291,3 +296,5 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .kindpick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-weight:800;text-align:left;cursor:pointer}
 .kindpick button small{font-weight:500;color:#cfdcf0}
 .kindpick button.on{background:#fff;color:var(--navy);border-color:#fff}.kindpick button.on small{color:var(--muted)}
+.menu a{display:flex;align-items:center;gap:10px}.morelist a{font-weight:600;font-size:1.02rem;gap:14px}.morelist a svg{color:var(--navy)}
+.filebtn{cursor:pointer}.musiccard input[type=range]{padding:0;border:0;accent-color:var(--navy)}

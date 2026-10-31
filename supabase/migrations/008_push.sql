@@ -1,0 +1,55 @@
+-- BCIL Live: phone notifications (Web Push). Safe to run more than once.
+-- The keys themselves are inserted into private.push_settings separately (never committed to the repo).
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user on public.push_subscriptions (user_id);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "own push subscriptions" on public.push_subscriptions;
+create policy "own push subscriptions" on public.push_subscriptions for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+create table if not exists private.push_settings (
+  id int primary key default 1 check (id = 1),
+  function_url text not null,
+  auth_header text not null,        -- "Bearer <legacy anon JWT>" so the function's JWT check passes
+  secret text not null,             -- shared secret checked by the function
+  vapid_public text not null,
+  vapid_private text not null,
+  vapid_subject text not null default 'mailto:info@bcilfoundation.org'
+);
+
+-- the push function reads its keys through this; only the server (service role) may call it
+create or replace function public.push_config() returns table (secret text, vapid_public text, vapid_private text, vapid_subject text)
+language sql stable security definer set search_path = private, public as $$
+  select secret, vapid_public, vapid_private, vapid_subject from private.push_settings where id = 1
+$$;
+revoke all on function public.push_config() from public, anon, authenticated;
+grant execute on function public.push_config() to service_role;
+
+-- every new notification is sent to the person's phones
+create extension if not exists pg_net with schema extensions;
+create or replace function public.push_notification() returns trigger
+language plpgsql security definer set search_path = private, public, extensions as $$
+declare s private.push_settings;
+begin
+  select * into s from private.push_settings where id = 1;
+  if s is null then return new; end if;
+  if not exists (select 1 from public.push_subscriptions where user_id = new.user_id) then return new; end if;
+  perform net.http_post(
+    url := s.function_url,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', s.auth_header, 'x-push-secret', s.secret),
+    body := jsonb_build_object('id', new.id)
+  );
+  return new;
+end $$;
+drop trigger if exists notifications_push on public.notifications;
+create trigger notifications_push after insert on public.notifications for each row execute function public.push_notification();
+select 'ok' as push_setup;

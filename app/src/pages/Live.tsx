@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { startLiveService, stopLiveService } from "../lib/native";
 import { MixRecorder, uploadAudio } from "../lib/recorder";
 import { useLocation, useNavigate } from "react-router-dom";
-import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack, type ICameraVideoTrack, type IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack, type ICameraVideoTrack, type IRemoteVideoTrack, type IBufferSourceAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -33,6 +33,11 @@ export default function Live() {
   const [remoteVideo, setRemoteVideo] = useState<Record<string, IRemoteVideoTrack>>({});
   const [camOn, setCamOn] = useState(false);
   const [newKind, setNewKind] = useState<"audio" | "video">("audio");
+  const [musicName, setMusicName] = useState("");
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [musicVol, setMusicVol] = useState(35);
+  const [musicLoop, setMusicLoop] = useState(true);
+  const [musicBusy, setMusicBusy] = useState(false);
   const [requests, setRequests] = useState<Req[]>([]);
   const [chat, setChat] = useState<Line[]>([]);
   const [text, setText] = useState("");
@@ -52,6 +57,7 @@ export default function Live() {
   const client = useRef<IAgoraRTCClient | null>(null);
   const mic = useRef<IMicrophoneAudioTrack | null>(null);
   const cam = useRef<ICameraVideoTrack | null>(null);
+  const music = useRef<IBufferSourceAudioTrack | null>(null);
   const room = useRef<RealtimeChannel | null>(null);
   const joining = useRef(false);
   const speakerRef = useRef(false);
@@ -260,6 +266,7 @@ export default function Live() {
     if (!reconnecting.current) stopLiveService();
     mic.current?.close(); mic.current = null;
     cam.current?.close(); cam.current = null; setCamOn(false); setRemoteVideo({});
+    if (music.current) { music.current.stopProcessAudioBuffer(); music.current.close(); music.current = null; setMusicName(""); setMusicPlaying(false); }
     await client.current?.leave().catch(() => {}); client.current = null;
     speakerRef.current = false;
     setJoined(false); setSpeaker(false); setTalking(new Set());
@@ -308,6 +315,40 @@ export default function Live() {
     };
   }, [joined, live?.id]);
 
+  // ---------- background music: the host plays an audio file into the room ----------
+  async function startMusic(file?: File) {
+    const c = client.current;
+    if (!file || !c) return;
+    setMusicBusy(true);
+    try {
+      await stopMusic();
+      const t = await AgoraRTC.createBufferSourceAudioTrack({ source: file });
+      t.setVolume(musicVol);
+      t.startProcessAudioBuffer({ loop: musicLoop });
+      t.play();                       // the host hears it too
+      await c.publish(t);
+      music.current = t;
+      recRef.current?.add("music", t.getMediaStreamTrack());
+      t.on("source-state-change", (st) => { if (st === "stopped") setMusicPlaying(false); });
+      setMusicName(file.name.replace(/\.[^.]+$/, "")); setMusicPlaying(true);
+    } catch { setError("Could not play that file. Try an MP3 or M4A audio file."); }
+    finally { setMusicBusy(false); }
+  }
+  function pauseMusic() {
+    const t = music.current; if (!t) return;
+    if (musicPlaying) t.pauseProcessAudioBuffer(); else if (t.currentState === "stopped") t.startProcessAudioBuffer({ loop: musicLoop }); else t.resumeProcessAudioBuffer();
+    setMusicPlaying(!musicPlaying);
+  }
+  async function stopMusic() {
+    const t = music.current; if (!t) return;
+    music.current = null;
+    recRef.current?.remove("music");
+    await client.current?.unpublish(t).catch(() => {});
+    t.stopProcessAudioBuffer(); t.close();
+    setMusicName(""); setMusicPlaying(false);
+  }
+  function setVolume(v: number) { setMusicVol(v); music.current?.setVolume(v); }
+
   async function toggleCam() {
     const c = client.current;
     if (!c) return;
@@ -355,6 +396,7 @@ export default function Live() {
     if (typeof MediaRecorder === "undefined") { setError("This browser can't record. Try Chrome, or update your phone."); return; }
     const r = new MixRecorder();
     r.add("me", mic.current.getMediaStreamTrack());
+    if (music.current) r.add("music", music.current.getMediaStreamTrack());
     for (const u of client.current.remoteUsers) {
       if (u.audioTrack && !silenced.current.has(Number(u.uid))) r.add(String(u.uid), u.audioTrack.getMediaStreamTrack());
     }
@@ -559,6 +601,24 @@ export default function Live() {
               : <button className="btn ghost" onClick={startRecording} disabled={savingRec}>{savingRec ? "Saving recording…" : "● Record"}</button>)}
             <button className="btn ghost" onClick={toggleLock}>{live.chat_locked ? "Unlock chat" : "Lock chat"}</button>
             <button className="btn ghost" style={{ color: "var(--live)" }} onClick={endSession}>End session</button>
+          </div>
+        </div>
+      )}
+
+      {isStaff && joined && speaker && (
+        <div className="card musiccard">
+          <div className="row" style={{ justifyContent: "space-between" }}><h3>🎵 Background music</h3>{musicName && <span className={`pill ${musicPlaying ? "live" : ""}`}>{musicPlaying ? "Playing" : "Paused"}</span>}</div>
+          <p className="muted">Play a song, jingle or intro from your phone into the room. Everyone hears it with your voice. Headphones stop it echoing into your microphone.</p>
+          {musicName ? <>
+            <div className="row" style={{ gap: 10 }}><b className="grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{musicName}</b>
+              <button className="btn ghost" onClick={pauseMusic} aria-label={musicPlaying ? "Pause music" : "Play music"}>{musicPlaying ? "Pause" : "Play"}</button>
+              <button className="btn ghost" onClick={stopMusic}>Stop</button></div>
+            <label className="field">Volume {musicVol}%<input type="range" min={0} max={100} value={musicVol} onChange={(e) => setVolume(Number(e.target.value))} /></label>
+          </> : null}
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <label className="btn primary filebtn">{musicBusy ? "Loading…" : musicName ? "Choose another song" : "Choose a song"}
+              <input type="file" accept="audio/*" onChange={(e) => { startMusic(e.target.files?.[0]); e.target.value = ""; }} hidden /></label>
+            <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={musicLoop} onChange={(e) => setMusicLoop(e.target.checked)} style={{ width: 18, height: 18 }} /> Repeat</label>
           </div>
         </div>
       )}

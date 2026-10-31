@@ -11,6 +11,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        importScripts: ["push-sw.js"],          // phone notifications (public/push-sw.js)
+        navigateFallbackDenylist: [/^\/bcil-live\.apk$/, /^\/privacy/],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       manifest: {
         name: "BCIL Live",
         short_name: "BCIL Live",

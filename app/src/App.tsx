@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom"
 import Privacy from "./pages/Privacy";
 import { useAuth } from "./lib/auth";
 import { isNative } from "./lib/native";
+import Icon from "./components/Icon";
 import TopBar from "./components/TopBar";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
@@ -25,6 +26,8 @@ const NAV = ([
   ["/chat", "Chat"], ["/groups", "Groups & Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
 ] as const).filter(([to]) => GIVING_ENABLED || to !== "/give");
 
+const ICONS: Record<string, string> = { "/": "home", "/live": "live", "/library": "library", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
+
 export default function App() {
   const { session, loading, isStaff } = useAuth();
   const { pathname } = useLocation();
@@ -38,8 +41,8 @@ export default function App() {
       <aside className="side">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <nav className="menu">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
-          {isStaff && <NavLink to="/admin">Admin</NavLink>}
+          {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
+          {isStaff && <NavLink to="/admin"><Icon name="shield" size={20} />Admin</NavLink>}
         </nav>
       </aside>
       <div className="app">
@@ -65,8 +68,8 @@ export default function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
               <section className="view"><h1>More</h1>
-                <div className="list">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
-                  {isStaff && <NavLink to="/admin">Admin</NavLink>}</div>
+                <div className="list morelist">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
+                  {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}</div>
                 {!isNative && <a className="btn primary" href={`${import.meta.env.BASE_URL}bcil-live.apk`} download>Get the Android app</a>}
                 <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
@@ -75,9 +78,8 @@ export default function App() {
         </main>
       </div>
       <nav className="tabbar">
-        {([["/", "Home"], ["/live", "Live"], ["/chat", "Chat"], ["/groups", "Groups"]] as const).map(([to, label]) =>
-          <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
-        <NavLink to="/more">More</NavLink>
+        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/chat", "Chat", "chat"], ["/groups", "Groups", "users"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
+          <NavLink key={to} to={to} end={to === "/"}><Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
       </nav>
     </div>
   );
