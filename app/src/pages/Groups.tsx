@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import Avatar from "../components/Avatar";
@@ -23,7 +23,7 @@ const inviteLink = (code: string) => `${location.origin}${import.meta.env.BASE_U
 function Cover({ g, big }: { g: Group; big?: boolean }) {
   return g.cover_url
     ? <img className={big ? "gcover big" : "gcover"} src={g.cover_url} alt="" />
-    : <span className={`${big ? "gcover big" : "gcover"} cat-${g.category}`} aria-hidden="true">{g.name.replace(/^BCIL\s+/i, "").slice(0, 2).toUpperCase()}</span>;
+    : <span className={`${big ? "gcover big" : "gcover"} cat-${g.category}`} aria-hidden="true">{initials(g.name.replace(/^BCIL\s+/i, "").replace(/\b(UCC|KNUST|UG|UEW|\d+)\b/g, ""))}</span>;
 }
 
 // ---------- the list of groups ----------

@@ -1,0 +1,53 @@
+name: Build Android app
+
+# Builds the BCIL Live Android app and publishes it as a download:
+# https://github.com/bcilfoundation/bcil-live/releases/latest/download/bcil-live.apk
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app/android/**", "app/capacitor.config.ts", "app/package.json", ".github/workflows/android.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: app/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build APK (signed with the BCIL key when the repository secrets are set)
+        working-directory: app/android
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > $RUNNER_TEMP/bcil-live.jks
+            export ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/bcil-live.jks
+            ./gradlew assembleRelease bundleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk $GITHUB_WORKSPACE/bcil-live.apk
+            cp app/build/outputs/bundle/release/app-release.aab $GITHUB_WORKSPACE/bcil-live.aab
+          else
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk $GITHUB_WORKSPACE/bcil-live.apk
+          fi
+      - name: Publish download
+        working-directory: .
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest bcil-live.apk $(ls bcil-live.aab 2>/dev/null) \
+            --title "BCIL Live for Android (build ${{ github.run_number }})" \
+            --notes "Download bcil-live.apk on an Android phone and open it to install." --latest

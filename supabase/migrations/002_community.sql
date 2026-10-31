@@ -302,3 +302,9 @@ do $$ begin
 end $$;
 
 select 'Community update installed' as result;
+
+-- Seed: Campus Sync UCC chapter; FCB cohort categorised
+update rooms set category='cohort' where name='FCB 2027 Cohort';
+insert into rooms (name, kind, category, school, description)
+select 'Campus Sync UCC', 'group', 'campus', 'University of Cape Coast', 'The BCIL Foundation club at the University of Cape Coast. Meetings, outreach, leadership summits and campus activities.'
+where not exists (select 1 from rooms where name='Campus Sync UCC');

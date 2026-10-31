@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth";
+import { isNative } from "./lib/native";
 import TopBar from "./components/TopBar";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
@@ -62,6 +63,7 @@ export default function App() {
               <section className="view"><h1>More</h1>
                 <div className="list">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}
                   {isStaff && <NavLink to="/admin">Admin</NavLink>}</div>
+                {!isNative && <a className="btn primary" href="https://github.com/bcilfoundation/bcil-live/releases/latest/download/bcil-live.apk">Get the Android app</a>}
                 <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

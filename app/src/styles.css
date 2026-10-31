@@ -168,7 +168,8 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
   .pop{position:fixed;top:64px;right:12px;left:12px;width:auto}}
 
 /* ---------- shared bits ---------- */
-.seg{display:flex;gap:6px;background:var(--panel-2);padding:4px;border-radius:999px;overflow-x:auto}
+.seg{display:flex;gap:4px;background:var(--panel-2);padding:4px;border-radius:999px;overflow-x:auto}
+@media (max-width:480px){.seg>*{flex:1;padding-left:8px!important;padding-right:8px!important;font-size:.88rem;white-space:nowrap}}
 .seg button{flex:1;border:0;background:none;border-radius:999px;padding:9px 14px;font-weight:700;color:var(--muted);white-space:nowrap;cursor:pointer}
 .seg button[aria-selected="true"]{background:var(--panel);color:var(--navy);box-shadow:0 1px 3px rgba(10,25,50,.12)}
 .btn.sm{padding:7px 14px;font-size:.88rem}.small{font-size:.86rem}.pad{padding:12px 14px}.wrap{flex-wrap:wrap}

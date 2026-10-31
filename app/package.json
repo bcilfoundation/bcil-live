@@ -9,6 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capawesome-team/capacitor-android-foreground-service": "^8.1.0",
     "@supabase/supabase-js": "^2.45.0",
     "agora-rtc-sdk-ng": "^4.22.0",
     "react": "^18.3.1",
@@ -16,6 +20,7 @@
     "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

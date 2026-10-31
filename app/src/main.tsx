@@ -9,7 +9,9 @@ applyTheme();
 import { registerSW } from "virtual:pwa-register";
 
 // Always pick up the newest version: check on load and every 10 minutes, reload when an update is ready
-const updateSW = registerSW({
+import { isNative } from "./lib/native";
+
+const updateSW = isNative ? () => Promise.resolve() : registerSW({
   immediate: true,
   onNeedRefresh() { updateSW(true); },
   onRegisteredSW(_url, reg) { if (reg) setInterval(() => reg.update(), 10 * 60 * 1000); },

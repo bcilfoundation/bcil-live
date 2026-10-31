@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import Avatar from "../components/Avatar";
 import Icon from "../components/Icon";
@@ -155,7 +155,7 @@ export default function Chat() {
 }
 
 function ChanIcon({ c }: { c: Conv }) {
-  return c.cover ? <img className="gcover sm" src={c.cover} alt="" /> : <span className={`gcover sm cat-${c.kind === "announcements" ? "program" : "general"}`} aria-hidden="true">{c.name.replace(/^BCIL\s+/i, "").slice(0, 2).toUpperCase()}</span>;
+  return c.cover ? <img className="gcover sm" src={c.cover} alt="" /> : <span className={`gcover sm cat-${c.kind === "announcements" ? "program" : "general"}`} aria-hidden="true">{initials(c.name.replace(/^BCIL\s+/i, "").replace(/\b(UCC|KNUST|UG|UEW|\d+)\b/g, ""))}</span>;
 }
 
 function ChanList({ title, items, roomId, unread, onPick, empty }: { title: string; items: Conv[]; roomId: string | null; unread: Record<string, number>; onPick: (id: string) => void; empty?: React.ReactNode }) {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { startLiveService, stopLiveService } from "../lib/native";
 import { useLocation, useNavigate } from "react-router-dom";
 import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -46,6 +47,8 @@ export default function Live() {
   const room = useRef<RealtimeChannel | null>(null);
   const joining = useRef(false);
   const speakerRef = useRef(false);
+  const stayIn = useRef(false);          // true while the person wants to be in the room (drives auto-reconnect)
+  const reconnecting = useRef(false);
   const chatEnd = useRef<HTMLDivElement>(null);
 
   // ---------- sessions ----------
@@ -188,6 +191,8 @@ export default function Live() {
       }
       if (data?.error) throw new Error(data.error);
       const c = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+      // if the connection drops (phone slept, network switched), get back in automatically
+      c.on("connection-state-change", (cur) => { if (cur === "DISCONNECTED" && stayIn.current) reconnectRef.current(); });
       client.current = c;
       c.on("user-published", async (user, type) => {
         await c.subscribe(user, type);
@@ -206,6 +211,9 @@ export default function Live() {
         await c.publish(mic.current);
       }
       speakerRef.current = !!data.speaker;
+      stayIn.current = true;
+      startLiveService(sess.title, !!data.speaker);
+      mic.current?.on("track-ended", () => { if (stayIn.current) reconnectRef.current(); });
       setSpeaker(!!data.speaker); setMuted(false); setJoined(true);
     } catch (e) {
       setError(explain(e));
@@ -217,11 +225,57 @@ export default function Live() {
     }
   }
   async function leave() {
+    stayIn.current = false;
+    if (!reconnecting.current) stopLiveService();
     mic.current?.close(); mic.current = null;
     await client.current?.leave().catch(() => {}); client.current = null;
     speakerRef.current = false;
     setJoined(false); setSpeaker(false); setTalking(new Set());
   }
+  // Reconnect after the phone sleeps or the app is switched away (browsers pause the microphone then)
+  async function reconnect() {
+    if (reconnecting.current || !live) return;
+    reconnecting.current = true;
+    try {
+      setNotice("Reconnecting…");
+      await leave();
+      await join(live);
+      setNotice("You're back in the room.");
+    } finally { reconnecting.current = false; }
+  }
+  const reconnectRef = useRef(reconnect);
+  reconnectRef.current = reconnect;
+
+  useEffect(() => {
+    if (!joined) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    const wake = async () => {
+      try { lock = await (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen") ?? null; } catch { /* not supported */ }
+    };
+    wake(); // keep the screen on while in a live session, so the phone does not sleep and cut the audio
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      wake();
+      const c = client.current;
+      const micDead = mic.current && mic.current.getMediaStreamTrack().readyState === "ended";
+      if (stayIn.current && (!c || c.connectionState !== "CONNECTED" || micDead)) reconnectRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    // lock-screen card ("BCIL Live") so the phone treats this like a podcast that is playing
+    if ("mediaSession" in navigator && live) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: live.title, artist: "BCIL Live",
+        artwork: [{ src: `${import.meta.env.BASE_URL}icon-512.png`, sizes: "512x512", type: "image/png" }] });
+    }
+    // warn the host before closing the page by accident
+    const onUnload = (e: BeforeUnloadEvent) => { if (speakerRef.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("beforeunload", onUnload);
+      lock?.release().catch(() => {});
+    };
+  }, [joined, live?.id]);
+
   async function toggleMute() {
     if (!mic.current) return;
     if (muted && mine?.muted_by_host) { setNotice("The host has muted you. Wait for the host to unmute you."); return; }
