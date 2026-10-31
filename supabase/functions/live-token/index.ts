@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Please sign in" }, 401);
 
-    const { data: session } = await supabase.from("live_sessions").select("id, channel, status").eq("id", session_id).single();
+    const { data: session } = await supabase.from("live_sessions").select("id, channel, status, kind").eq("id", session_id).single();
     if (!session || session.status !== "live") return json({ error: "This session is not live" }, 400);
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
     const { data: onAir } = await supabase.from("call_requests").select("id")
       .eq("session_id", session_id).eq("user_id", user.id).eq("status", "on_air").maybeSingle();
     const speaker = isHost || !!onAir;
+    // video sessions work like Zoom: anyone in the room may turn on their camera (their mic stays off unless they call in)
+    const canVideo = speaker || session.kind === "video";
 
     // Check the Agora settings (values are never returned, only what is wrong with them)
     const appId = (Deno.env.get("AGORA_APP_ID") ?? "").trim();
@@ -58,10 +60,10 @@ Deno.serve(async (req) => {
     const expires = 2 * 60 * 60;
     const token = RtcTokenBuilder.buildTokenWithUid(
       appId, cert,
-      session.channel, uid, speaker ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER, expires, expires,
+      session.channel, uid, canVideo ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER, expires, expires,
     );
     if (!token) return json({ error: "Setup problem: Agora could not create a pass with these settings. Check that the certificate belongs to the bcil-live project." }, 500);
-    return json({ token, uid, channel: session.channel, appId, speaker });
+    return json({ token, uid, channel: session.channel, appId, speaker, canVideo });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

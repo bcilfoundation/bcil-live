@@ -88,6 +88,12 @@ export default function Live() {
   // ---------- the live room ----------
   const onStage = requests.filter((r) => r.status === "on_air");
   const waiting = requests.filter((r) => r.status === "waiting");
+  // listeners who switched their camera on (video sessions work like Zoom)
+  const stageUids = new Set([live?.host_id, ...onStage.map((r) => r.user_id)].filter(Boolean).map((id) => String(agoraUid(id as string))));
+  const guestCams = Object.entries(L.remoteVideo).filter(([uid]) => !stageUids.has(uid))
+    .map(([uid, track]) => ({ uid, track, name: people.find((p) => String(agoraUid(p.id)) === uid)?.name ?? "Guest" }));
+  const meGuestCam = !speaker && L.camOn;
+  const tiles = 1 + onStage.length + guestCams.length + (meGuestCam ? 1 : 0);
   const listeners = people.filter((p) => !onStage.some((r) => r.user_id === p.id) && p.role !== "host");
   const isTalking = (userId: string) => talking.has(agoraUid(userId));
   const amHost = live.host_id === me;
@@ -131,7 +137,7 @@ export default function Live() {
 
       {/* stage: host + call-in spots */}
       {live.kind === "video" ? (
-        <div className={`vgrid n${Math.min(onStage.length + 1, 4)}`}>
+        <div className={`vgrid n${Math.min(tiles, 4)}${tiles > 4 ? " many" : ""}`}>
           <VideoTile name={amHost ? "You" : L.hostName} label="Host" talking={live.host_id ? isTalking(live.host_id) : false}
             track={amHost ? (L.camOn ? L.cam.current : null) : (live.host_id ? L.remoteVideo[String(agoraUid(live.host_id))] ?? null : null)} mirror={amHost} />
           {onStage.map((r) => (
@@ -140,6 +146,8 @@ export default function Live() {
               {isStaff && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
             </VideoTile>
           ))}
+          {meGuestCam && <VideoTile name="You" label="Camera on" talking={false} track={L.cam.current} mirror />}
+          {guestCams.map((g) => <VideoTile key={g.uid} name={g.name} label="Guest" talking={false} track={g.track} />)}
         </div>
       ) : (
         <div className="slots">
@@ -178,7 +186,7 @@ export default function Live() {
         <button onClick={() => { setAsQuestion(true); document.getElementById("room-input")?.focus(); }}><span>✋</span>Raise hand</button>
         <button onClick={() => setSheet("people")}><span>👥</span>People <em>{Math.max(people.length, joined ? 1 : 0)}</em></button>
         <button onClick={() => setSheet("gifts")} disabled={!joined}><span>🎁</span>Gifts</button>
-        {speaker && live.kind === "video" && <button onClick={L.toggleCam}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
+        {joined && live.kind === "video" && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
       </div>
 
       {pinned && (
@@ -274,7 +282,7 @@ function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: 
         {L.speaker && (L.recording
           ? <button onClick={L.saveRecording} disabled={L.savingRec}>■<span>Stop &amp; save recording</span></button>
           : <button onClick={L.startRecording} disabled={L.savingRec}>⏺<span>{L.savingRec ? "Saving…" : "Record"}</span></button>)}
-        {L.speaker && live.kind === "video" && <button onClick={L.flipCam}>🔄<span>Switch camera</span></button>}
+        {L.camOn && live.kind === "video" && <button onClick={L.flipCam}>🔄<span>Switch camera</span></button>}
         <button className="danger" onClick={L.endSession}>⏹<span>End session</span></button>
       </div>
       {L.speaker && (

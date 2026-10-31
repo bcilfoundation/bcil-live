@@ -45,6 +45,7 @@ function useLiveEngine() {
   const [talking, setTalking] = useState<Set<number>>(new Set());
   const [remoteVideo, setRemoteVideo] = useState<Record<string, IRemoteVideoTrack>>({});
   const [camOn, setCamOn] = useState(false);
+  const [canVideo, setCanVideo] = useState(false);   // video sessions: anyone may turn on their camera
   const [musicName, setMusicName] = useState("");
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [musicVol, setMusicVol] = useState(35);
@@ -250,6 +251,7 @@ function useLiveEngine() {
         if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack().clone()); }
       }
       speakerRef.current = !!data.speaker;
+      setCanVideo(!!(data.canVideo ?? data.speaker));
       stayIn.current = true;
       startLiveService(sess.title, !!data.speaker);
       setSpeaker(!!data.speaker); setMuted(false); setJoined(true); setJoinedId(sess.id);
@@ -366,9 +368,26 @@ function useLiveEngine() {
   async function toggleCam() {
     const c = client.current;
     if (!c) return;
+    const guest = !speakerRef.current;   // in the audience, not on the mic
     if (!cam.current) {
-      try { cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" }); await c.publish(cam.current); setCamOn(true); }
-      catch { setError("Could not turn on the camera. Allow camera access for this site."); }
+      if (guest && !canVideo) { setError("Please leave and join the room again to turn on your camera."); return; }
+      try {
+        // listeners become video senders only (their microphone stays off unless the host brings them on air)
+        if (guest) await c.setClientRole("host");
+        cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: guest ? "360p_1" : "480p_1", facingMode: "user" });
+        await c.publish(cam.current); setCamOn(true);
+      } catch (e) {
+        cam.current?.close(); cam.current = null;
+        if (guest) await c.setClientRole("audience", { level: 1 }).catch(() => {});
+        setError(/NotAllowed|Permission|denied/i.test(String(e)) ? "Allow camera access for this app, then try again." : "Could not turn on the camera.");
+      }
+      return;
+    }
+    if (guest && camOn) {
+      // a listener switching off: stop sending video completely
+      const t = cam.current; cam.current = null; setCamOn(false);
+      await c.unpublish(t).catch(() => {}); t.close();
+      await c.setClientRole("audience", { level: 1 }).catch(() => {});
       return;
     }
     await cam.current.setEnabled(!camOn); setCamOn(!camOn);
@@ -540,7 +559,7 @@ function useLiveEngine() {
     me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn,
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
-    join, leaveRoom, tapToHear, toggleMute, toggleCam, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
+    join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind,
   };
