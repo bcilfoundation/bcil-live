@@ -10,6 +10,8 @@ import { registerSW } from "virtual:pwa-register";
 
 // Always pick up the newest version: check on load and every 10 minutes, reload when an update is ready
 import { isNative } from "./lib/native";
+import { listenForAppSignIn } from "./lib/google";
+listenForAppSignIn();
 
 const updateSW = isNative ? () => Promise.resolve() : registerSW({
   immediate: true,

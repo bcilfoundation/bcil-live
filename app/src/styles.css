@@ -443,3 +443,7 @@ main.inroom{display:flex;flex-direction:column}
 .rr-back{position:fixed;inset:0;z-index:150;background:rgba(10,20,40,.5);display:grid;place-items:end center}
 .rr-sheet{width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--panel);border-radius:20px 20px 0 0;padding:20px 18px max(20px,env(safe-area-inset-bottom))}
 @media (min-width:761px){.rr-back{place-items:center}.rr-sheet{border-radius:20px}}
+
+/* Continue with Google */
+.btn.google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--panel);color:var(--text);border:1px solid var(--line);font-weight:600;margin-top:4px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.82rem;margin:12px 0 4px}.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
