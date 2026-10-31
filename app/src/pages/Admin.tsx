@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import AddAudioTalk from "../components/AddAudioTalk";
 
 const TABS = ["Quotes", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
@@ -102,10 +103,10 @@ function youtubeId(link: string) {
   return m ? m[1] : /^[\w-]{11}$/.test(link.trim()) ? link.trim() : null;
 }
 function TalksAdmin() {
-  const [rows, setRows] = useState<{ id: string; title: string; program: string; youtube_id: string | null }[]>([]);
+  const [rows, setRows] = useState<{ id: string; title: string; program: string; youtube_id: string | null; kind: string }[]>([]);
   const [f, setF] = useState({ link: "", title: "", program: PROGRAMS[0], published_on: "" });
   const [msg, setMsg] = useState("");
-  const load = () => supabase.from("talks").select("id, title, program, youtube_id").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
+  const load = () => supabase.from("talks").select("id, title, program, youtube_id, kind").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
   useEffect(() => { load(); }, []);
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -127,8 +128,9 @@ function TalksAdmin() {
       <p className="muted">{msg}</p>
       <button className="btn primary">Add talk</button>
     </form>
-    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{r.program}</small></div>
-      <button className="linkbtn" onClick={async () => { await supabase.from("talks").delete().eq("id", r.id); load(); }}>Remove</button></div>)}</div>
+    <AddAudioTalk onSaved={load} />
+    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{r.kind === "audio" ? "🎧 Audio" : "▶ YouTube"} · {r.program}</small></div>
+      <button className="linkbtn" onClick={async () => { if (window.confirm(`Remove “${r.title}” from the Library?`)) { await supabase.from("talks").delete().eq("id", r.id); load(); } }}>Remove</button></div>)}</div>
   </>);
 }
 

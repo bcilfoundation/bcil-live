@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { useSearchParams } from "react-router-dom";
+import AddAudioTalk from "../components/AddAudioTalk";
+import { clock } from "../lib/recorder";
 
-type Talk = { id: string; youtube_id: string | null; title: string; program: string; published_on: string | null };
+type Talk = { id: string; youtube_id: string | null; title: string; program: string; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null };
 type Comment = { id: number; user_id: string; body: string; created_at: string; profiles?: { full_name: string } | null };
 
 export default function Library() {
-  const { session } = useAuth();
+  const { session, isStaff } = useAuth();
   const me = session!.user.id;
+  const [params, setParams] = useSearchParams();
+  const [adding, setAdding] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const [talks, setTalks] = useState<Talk[]>([]);
   const [filter, setFilter] = useState("All");
   const [q, setQ] = useState("");
@@ -18,13 +24,25 @@ export default function Library() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
 
-  useEffect(() => {
-    supabase.from("talks").select("id, youtube_id, title, program, published_on").order("published_on", { ascending: false })
-      .then(({ data }) => setTalks((data ?? []) as Talk[]));
-  }, []);
+  const loadTalks = () => supabase.from("talks").select("id, youtube_id, title, program, published_on, kind, audio_url, description, duration_seconds, live_session_id")
+    .order("published_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false })
+    .then(({ data }) => {
+      const list = (data ?? []) as Talk[];
+      setTalks(list);
+      // open a talk directly from a shared link (?talk=...)
+      const id = params.get("talk");
+      const t = id && list.find((x) => x.id === id);
+      if (t) loadTalk(t);
+    });
+  useEffect(() => { loadTalks(); }, []);
 
   async function loadTalk(t: Talk) {
-    setOpen(t);
+    setOpen(t); setSpeed(1);
+    if (params.get("talk") !== t.id) setParams({ talk: t.id }, { replace: true });
+    if (t.kind === "audio" && "mediaSession" in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "BCIL Foundation", album: t.program,
+        artwork: [{ src: `${import.meta.env.BASE_URL}icon-512.png`, sizes: "512x512", type: "image/png" }] });
+    }
     const [{ count }, { data: mine }, { data: sv }, { data: cs }] = await Promise.all([
       supabase.from("talk_likes").select("*", { count: "exact", head: true }).eq("talk_id", t.id),
       supabase.from("talk_likes").select("talk_id").eq("talk_id", t.id).eq("user_id", me).maybeSingle(),
@@ -46,8 +64,8 @@ export default function Library() {
     setSaved(!saved);
   }
   async function share() {
-    if (!open?.youtube_id) return;
-    const url = `https://youtu.be/${open.youtube_id}`;
+    if (!open) return;
+    const url = open.youtube_id ? `https://youtu.be/${open.youtube_id}` : `${location.origin}${import.meta.env.BASE_URL}library?talk=${open.id}`;
     if (navigator.share) await navigator.share({ title: open.title, url }).catch(() => {});
     else { await navigator.clipboard.writeText(url); alert("Link copied"); }
   }
@@ -66,13 +84,24 @@ export default function Library() {
 
   if (open) return (
     <section className="view">
-      <button className="linkbtn" onClick={() => setOpen(null)}>← Library</button>
+      <button className="linkbtn" onClick={() => { setOpen(null); setParams({}, { replace: true }); }}>← Library</button>
       {open.youtube_id && (
         <div className="video"><iframe src={`https://www.youtube-nocookie.com/embed/${open.youtube_id}?rel=0`} title={open.title}
           allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div>
       )}
+      {open.kind === "audio" && open.audio_url && (
+        <div className="audiocard">
+          <div className="audioart"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><span>{open.live_session_id ? "Live session recording" : "Audio talk"}</span></div>
+          <audio controls preload="metadata" src={open.audio_url} style={{ width: "100%" }}
+            ref={(el) => { if (el) el.playbackRate = speed; }} />
+          <div className="row" style={{ gap: 6 }}><small className="muted">Speed</small>
+            {[1, 1.25, 1.5, 2].map((v) => <button key={v} className="chip" aria-pressed={speed === v} onClick={() => setSpeed(v)}>{v}×</button>)}
+          </div>
+        </div>
+      )}
       <h1>{open.title}</h1>
-      <p className="muted">{open.program}{open.published_on ? ` · ${new Date(open.published_on).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
+      {open.description && <p>{open.description}</p>}
+      <p className="muted">{open.program}{open.duration_seconds ? ` · ${clock(open.duration_seconds)}` : ""}{open.published_on ? ` · ${new Date(open.published_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
       <div className="row" style={{ flexWrap: "wrap" }}>
         <button className="btn ghost" onClick={toggleLike} aria-pressed={liked}>{liked ? "♥" : "♡"} {likes}</button>
         <button className="btn ghost" onClick={toggleSave}>{saved ? "Saved" : "Save for later"}</button>
@@ -93,18 +122,21 @@ export default function Library() {
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <h1>Library</h1>
+        {isStaff && <button className="btn primary" onClick={() => setAdding((a) => !a)}>{adding ? "Close" : "🎙 Record or upload audio"}</button>}
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search talks" aria-label="Search talks" style={{ maxWidth: 260 }} />
       </div>
+      {adding && <AddAudioTalk onSaved={() => { setAdding(false); loadTalks(); }} />}
       <div className="chips">{programs.map((p) => <button key={p} className="chip" aria-pressed={p === filter} onClick={() => setFilter(p)}>{p}</button>)}</div>
       <div className="grid3">
         {shown.map((t) => (
           <button key={t.id} className="tile" onClick={() => loadTalk(t)}>
-            {t.youtube_id ? <img src={`https://i.ytimg.com/vi/${t.youtube_id}/hqdefault.jpg`} alt="" loading="lazy" /> : <div className="art">{t.title}</div>}
+            {t.youtube_id ? <img src={`https://i.ytimg.com/vi/${t.youtube_id}/hqdefault.jpg`} alt="" loading="lazy" />
+              : <div className="art audio"><span className="badge">{t.live_session_id ? "● Live recording" : "🎧 Audio"}</span><span className="t">{t.title}</span>{t.duration_seconds ? <span className="dur">{clock(t.duration_seconds)}</span> : null}</div>}
             <b>{t.title}</b><small className="muted">{t.program}</small>
           </button>
         ))}
       </div>
-      {!shown.length && <div className="empty"><b>No talks yet</b>Admins add talks from the Admin page using a YouTube link.</div>}
+      {!shown.length && <div className="empty"><b>No talks yet</b>Hosts can add YouTube talks from Admin, or record and upload audio here.</div>}
     </section>
   );
 }

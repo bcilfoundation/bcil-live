@@ -260,3 +260,16 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .choice.on{border-color:var(--navy);background:var(--navy-soft)}
 [data-theme="dark"] .choice.on{background:#1b2c47}
 .qsection{background:var(--navy);color:#fff;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}.qsection h3{font-size:1.1rem}.qsection .muted{color:#dbe5f4}
+/* audio talks and recording */
+.tile .art.audio{position:relative;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.tile .art.audio .badge{position:absolute;top:8px;left:8px;font:700 .7rem var(--body);background:rgba(255,255,255,.16);padding:3px 8px;border-radius:999px}
+.tile .art.audio .t{font:800 .95rem/1.25 var(--display);padding:0 8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tile .art.audio .dur{position:absolute;bottom:8px;right:8px;font:700 .72rem var(--body);background:rgba(0,0,0,.35);padding:2px 7px;border-radius:6px}
+.audiocard{background:linear-gradient(180deg,var(--navy-soft),var(--panel));border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.audioart{display:flex;align-items:center;gap:12px;font-weight:700;color:var(--navy)}.audioart img{width:56px;height:56px;border-radius:12px;background:#fff}
+.recbox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px;border:1.5px dashed var(--line);border-radius:16px}
+.recdot{width:18px;height:18px;border-radius:50%;background:var(--line)}.recdot.on{background:var(--live);animation:recpulse 1.2s infinite}
+.rectime{font:800 2.2rem var(--display);font-variant-numeric:tabular-nums}
+@keyframes recpulse{0%,100%{opacity:1}50%{opacity:.3}}
+.pill.rec{background:var(--live);color:#fff;animation:recpulse 1.6s infinite}
+.pod-recopt{display:flex;align-items:center;gap:10px;font-size:.92rem;color:#dbe5f4;cursor:pointer}.pod-recopt input{width:18px;height:18px;accent-color:#e0342c;margin:0}

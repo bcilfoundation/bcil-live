@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { startLiveService, stopLiveService } from "../lib/native";
+import { MixRecorder, uploadAudio } from "../lib/recorder";
 import { useLocation, useNavigate } from "react-router-dom";
 import AgoraRTC, { type IAgoraRTCClient, type IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 
-type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null };
+type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean };
 type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 type Line = { id: number; user_id: string; body: string; profiles?: { full_name: string } | null };
 type Person = { id: string; name: string; role: "host" | "listener" };
@@ -39,6 +40,9 @@ export default function Live() {
   const [notice, setNotice] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newTopic, setNewTopic] = useState("");
+  const [recordNew, setRecordNew] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const [savingRec, setSavingRec] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const autostart = useRef(Boolean((location.state as { autostart?: boolean } | null)?.autostart));
@@ -50,6 +54,8 @@ export default function Live() {
   const stayIn = useRef(false);          // true while the person wants to be in the room (drives auto-reconnect)
   const reconnecting = useRef(false);
   const chatEnd = useRef<HTMLDivElement>(null);
+  const recRef = useRef<MixRecorder | null>(null);      // host-side recording of the whole room
+  const liveRef = useRef<Session | null>(null);
 
   // ---------- sessions ----------
   useEffect(() => {
@@ -61,11 +67,13 @@ export default function Live() {
     const ch = supabase.channel("live-sessions")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (p) => {
         const s = p.new as Session;
-        if (s.status === "live") setLive(s);
+        if (s.status === "live") setLive((cur) => (cur && cur.id === s.id ? { ...cur, ...s } : s));
         else if (s.status === "ended") { setLive((cur) => (cur?.id === s.id ? null : cur)); leave(); }
       }).subscribe();
     return () => { supabase.removeChannel(ch); leave(); };
   }, []);
+
+  useEffect(() => { liveRef.current = live; }, [live]);
 
   useEffect(() => {
     if (!live?.host_id) return;
@@ -156,7 +164,8 @@ export default function Live() {
     silenced.current = new Set(requests.filter((r) => r.muted_by_host || r.status !== "on_air").map((r) => agoraUid(r.user_id)));
     for (const u of client.current?.remoteUsers ?? []) {
       if (!u.audioTrack) continue;
-      if (silenced.current.has(Number(u.uid))) u.audioTrack.stop(); else if (!u.audioTrack.isPlaying) u.audioTrack.play();
+      if (silenced.current.has(Number(u.uid))) { u.audioTrack.stop(); recRef.current?.remove(String(u.uid)); }
+      else { if (!u.audioTrack.isPlaying) u.audioTrack.play(); recRef.current?.add(String(u.uid), u.audioTrack.getMediaStreamTrack()); }
     }
   }, [silencedKey, joined]);
 
@@ -196,8 +205,12 @@ export default function Live() {
       client.current = c;
       c.on("user-published", async (user, type) => {
         await c.subscribe(user, type);
-        if (type === "audio" && !silenced.current.has(Number(user.uid))) user.audioTrack?.play();
+        if (type === "audio" && !silenced.current.has(Number(user.uid))) {
+          user.audioTrack?.play();
+          recRef.current?.add(String(user.uid), user.audioTrack?.getMediaStreamTrack());
+        }
       });
+      c.on("user-unpublished", (user, type) => { if (type === "audio") recRef.current?.remove(String(user.uid)); });
       c.enableAudioVolumeIndicator();
       c.on("volume-indicator", (vols) => {
         const set = new Set<number>();
@@ -209,6 +222,8 @@ export default function Live() {
       if (data.speaker) {
         mic.current = await AgoraRTC.createMicrophoneAudioTrack();
         await c.publish(mic.current);
+        // after a reconnect, keep recording with the new microphone
+        if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack()); }
       }
       speakerRef.current = !!data.speaker;
       stayIn.current = true;
@@ -299,10 +314,56 @@ export default function Live() {
   const muteAll = () => run("Muting all callers", supabase.from("call_requests").update({ muted_by_host: true }).eq("session_id", live!.id).eq("status", "on_air"));
   const toggleLock = () => run("Locking chat", supabase.from("live_sessions").update({ chat_locked: !live!.chat_locked }).eq("id", live!.id))
     .then((ok) => ok && setLive((s) => (s ? { ...s, chat_locked: !s.chat_locked } : s)));
+  // ---------- recording (on the host's device; saved to the Library when it stops) ----------
+  async function startRecording() {
+    if (!mic.current || !client.current || recRef.current) return;
+    if (typeof MediaRecorder === "undefined") { setError("This browser can't record. Try Chrome, or update your phone."); return; }
+    const r = new MixRecorder();
+    r.add("me", mic.current.getMediaStreamTrack());
+    for (const u of client.current.remoteUsers) {
+      if (u.audioTrack && !silenced.current.has(Number(u.uid))) r.add(String(u.uid), u.audioTrack.getMediaStreamTrack());
+    }
+    r.start();
+    recRef.current = r; setRecording(true);
+    if (liveRef.current) await supabase.from("live_sessions").update({ recording: true }).eq("id", liveRef.current.id);
+    setNotice("Recording. Everyone sees a ● REC badge. It will be saved to the Library when you stop or end the session.");
+  }
+  async function saveRecording() {
+    const r = recRef.current, sess = liveRef.current;
+    if (!r) return;
+    recRef.current = null; setRecording(false); setSavingRec(true);
+    setNotice("Saving the recording to the Library… keep this page open.");
+    try {
+      const seconds = Math.round((Date.now() - r.startedAt) / 1000);
+      const blob = await r.stop();
+      if (seconds < 5 || blob.size < 2000) { setNotice("The recording was too short to save."); return; }
+      const url = await uploadAudio(me, blob, sess?.title ?? "live-session");
+      await supabase.from("talks").insert({
+        kind: "audio", audio_url: url, title: sess?.title ?? "BCIL Live session", program: "Live sessions",
+        description: sess?.topic ?? null, published_on: new Date().toISOString().slice(0, 10), duration_seconds: seconds,
+        live_session_id: sess?.id ?? null, created_by: me,
+      });
+      if (sess) await supabase.from("live_sessions").update({ recording: false, recording_url: url }).eq("id", sess.id);
+      setNotice("Recording saved. It's in the Library under “Live sessions”.");
+    } catch (e) {
+      setError("The recording could not be saved: " + ((e as Error).message ?? "unknown error"));
+    } finally { setSavingRec(false); }
+  }
+  // if the host leaves the Live page while recording, save what was recorded
+  useEffect(() => () => { if (recRef.current) saveRecording(); }, []);
+
   const endSession = async () => {
     if (!window.confirm("End this live session for everyone?")) return;
-    if (await run("Ending the session", supabase.from("live_sessions").update({ status: "ended" }).eq("id", live!.id))) { await leave(); setLive(null); }
+    if (recRef.current) await saveRecording();
+    if (await run("Ending the session", supabase.from("live_sessions").update({ status: "ended", recording: false }).eq("id", live!.id))) { await leave(); setLive(null); }
   };
+  async function leaveRoom() {
+    if (recRef.current) {
+      if (!window.confirm("You are recording. Stop the recording and save it to the Library, then leave?")) return;
+      await saveRecording();
+    }
+    await leave();
+  }
   async function sendChat(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
@@ -325,7 +386,9 @@ export default function Live() {
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return; }
     setLive(data as Session); setNewTitle(""); setNewTopic("");
+    liveRef.current = data as Session;
     await join(data as Session);
+    if (recordNew) await startRecording();
   }
   async function startScheduled(s: Session) {
     const { data, error } = await supabase.from("live_sessions")
@@ -347,6 +410,7 @@ export default function Live() {
           <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title, e.g. Mentorship hour: planning your semester" aria-label="Session title" />
           <input value={newTopic} onChange={(e) => setNewTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
+          <label className="pod-recopt"><input type="checkbox" checked={recordNew} onChange={(e) => setRecordNew(e.target.checked)} /> Record this session and save it to the Library</label>
           <button className="btn pod-golive-btn" disabled={busy}>{busy ? "Starting…" : "● Go live now"}</button>
         </form>
       ) : (
@@ -381,7 +445,7 @@ export default function Live() {
         <img className="pod-art" src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
         <div className="grow">
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <span className="pill live">● LIVE</span><span className="pod-meta">{elapsed}</span>
+            <span className="pill live">● LIVE</span>{(recording || live.recording) && <span className="pill rec" title="This session is being recorded">● REC</span>}<span className="pod-meta">{elapsed}</span>
             <span className="pod-meta">🎧 {Math.max(people.length, joined ? 1 : 0)} listening</span>
           </div>
           <h1 className="pod-title">{live.title}</h1>
@@ -432,6 +496,9 @@ export default function Live() {
           </div>
           <div className="row" style={{ flexWrap: "wrap" }}>
             {onStage.length > 0 && <button className="btn ghost" onClick={muteAll}>🔇 Mute all callers</button>}
+            {speaker && (recording
+              ? <button className="btn ghost" onClick={saveRecording} disabled={savingRec}>■ Stop &amp; save recording</button>
+              : <button className="btn ghost" onClick={startRecording} disabled={savingRec}>{savingRec ? "Saving recording…" : "● Record"}</button>)}
             <button className="btn ghost" onClick={toggleLock}>{live.chat_locked ? "Unlock chat" : "Lock chat"}</button>
             <button className="btn ghost" style={{ color: "var(--live)" }} onClick={endSession}>End session</button>
           </div>
@@ -469,7 +536,7 @@ export default function Live() {
           )}
           {mine?.status === "on_air" && <button className="btn primary" onClick={() => setStatus(mine.id, "done")}>End call</button>}
           <button className="btn ghost" onClick={share} aria-label="Share">Share</button>
-          <button className="btn ghost" onClick={leave}>Leave</button>
+          <button className="btn ghost" onClick={leaveRoom}>Leave</button>
         </>}
       </div>
     </section>
