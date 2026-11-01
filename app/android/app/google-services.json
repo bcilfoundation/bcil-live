@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "659157781812",
+    "project_id": "eloquent-marker-513423-j4",
+    "storage_bucket": "eloquent-marker-513423-j4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659157781812:android:c1425e4e1f1c4db44e2961",
+        "android_client_info": {
+          "package_name": "org.bcilfoundation.live"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "659157781812-rjmo5dlq3e4einc90fpaeihjpcar6ks9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUTDyVaDbuN5liRyvKE5IDR2TXRPcH6rE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "659157781812-rjmo5dlq3e4einc90fpaeihjpcar6ks9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
