@@ -9,7 +9,7 @@ import { useAuth } from "./auth";
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
 export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
-export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; profiles?: { full_name: string } | null };
+export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number };
 export type Float = { id: number; emoji: string; left: number };
 export type Gift = { emoji: string; name: string };
@@ -123,7 +123,7 @@ function useLiveEngine() {
       .eq("session_id", live.id).in("status", ["waiting", "on_air"]).order("created_at")
       .then(({ data }) => setRequests((data ?? []) as unknown as Req[]));
     loadReqs();
-    supabase.from("live_chat").select("id, user_id, body, kind, created_at, profiles(full_name)").eq("session_id", live.id)
+    supabase.from("live_chat").select("*, profiles(full_name)").eq("session_id", live.id)
       .order("created_at").limit(100).then(({ data }) => setChat((data ?? []) as unknown as Line[]));
     const ch = supabase.channel(`live-db:${live.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "call_requests", filter: `session_id=eq.${live.id}` }, () => loadReqs())
@@ -556,11 +556,11 @@ function useLiveEngine() {
     if (await run("Taking over", supabase.from("live_sessions").update({ host_id: me }).eq("id", live.id)))
       setLive((s) => (s ? { ...s, host_id: me } : s));
   }
-  async function sendChat(text: string, kind: "chat" | "question" = "chat") {
+  async function sendChat(text: string, kind: "chat" | "question" = "chat", replyTo?: number | null) {
     const body = text.trim();
     if (!body || !live) return false;
     return run(live.chat_locked && !isStaff ? "Chat is locked by the host. Message" : "Sending",
-      supabase.from("live_chat").insert({ session_id: live.id, user_id: me, body, kind }));
+      supabase.from("live_chat").insert({ session_id: live.id, user_id: me, body, kind, ...(replyTo ? { reply_to: replyTo } : {}) }));
   }
   async function sendGift(gift: Gift) {
     if (!live) return;

@@ -7,6 +7,7 @@ import { uploadPhoto } from "../lib/media";
 import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
 import { PAID_GIFTS, PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
+import PersonSheet from "../components/PersonSheet";
 
 // Room backgrounds the host can pick (or upload a photo)
 export const BACKGROUNDS: { id: string; label: string; css: string }[] = [
@@ -41,6 +42,10 @@ export default function Live() {
   const [asQuestion, setAsQuestion] = useState(false);
   const [sheet, setSheet] = useState<"" | "people" | "gifts" | "host" | "bg" | "cambg">("");
   const [filter, setFilter] = useState<"all" | "questions">("all");
+  const [replyTo, setReplyTo] = useState<Line | null>(null);
+  const [person, setPerson] = useState<string | null>(null);
+  const [entering, setEntering] = useState(false);
+  useEffect(() => { if (!joined) setEntering(false); }, [joined, live?.id]);
   const chatEnd = useRef<HTMLDivElement>(null);
 
   // Arriving from Admin "Go live": start hosting straight away
@@ -97,8 +102,30 @@ export default function Live() {
     </section>
   );
 
-  // ---------- the live room ----------
+  // ---------- something is live, but you haven't joined: a simple card, the room opens when you join ----------
   const amHost = live.host_id === me;
+  if (!joined && !amHost && !entering) return (
+    <section className="view">
+      <h1>Live</h1>
+      <div className="livecard" style={{ background: bgCss(live.background) }}>
+        <div className="row"><span className="pill live">● LIVE</span><span className="lc-kind">{live.kind === "video" ? "🎥 Video" : "🎙 Audio"} · {L.elapsed}</span></div>
+        <b className="lc-title">{live.title}</b>
+        <small>{live.topic ? `${live.topic} · ` : ""}Hosted by {L.hostName}{people.length ? ` · ${people.length} in the room` : ""}</small>
+        <button className="btn lc-join" disabled={busy} onClick={() => { if (live.kind === "video") setEntering(true); else { setEntering(true); L.join(); } }}>
+          {busy ? "Connecting…" : live.kind === "video" ? "Join the session" : "🎧 Join and listen"}</button>
+      </div>
+      {error && <p className="err" role="alert">{error}</p>}
+      {L.upcoming.length > 0 && <>
+        <h2>Coming up</h2>
+        <div className="list">{L.upcoming.map((s) => (
+          <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
+            {!isStaff && <button className="btn primary" onClick={() => L.remind(s)}>Remind me</button>}</div>
+        ))}</div>
+      </>}
+    </section>
+  );
+
+  // ---------- the live room ----------
   const onStage = requests.filter((r) => r.status === "on_air");
   const waiting = requests.filter((r) => r.status === "waiting");
   // listeners who switched their camera on (video sessions work like Zoom)
@@ -120,7 +147,8 @@ export default function Live() {
     e.preventDefault();
     if (!text.trim()) return;
     const t = text; setText("");
-    await L.sendChat(t, asQuestion ? "question" : "chat");
+    const r = replyTo; setReplyTo(null);
+    await L.sendChat(t, asQuestion ? "question" : "chat", r?.id);
     setAsQuestion(false);
   }
 
@@ -223,7 +251,9 @@ export default function Live() {
             <button className={filter === "questions" ? "on" : ""} onClick={() => setFilter("questions")}>❓ Questions {questions ? `(${questions})` : ""}</button>
           </div>
         )}
-        {shown.map((c) => <ChatLine key={c.id} c={c} me={me} canPin={amHost} pinned={c.id === live.pinned_chat_id} onPin={() => L.pinComment(c.id)} />)}
+        {shown.map((c) => <ChatLine key={c.id} c={c} me={me} canPin={amHost} pinned={c.id === live.pinned_chat_id} onPin={() => L.pinComment(c.id)}
+          quoted={c.reply_to ? chat.find((x) => x.id === c.reply_to) ?? null : null}
+          onReply={() => { setReplyTo(c); document.getElementById("room-input")?.focus(); }} onPerson={() => setPerson(c.user_id)} />)}
         {!shown.length && <p className="room-empty">{filter === "questions" ? "No questions yet." : "Say hello 👋"}</p>}
         <div ref={chatEnd} />
       </div>
@@ -236,6 +266,8 @@ export default function Live() {
 
       <form className="room-compose" onSubmit={send}>
         <div className="room-reacts">{REACTIONS.map((r) => <button type="button" key={r} onClick={() => L.react(r)} disabled={!joined} aria-label={`React ${r}`}>{r}{r === "❤️" && L.likes > 0 ? <small>{L.likes}</small> : null}</button>)}</div>
+        {replyTo && <div className="room-replybar"><span className="grow">↩ Replying to <b>{replyTo.user_id === me ? "yourself" : replyTo.profiles?.full_name ?? "Member"}</b>: {replyTo.body}</span>
+          <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply">✕</button></div>}
         <div className="room-inputrow">
           <button type="button" className={`qtoggle${asQuestion ? " on" : ""}`} onClick={() => setAsQuestion((q) => !q)} aria-pressed={asQuestion} title="Send as a question for the host">❓</button>
           <input id="room-input" value={text} onChange={(e) => setText(e.target.value)} disabled={live.chat_locked && !isStaff}
@@ -251,7 +283,7 @@ export default function Live() {
         <div className="sheet"><h3>In the room · {Math.max(people.length, 1)}</h3>
           {hands.length > 0 && <p className="muted small">✋ {hands.length} raised hand{hands.length > 1 ? "s" : ""}, in the order they were raised</p>}
           <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0) || ((a.hand || 9e15) - (b.hand || 9e15))).map((p) => (
-            <div key={p.id} className="row"><div className="ava sm">{initials(p.name)}</div><span className="grow">{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}</span>{p.role === "host" && <span className="tag">HOST</span>}
+            <div key={p.id} className="row"><button className="plainbtn row" style={{ gap: 10, flex: 1, minWidth: 0 }} onClick={() => setPerson(p.id)}><div className="ava sm">{initials(p.name)}</div><span className="grow" style={{ textAlign: "left" }}>{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}</span></button>{p.role === "host" && <span className="tag">HOST</span>}
               {amHost && !!p.hand && p.id !== me && <button className="chip" onClick={() => L.lowerHand(p.id)}>Lower</button>}
               {amHost && p.id !== me && p.staff && <button className="chip" onClick={() => { setSheet(""); L.makeHost(p.id); }}>Make host</button>}</div>
           ))}{!listeners.length && people.length <= 1 && <p className="muted">Share the link so others can join.</p>}</div>
@@ -266,16 +298,24 @@ export default function Live() {
       )}
       {sheet === "bg" && <BackgroundPicker close={() => setSheet("")} />}
       {sheet === "cambg" && <CamBgPicker close={() => setSheet("")} />}
+      {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
     </section>
   );
 }
 
-function ChatLine({ c, me, canPin, pinned, onPin }: { c: Line; me: string; canPin: boolean; pinned: boolean; onPin: () => void }) {
+function ChatLine({ c, me, canPin, pinned, onPin, quoted, onReply, onPerson }: { c: Line; me: string; canPin: boolean; pinned: boolean; onPin: () => void; quoted: Line | null; onReply: () => void; onPerson: () => void }) {
   const name = c.user_id === me ? "You" : c.profiles?.full_name ?? "Member";
+  const sx = useRef<{ x: number; y: number } | null>(null);
   return (
-    <div className={`cline ${c.kind ?? "chat"}`}>
-      <div className="ava sm">{initials(name === "You" ? "Me" : name)}</div>
-      <div className="grow"><b>{name}</b> {c.kind === "question" && <span className="qbadge">❓ Question</span>} <span>{c.body}</span></div>
+    <div className={`cline ${c.kind ?? "chat"}`}
+      onTouchStart={(e) => { sx.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+      onTouchEnd={(e) => { const s0 = sx.current; sx.current = null; if (s0 && c.kind !== "gift" && e.changedTouches[0].clientX - s0.x > 60 && Math.abs(e.changedTouches[0].clientY - s0.y) < 40) onReply(); }}>
+      <button className="plainbtn" onClick={onPerson} aria-label={`See ${name}'s profile`}><div className="ava sm">{initials(name === "You" ? "Me" : name)}</div></button>
+      <div className="grow">
+        {c.reply_to && <div className="cquote">↩ <b>{quoted ? (quoted.user_id === me ? "You" : quoted.profiles?.full_name ?? "Member") : "Reply"}</b> {quoted ? quoted.body : "earlier comment"}</div>}
+        <button className="plainbtn cname" onClick={onPerson}>{name}</button> {c.kind === "question" && <span className="qbadge">❓ Question</span>} <span>{c.body}</span>
+        {c.kind !== "gift" && <button className="creply" onClick={onReply} aria-label={`Reply to ${name}`}>Reply</button>}
+      </div>
       {canPin && c.kind !== "gift" && <button className="pinbtn" onClick={onPin} aria-label="Pin">{pinned ? "📌" : "Pin"}</button>}
     </div>
   );

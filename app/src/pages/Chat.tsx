@@ -6,9 +6,10 @@ import { useAuth } from "../lib/auth";
 import Avatar from "../components/Avatar";
 import Icon from "../components/Icon";
 import type { Group } from "./Groups";
+import PersonSheet from "../components/PersonSheet";
 
 type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string };
-type Msg = { id: number; user_id: string; body: string; created_at: string; profiles?: { full_name: string; avatar_url: string | null } | null };
+type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
 export default function Chat() {
   const { session, profile, isStaff } = useAuth();
@@ -22,6 +23,10 @@ export default function Chat() {
   const [online, setOnline] = useState(0);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
+  const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  const [person, setPerson] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const end = useRef<HTMLDivElement>(null);
 
   async function loadConvs() {
@@ -57,8 +62,8 @@ export default function Chat() {
 
   useEffect(() => {
     if (!roomId) return;
-    setMsgs([]); setError("");
-    supabase.from("messages").select("id, user_id, body, created_at, profiles(full_name, avatar_url)")
+    setMsgs([]); setError(""); setReplyTo(null);
+    supabase.from("messages").select("*, profiles(full_name, avatar_url)")
       .eq("room_id", roomId).order("created_at", { ascending: false }).limit(200)
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
     markRead(roomId);
@@ -87,8 +92,9 @@ export default function Chat() {
     e.preventDefault();
     if (!room || !text.trim()) return;
     const body = text.trim(); setText("");
-    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body });
-    if (error) { setError("Message not sent. Check your connection and try again."); setText(body); }
+    const reply = replyTo; setReplyTo(null);
+    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body, ...(reply ? { reply_to: reply.id } : {}) });
+    if (error) { setError("Message not sent. Check your connection and try again."); setText(body); setReplyTo(reply); }
   }
   async function report(m: Msg) {
     await supabase.from("reports").insert({ reporter: me, target_type: "message", target_id: String(m.id) });
@@ -96,6 +102,9 @@ export default function Chat() {
   }
 
   const canPost = room && (!room.read_only || isStaff);
+  const startReply = (m: Msg) => { if (!canPost) return; setReplyTo(m); setTimeout(() => inputRef.current?.focus(), 0); };
+  const nameOf = (m: Msg) => (m.user_id === me ? "You" : m.profiles?.full_name || "Member");
+  const jumpTo = (id: number) => { const el = document.getElementById(`m${id}`); if (!el) return; el.scrollIntoView({ block: "center", behavior: "smooth" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); };
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 
   return (
@@ -115,7 +124,7 @@ export default function Chat() {
           {!room ? <div className="center muted">Pick a conversation.</div> : <>
             <div className="roomhead">
               <button className="iconbtn sm backonly" onClick={() => nav("/chat")} aria-label="Back to conversations"><Icon name="back" size={20} /></button>
-              {room.kind === "dm" ? <Avatar name={room.name} url={room.avatar} size={40} /> : <ChanIcon c={room} />}
+              {room.kind === "dm" ? <button className="plainbtn" onClick={() => room.otherId && setPerson(room.otherId)} aria-label={`See ${room.name}'s profile`}><Avatar name={room.name} url={room.avatar} size={40} /></button> : <ChanIcon c={room} />}
               <div className="grow"><b>{room.name}</b>
                 <small className="muted">{room.kind === "dm" ? "Direct message" : `${room.members ?? ""} members`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></div>
               {room.kind !== "dm" && <Link to={`/groups/${room.id}`} className="btn ghost sm">Group page</Link>}
@@ -126,15 +135,24 @@ export default function Chat() {
                 const mine = m.user_id === me;
                 const newDay = i === 0 || day(msgs[i - 1].created_at) !== day(m.created_at);
                 const sameAuthor = !newDay && i > 0 && msgs[i - 1].user_id === m.user_id;
+                const quoted = m.reply_to ? msgs.find((x) => x.id === m.reply_to) : null;
                 return (
                   <div key={m.id} className="msgblock">
                     {newDay && <div className="sysmsg">{day(m.created_at)}</div>}
-                    <div className={`msg${mine ? " mine" : ""}${sameAuthor ? " cont" : ""}`}>
-                      {!mine && <span className="msgav">{!sameAuthor && <Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={32} />}</span>}
+                    <div id={`m${m.id}`} className={`msg${mine ? " mine" : ""}${sameAuthor && !m.reply_to ? " cont" : ""}`}
+                      onTouchStart={(e) => { swipe.current = { id: m.id, x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+                      onTouchEnd={(e) => { const s0 = swipe.current; swipe.current = null; if (!s0 || s0.id !== m.id) return;
+                        const dx = e.changedTouches[0].clientX - s0.x, dy = Math.abs(e.changedTouches[0].clientY - s0.y);
+                        if (dx > 60 && dy < 40) startReply(m); }}
+                      onDoubleClick={() => startReply(m)}>
+                      {!mine && <span className="msgav">{!sameAuthor && <button className="plainbtn" onClick={() => setPerson(m.user_id)} aria-label={`See ${nameOf(m)}'s profile`}><Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={32} /></button>}</span>}
                       <div className="bub">
-                        {!mine && !sameAuthor && room.kind !== "dm" && <b>{m.profiles?.full_name || "Member"}</b>}
+                        {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}</button>}
+                        {m.reply_to && <button className="quote-in" onClick={() => m.reply_to && jumpTo(m.reply_to)}>
+                          <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
                         <p className="prewrap">{m.body}</p>
                         <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}</small>
+                        {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
                         {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
                       </div>
                     </div>
@@ -143,13 +161,18 @@ export default function Chat() {
               })}
               <div ref={end} />
             </div>
+            {replyTo && (
+              <div className="replybar"><div className="grow"><b>Replying to {nameOf(replyTo)}</b><span>{replyTo.body}</span></div>
+                <button className="linkbtn" onClick={() => setReplyTo(null)} aria-label="Cancel reply">✕</button></div>
+            )}
             <form className="composer" onSubmit={send}>
-              <input value={text} onChange={(e) => setText(e.target.value)} disabled={!canPost}
+              <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} disabled={!canPost}
                 placeholder={canPost ? "Write a message" : "Only admins can post here"} aria-label="Message" />
               <button className="btn primary" disabled={!canPost || !text.trim()}>Send</button>
             </form>
             {error && <p className="err pad" role="alert">{error}</p>}
           </>}
+          {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
         </div>
       </div>
     </section>
