@@ -14,7 +14,7 @@ import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Forms from "./pages/Forms";
-import Give from "./pages/Give";
+import Give, { MOMO } from "./pages/Give";
 import Library from "./pages/Library";
 import Quotes from "./pages/Quotes";
 import Friends from "./pages/Friends";
@@ -41,7 +41,7 @@ export default function App() {
   const go = useNavigate();
   // Android app: notifications (asks once), and taps on a notification open the right page
   useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
-  const nav = NAV.filter(([to]) => to !== "/give" || paymentsOn(isStaff));
+  const nav = NAV.filter(([to]) => to !== "/give" || paymentsOn(isStaff) || !!MOMO);
   const { pathname } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
