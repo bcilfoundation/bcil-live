@@ -24,17 +24,15 @@ export default function Home() {
 
   return (
     <section className="view home">
-      <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} · Welcome to BCIL Live</p>
+      <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
       <DobPrompt />
       {/* 1. the main thing: the flagship event */}
-      <div className="banner hero photo" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.55), rgba(10,25,60,.92)), url(${import.meta.env.BASE_URL}fcb/hero.jpg)` }}>
-        <span className="eyebrow">6th edition · Saturday 23 January 2027</span>
+      <div className="banner hero photo compact" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.55), rgba(10,25,60,.92)), url(${import.meta.env.BASE_URL}fcb/hero.jpg)` }}>
+        <span className="eyebrow">Sat 23 Jan 2027 · Auditorium 900, UCC</span>
         <h1>Finding Campus Balance 2027</h1>
-        <p>Digital safety, academic wellbeing, a campus life panel, and a CV and cover letter clinic.</p>
-        <p className="venue">📍 Auditorium 900, University of Cape Coast</p>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          <Link className="btn primary" to="/forms?form=fcb27-registration">Register for FCB 2027</Link>
-          <Link className="btn ghost light" to="/fcb">Programme &amp; ticket</Link>
+          <Link className="btn primary sm" to="/forms?form=fcb27-registration">Register</Link>
+          <Link className="btn ghost light sm" to="/fcb">Programme &amp; ticket</Link>
         </div>
       </div>
       <div className="fcb-strip" aria-label="Photos from FCB 2026">
@@ -53,7 +51,7 @@ export default function Home() {
         <Link to="/quotes" className="quote-mini">
           <span className="eyebrow">Today's quote · {quote.theme}</span>
           <p>“{quote.body}”</p>
-          <small>— {quote.author} · <span className="more">Read more →</span></small>
+          <small>— {quote.author}</small>
         </Link>
       )}
     </section>

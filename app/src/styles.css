@@ -517,3 +517,20 @@ main.inroom{display:flex;flex-direction:column}
 .leader .grow{min-width:0;display:flex;flex-direction:column}
 .leader .score{font-weight:800;font-size:1.15rem;color:var(--navy)}
 [data-theme="dark"] .leader .score{color:#cfe0fb}
+
+/* compact FCB card on Home */
+.banner.hero.compact{padding:16px 18px;gap:6px;min-height:0}
+.banner.hero.compact h1{font-size:clamp(1.25rem,4.6vw,1.6rem);line-height:1.15;margin:0}
+.banner.hero.compact .eyebrow{font-size:.7rem}
+.home .fcb-strip img{width:96px;height:118px}
+.quote-mini p{-webkit-line-clamp:3}
+/* phones: keep the header clear of the status bar (Android app and iPhone home-screen app) */
+:root{--sat:var(--safe-area-inset-top,env(safe-area-inset-top,0px));--sab:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))}
+.top{padding-top:calc(14px + var(--sat))}
+@media (max-width:760px){
+  .top{padding-top:calc(10px + var(--sat))}
+  .tabbar{padding-bottom:calc(6px + var(--sab))}
+  .view:not(.chatview){padding-bottom:calc(120px + var(--sab))}
+  .app:has(.miniplayer) .view:not(.chatview){padding-bottom:calc(190px + var(--sab))}
+}
+html,body{max-width:100%;overflow-x:hidden}
