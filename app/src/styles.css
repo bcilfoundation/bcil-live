@@ -555,3 +555,9 @@ html,body{max-width:100%;overflow-x:hidden}
 .getapp img{width:36px;height:36px;border-radius:9px}
 .getapp .grow{display:flex;flex-direction:column;min-width:0}.getapp b{font-size:.9rem}.getapp small{font-size:.76rem;color:var(--muted)}
 .getapp.signin{width:min(420px,100%);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+
+/* live bubble: small, draggable, out of the way */
+.mp-bubble{position:fixed;right:12px;bottom:calc(150px + var(--sab, 0px));z-index:46;width:56px;height:56px;border-radius:50%;border:2px solid #fff;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;box-shadow:0 8px 24px rgba(10,25,50,.35);display:grid;place-items:center;cursor:grab;touch-action:none;padding:0;user-select:none;-webkit-user-select:none}
+.mp-bubble .mp-dot{position:absolute;top:4px;right:4px;width:12px;height:12px;border:2px solid #fff}
+.mp-bubble .mp-ico{font-size:1.4rem;line-height:1}
+@media (min-width:761px){.mp-bubble{bottom:24px}}

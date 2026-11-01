@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Privacy from "./pages/Privacy";
 import Thanks from "./pages/Thanks";
@@ -10,7 +10,6 @@ import TopBar from "./components/TopBar";
 import UpdateBanner from "./components/UpdateBanner";
 import GetApp, { APK, isAndroid, isIOS } from "./components/GetApp";
 import { startNativePush } from "./lib/push";
-import { useEffect } from "react";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -114,23 +113,50 @@ export default function App() {
   );
 }
 
-// Small bar above the tabs while a live session is on, so people keep listening anywhere in the app
+// Small bar above the tabs while a live session is on, so people keep listening anywhere in the app.
+// It can shrink to a small round bubble that you drag out of the way (it shrinks by itself in chats).
+const CHAT_PATH = /^\/(chat|groups\/)/;
 function MiniPlayer() {
   const L = useLive();
   const { pathname } = useLocation();
   const nav = useNavigate();
+  const inChat = CHAT_PATH.test(pathname);
+  const [small, setSmall] = useState(() => { try { return localStorage.getItem("bcil.mp.small") === "1"; } catch { return false; } });
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(() => { try { return JSON.parse(localStorage.getItem("bcil.mp.pos") || "null"); } catch { return null; } });
+  const drag = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
+  useEffect(() => { try { localStorage.setItem("bcil.mp.small", small ? "1" : "0"); } catch { /* private mode */ } }, [small]);
   if (!L.live || pathname === "/live") return null;
   const amHost = L.live.host_id === L.me;
+  const status = L.joined ? (L.speaker ? (amHost ? "You're hosting" : "You're on stage") : L.needTap ? "Tap 🔊 to hear" : "Listening live") : "BCIL is live now";
+
+  if (small || inChat) {
+    const clamp = (x: number, y: number) => ({ x: Math.max(6, Math.min(window.innerWidth - 62, x)), y: Math.max(60, Math.min(window.innerHeight - 140, y)) });
+    const here = pos ? clamp(pos.x, pos.y) : null;
+    return (
+      <button className="mp-bubble" aria-label={`${L.live.title}, ${status}. Tap to open, drag to move.`}
+        style={here ? { left: here.x, top: here.y, right: "auto", bottom: "auto" } : undefined}
+        onPointerDown={(e) => { const r = e.currentTarget.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerMove={(e) => { const d = drag.current; if (!d) return; const n = clamp(e.clientX - d.dx, e.clientY - d.dy);
+          if (!d.moved && here && Math.abs(n.x - here.x) + Math.abs(n.y - here.y) < 6) return; d.moved = true; setPos(n); }}
+        onPointerUp={() => { const d = drag.current; drag.current = null;
+          if (d?.moved) { try { localStorage.setItem("bcil.mp.pos", JSON.stringify(pos)); } catch { /* ignore */ } return; }
+          if (inChat) nav("/live"); else setSmall(false); }}>
+        <span className="mp-dot" aria-hidden="true" />
+        <span className="mp-ico" aria-hidden="true">{L.joined && L.speaker ? (L.muted ? "🔇" : "🎙") : "🎧"}</span>
+      </button>
+    );
+  }
   return (
     <div className="miniplayer" role="region" aria-label="Live session">
       <button className="mp-main" onClick={() => nav("/live")}>
         <span className="mp-dot" aria-hidden="true" />
-        <span className="mp-text"><b>{L.live.title}</b><small>{L.joined ? (L.speaker ? (amHost ? "You're hosting" : "You're on stage") : L.needTap ? "Tap 🔊 to hear" : "Listening live") : "BCIL is live now"}</small></span>
+        <span className="mp-text"><b>{L.live.title}</b><small>{status}</small></span>
       </button>
       {L.joined && L.needTap && <button className="mp-btn" onClick={L.tapToHear} aria-label="Tap to hear">🔊</button>}
       {L.joined && L.speaker && <button className="mp-btn" onClick={L.toggleMute} aria-label={L.muted ? "Unmute" : "Mute"}>{L.muted ? "🔇" : "🎙"}</button>}
       {!L.joined && <button className="mp-btn join" onClick={() => (L.live?.kind === "video" ? nav("/live") : L.join())}>Join</button>}
       {L.joined && !amHost && <button className="mp-btn" onClick={L.leaveRoom} aria-label="Leave">✕</button>}
+      <button className="mp-btn" onClick={() => setSmall(true)} aria-label="Shrink to a small bubble">⌄</button>
     </div>
   );
 }
