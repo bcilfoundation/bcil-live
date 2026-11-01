@@ -8,6 +8,8 @@ import Icon from "./components/Icon";
 import { LiveProvider, useLive } from "./lib/LiveContext";
 import TopBar from "./components/TopBar";
 import UpdateBanner from "./components/UpdateBanner";
+import { startNativePush } from "./lib/push";
+import { useEffect } from "react";
 import SignIn from "./pages/SignIn";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -28,13 +30,16 @@ import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
   ["/", "Home"], ["/fcb", "FCB 2027"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
-  ["/chat", "Chat"], ["/groups", "Groups & Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
+  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
 ] as const);
 
-const ICONS: Record<string, string> = { "/fcb": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
+const ICONS: Record<string, string> = { "/fcb": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
+  const go = useNavigate();
+  // Android app: notifications (asks once), and taps on a notification open the right page
+  useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
   const nav = NAV.filter(([to]) => to !== "/give" || paymentsOn(isStaff));
   const { pathname } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
@@ -67,6 +72,7 @@ export default function App() {
             <Route path="/live" element={<Live />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/groups" element={<Groups />} />
+            <Route path="/campus" element={<Groups campus />} />
             <Route path="/groups/:id" element={<GroupPage />} />
             <Route path="/join/:code" element={<JoinWithLink />} />
             <Route path="/friends" element={<Friends />} />
@@ -94,7 +100,7 @@ export default function App() {
       <nav className="tabbar">
         {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/chat", "Chat", "chat"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}
-            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|friends|join)/.test(pathname)) || (to === "/library" && pathname === "/reading") ? "active" : "")}>
+            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|campus|friends|join)/.test(pathname)) || (to === "/library" && pathname === "/reading") ? "active" : "")}>
             <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
       </nav>
     </div>

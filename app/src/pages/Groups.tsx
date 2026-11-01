@@ -28,7 +28,7 @@ function Cover({ g, big }: { g: Group; big?: boolean }) {
 }
 
 // ---------- the list of groups ----------
-export default function Groups() {
+export default function Groups({ campus = false }: { campus?: boolean }) {
   const { session, isStaff } = useAuth();
   const nav = useNavigate();
   const [groups, setGroups] = useState<Group[] | null>(null);
@@ -52,16 +52,19 @@ export default function Groups() {
     <section className="view">
       <h1>Chat</h1>
       <ChatTabs />
-      <div className="row"><h2 className="grow">Groups &amp; Campus Sync</h2>
+      <div className="row"><h2 className="grow">{campus ? "Campus Sync" : "Groups"}</h2>
         {isStaff && <button className="btn primary" onClick={() => setCreating(!creating)}>{creating ? "Close" : "+ New group"}</button>}</div>
-      {creating && <CreateGroup onCreated={(id) => nav(`/groups/${id}`)} />}
+      {creating && <CreateGroup start={campus ? "campus" : "general"} onCreated={(id) => nav(`/groups/${id}`)} />}
       {error && <p className="err">{error}</p>}
-      {groups === null ? <p className="muted">Loading…</p> : SECTIONS.map(([cat, title, blurb]) => {
+      {groups !== null && !campus && !groups.some((g) => (g.category ?? "general") !== "campus") && (
+        <div className="empty"><b>No groups yet</b><span>{isStaff ? "Tap “+ New group” to create one." : "Groups you can join will appear here."}</span></div>
+      )}
+      {groups === null ? <p className="muted">Loading…</p> : SECTIONS.filter(([cat]) => (cat === "campus") === campus).map(([cat, title, blurb]) => {
         const list = groups.filter((g) => (g.category ?? "general") === cat);
         if (!list.length && cat !== "campus") return null;
         return (
           <div key={cat} className="gsection">
-            <h2>{title}</h2><p className="muted">{blurb}</p>
+            {!campus && <h2>{title}</h2>}<p className="muted">{blurb}</p>
             {list.length === 0 ? (
               <div className="empty"><b>No Campus Sync pages yet</b><span>{isStaff ? "Tap “+ New group” and choose Campus Sync to add one for each campus." : "Your campus page will appear here soon."}</span></div>
             ) : (
@@ -86,8 +89,8 @@ export default function Groups() {
   );
 }
 
-function CreateGroup({ onCreated }: { onCreated: (id: string) => void }) {
-  const [name, setName] = useState(""); const [category, setCategory] = useState("campus");
+function CreateGroup({ onCreated, start = "campus" }: { onCreated: (id: string) => void; start?: string }) {
+  const [name, setName] = useState(""); const [category, setCategory] = useState(start);
   const [school, setSchool] = useState(""); const [description, setDescription] = useState("");
   const [priv, setPriv] = useState(false); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   async function save(e: React.FormEvent) {

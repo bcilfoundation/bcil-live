@@ -1,8 +1,48 @@
 import { supabase } from "./supabase";
+import { isNative } from "./native";
 
-// Phone notifications (Web Push). Works in Chrome/Edge/Firefox and on iPhone once the app is on the home screen.
+// Phone notifications. Website / home-screen app: Web Push (Chrome, Edge, Firefox, iPhone home-screen app).
+// Android app: Firebase Cloud Messaging through @capacitor/push-notifications.
+// Switch on once the Android app is built with BCIL's Firebase config (google-services.json); calling Firebase without it crashes the app
+const FCM_READY = false;
+const nativeOn = isNative && FCM_READY;
 export const pushSupported = () =>
-  "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  nativeOn || (!isNative && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
+
+const FCM_KEY = "bcil.fcm.token";
+async function nativePush() { return (await import("@capacitor/push-notifications")).PushNotifications; }
+
+/** Android app: ask permission, register with Firebase and save this phone's token. */
+async function enableNative(userId: string): Promise<void> {
+  const P = await nativePush();
+  let perm = await P.checkPermissions();
+  if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") perm = await P.requestPermissions();
+  if (perm.receive !== "granted") throw new Error("Notifications are turned off for BCIL Live. Turn them on in your phone's Settings → Apps → BCIL Live → Notifications.");
+  await P.createChannel({ id: "bcil", name: "BCIL Live", description: "Live sessions, messages and updates", importance: 5, visibility: 1 }).catch(() => {});
+  const token = await new Promise<string>((ok, no) => {
+    const t = setTimeout(() => no(new Error("Could not connect to notifications. Check your internet and try again.")), 20000);
+    P.addListener("registration", (r) => { clearTimeout(t); ok(r.value); });
+    P.addListener("registrationError", (e) => { clearTimeout(t); no(new Error(e.error || "Notifications could not start on this phone.")); });
+    P.register();
+  });
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    { user_id: userId, endpoint: `fcm:${token}`, p256dh: "fcm", auth: "fcm", user_agent: "BCIL Live Android app" }, { onConflict: "endpoint" });
+  if (error) throw error;
+  try { localStorage.setItem(FCM_KEY, token); } catch { /* ignore */ }
+}
+
+/** Android app: open the right page when someone taps a notification, and keep the token fresh. Call once at start-up. */
+export async function startNativePush(userId: string, go: (url: string) => void) {
+  if (!nativeOn) return;
+  try {
+    const P = await nativePush();
+    P.addListener("pushNotificationActionPerformed", (a) => { const url = (a.notification.data as { url?: string })?.url; if (url) go(url); });
+    const perm = await P.checkPermissions();
+    // first time in the app: ask once; after that only when they switch it on in the menu
+    let asked = false; try { asked = !!localStorage.getItem("bcil.fcm.asked"); localStorage.setItem("bcil.fcm.asked", "1"); } catch { /* ignore */ }
+    if (perm.receive === "granted" || !asked) await enableNative(userId);
+  } catch (e) { console.warn("native push", e); }
+}
 
 // The server creates its notification keys on first use; the app only ever sees the public half
 async function publicKey(): Promise<string> {
@@ -22,12 +62,17 @@ function urlBase64ToUint8Array(base64: string) {
 }
 
 export async function pushEnabled(): Promise<boolean> {
+  if (nativeOn) {
+    try { const perm = await (await nativePush()).checkPermissions(); return perm.receive === "granted" && !!localStorage.getItem(FCM_KEY); } catch { return false; }
+  }
   if (!pushSupported() || Notification.permission !== "granted") return false;
   const reg = await navigator.serviceWorker.getRegistration();
   return !!(await reg?.pushManager.getSubscription());
 }
 
 export async function enablePush(userId: string): Promise<void> {
+  if (nativeOn) return enableNative(userId);
+  if (isNative) throw new Error("Phone notifications in the Android app are coming in the next app update.");
   if (!pushSupported()) throw new Error(/iPhone|iPad/.test(navigator.userAgent)
     ? "On iPhone, add BCIL Live to your home screen first (Share → Add to Home Screen), then open it from there and try again."
     : "This browser can't show notifications. Try Chrome.");
@@ -44,6 +89,12 @@ export async function enablePush(userId: string): Promise<void> {
 }
 
 export async function disablePush(): Promise<void> {
+  if (nativeOn) {
+    let token = ""; try { token = localStorage.getItem(FCM_KEY) || ""; localStorage.removeItem(FCM_KEY); } catch { /* ignore */ }
+    if (token) await supabase.from("push_subscriptions").delete().eq("endpoint", `fcm:${token}`);
+    await (await nativePush()).unregister().catch(() => {});
+    return;
+  }
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
   if (!sub) return;

@@ -108,7 +108,7 @@ export default function Chat() {
             <ChanList title="Groups" items={convs.filter((c) => c.kind !== "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })} />
             <ChanList title="Direct messages" items={convs.filter((c) => c.kind === "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })}
               empty={<p className="muted pad small">Add friends, then message them here. <Link to="/friends">Find people</Link></p>} />
-            <p className="pad small"><Link to="/groups">Browse all groups and Campus Sync →</Link></p>
+            <p className="pad small"><Link to="/groups">Browse groups</Link> · <Link to="/campus">Campus Sync</Link></p>
           </>}
         </div>
         <div className="room">

@@ -298,11 +298,14 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .kindpick button.on{background:#fff;color:var(--navy);border-color:#fff}.kindpick button.on small{color:var(--muted)}
 .menu a{display:flex;align-items:center;gap:10px}.morelist a{font-weight:600;font-size:1.02rem;gap:14px}.morelist a svg{color:var(--navy)}
 .filebtn{cursor:pointer}.musiccard input[type=range]{padding:0;border:0;accent-color:var(--navy)}
-.chattabs a{flex:1;text-align:center;border-radius:999px;padding:9px 10px;font-weight:700;color:var(--muted);white-space:nowrap}
+.chattabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--panel-2);padding:4px;border-radius:16px}
+.chattabs a{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;border-radius:12px;padding:7px 2px;font-weight:700;font-size:.78rem;line-height:1.15;color:var(--muted);min-width:0}
+.chattabs a span{font-size:1.15rem}
 .chattabs a.active{background:var(--panel);color:var(--navy);box-shadow:0 1px 3px rgba(10,25,50,.12)}
+[data-theme="dark"] .chattabs a.active{color:#cfe0fb}
 /* ===== live room (GTF-style) ===== */
 main.inroom{display:flex;flex-direction:column}
-.room{position:relative;flex:1;min-height:100%;color:#fff;display:flex;flex-direction:column;gap:10px;padding:12px 14px 12px;max-width:820px;width:100%;margin:0 auto}
+.liveroom{position:relative;flex:1;min-height:100%;color:#fff;display:flex;flex-direction:column;gap:10px;padding:12px 14px 12px;max-width:820px;width:100%;margin:0 auto}
 .room-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .room-title{display:flex;align-items:center;gap:8px;min-width:0;background:rgba(255,255,255,.1);border-radius:999px;padding:5px 12px 5px 6px}
 .room-title b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
@@ -360,8 +363,8 @@ main.inroom{display:flex;flex-direction:column}
 .qtoggle{border:1px solid rgba(255,255,255,.25);background:transparent;border-radius:50%;width:40px;height:40px;font-size:1rem;cursor:pointer}
 .qtoggle.on{background:#9ec5ff}
 .room-leave{align-self:flex-end;border:0;background:none;color:#ffc4c0;font-weight:700;font-size:.85rem;cursor:pointer}
-.room .vgrid{margin:0}
-.room .vnocam .ava{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);font-weight:800}
+.liveroom .vgrid{margin:0}
+.liveroom .vnocam .ava{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);font-weight:800}
 /* bottom sheets */
 .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--panel);color:var(--text);border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;max-width:620px;margin:0 auto;box-shadow:0 -10px 40px rgba(0,0,0,.3)}
@@ -391,11 +394,11 @@ main.inroom{display:flex;flex-direction:column}
 .mp-btn.join{background:#fff;color:var(--navy);font-weight:800}
 @media (max-width:760px){
   .miniplayer{left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom))}
-  .room{padding:10px 12px 8px}
+  .liveroom{padding:10px 12px 8px}
   .room-chat{max-height:none}
 
 }
-.room .pill{white-space:nowrap;display:inline-flex;align-items:center;gap:4px;line-height:1.2}
+.liveroom .pill{white-space:nowrap;display:inline-flex;align-items:center;gap:4px;line-height:1.2}
 .room-filter{position:static}
 @media (max-width:760px){ .app:has(main.inroom){padding-bottom:calc(70px + env(safe-area-inset-bottom))} }
 .room-compose{background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.45) 25%);margin:0 -14px;padding:8px 14px 4px}

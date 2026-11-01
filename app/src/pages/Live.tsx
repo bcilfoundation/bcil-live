@@ -125,7 +125,7 @@ export default function Live() {
   }
 
   return (
-    <section className="room" style={{ background: bgCss(live.background) }}>
+    <section className="liveroom" style={{ background: bgCss(live.background) }}>
       {/* top bar */}
       <div className="room-top">
         <div className="room-title">
