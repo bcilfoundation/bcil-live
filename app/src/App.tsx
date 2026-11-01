@@ -24,16 +24,17 @@ const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Reading = lazy(() => import("./pages/Reading"));
 const Event = lazy(() => import("./pages/Event"));
+const Events = lazy(() => import("./pages/Events"));
 const CheckIn = lazy(() => import("./pages/CheckIn"));
 
 import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
-  ["/", "Home"], ["/fcb", "FCB 2027"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
+  ["/", "Home"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
   ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
 ] as const);
 
-const ICONS: Record<string, string> = { "/fcb": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
+const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
@@ -80,7 +81,8 @@ export default function App() {
             <Route path="/give" element={<Give />} />
             <Route path="/library" element={<Library />} />
             <Route path="/reading" element={<Reading />} />
-            <Route path="/fcb" element={<Event />} />
+            <Route path="/fcb" element={<Navigate to="/events/fcb2027" replace />} />
+            <Route path="/events" element={<Events />} />
             <Route path="/events/:slug" element={<Event />} />
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/quotes" element={<Quotes />} />

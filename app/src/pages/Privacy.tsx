@@ -15,7 +15,6 @@ export default function Privacy() {
       <ul>
         <li><b>Account details:</b> your name, and the email address or phone number you sign in with.</li>
         <li><b>Profile:</b> the photo and short bio you choose to add.</li>
-        <li><b>Date of birth:</b> kept private (only you and BCIL admins can see it), used to apply our safety rules for members under 18.</li>
         <li><b>What you post:</b> chat and direct messages, live-room comments, group updates and photos, activity RSVPs, notes, comments on talks, friend connections, and form responses (for example, programme registrations).</li>
         <li><b>Live audio and video:</b> when you call in to a live session or turn on your camera in a video session, your voice or video is streamed to people in the room in real time. Live sessions are not recorded unless the host announces a recording at the start.</li>
         <li><b>Giving and fees:</b> if you give or pay a fee (for example, a certificate fee) through the app, the amount, purpose and payment status. Payment details (Mobile Money number or card) are handled by our payment provider, Paystack, not stored by us.</li>

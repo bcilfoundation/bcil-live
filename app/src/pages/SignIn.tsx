@@ -12,7 +12,6 @@ type Step = "signin" | "signup" | "confirm" | "forgot" | "reset" | "code" | "cod
 export default function SignIn() {
   const [step, setStep] = useState<Step>("signin");
   const [name, setName] = useState("");
-  const [dob, setDob] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -38,10 +37,9 @@ export default function SignIn() {
     if (name.trim().length < 2) throw new Error("Enter your full name.");
     if (!validEmail()) throw new Error("Enter a valid email address.");
     if (password.length < 8) throw new Error("Choose a password with at least 8 characters.");
-    if (!dob || dob >= new Date().toISOString().slice(0, 10) || dob < "1920-01-01") throw new Error("Enter your date of birth.");
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(), password,
-      options: { data: { full_name: name.trim(), birth_date: dob }, emailRedirectTo: window.location.origin + import.meta.env.BASE_URL },
+      options: { data: { full_name: name.trim() }, emailRedirectTo: window.location.origin + import.meta.env.BASE_URL },
     });
     if (error) throw error;
     if (data.user && data.user.identities?.length === 0) throw new Error("An account with this email already exists. Sign in instead, or reset your password.");
@@ -135,7 +133,6 @@ export default function SignIn() {
 
         {step === "signup" && <form className="stack" onSubmit={signUp}>
           <label className="field">Full name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
-          <label className="field">Date of birth<input type="date" value={dob} onChange={(e) => setDob(e.target.value)} autoComplete="bday" max={new Date().toISOString().slice(0, 10)} /><small className="muted">Kept private. It helps us keep younger members safe.</small></label>
           {emailField}{passwordField("Choose a password (at least 8 characters)", "new-password")}
           <button className="btn primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
         </form>}
