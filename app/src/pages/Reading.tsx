@@ -40,7 +40,9 @@ export default function Reading() {
     (cat === "All" || b.category === cat) &&
     (!q.trim() || `${b.title} ${b.author || ""}`.toLowerCase().includes(q.trim().toLowerCase()))), [books, cat, q]);
   const reading = books.filter((b) => progress[b.id]).sort((a, b) => progress[b.id].updated_at.localeCompare(progress[a.id].updated_at)).slice(0, 6);
-  const cats = ["All", ...CATEGORIES.filter((c) => books.some((b) => b.category === c))];
+  // shelves: the usual ones first, then any shelf the team made up, as long as it has books
+  const shelves = [...new Set([...CATEGORIES, ...books.map((b) => b.category).filter(Boolean)])];
+  const cats = ["All", ...shelves.filter((c) => books.some((b) => b.category === c))];
   const open = books.find((b) => b.id === openId);
 
   return (
@@ -69,8 +71,8 @@ export default function Reading() {
       </div>}
       {loaded && books.length > 0 && shown.length === 0 && <p className="muted">No books match.</p>}
 
-      {adding && <AddBook uid={uid} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
-      {open && <Reader book={open} uid={uid} start={progress[open.id]?.page || 1} isStaff={isStaff}
+      {adding && <AddBook uid={uid} shelves={shelves} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+      {open && <Reader book={open} uid={uid} start={progress[open.id]?.page || 1} isStaff={isStaff} shelves={shelves}
         onClose={() => { setParams({}); load(); }} onDeleted={() => { setParams({}); load(); }} />}
     </section>
   );
@@ -93,7 +95,7 @@ function Cover({ b, p, onOpen }: { b: Book; p?: Progress; onOpen: () => void }) 
   );
 }
 
-function Reader({ book, uid, start, isStaff, onClose, onDeleted }: { book: Book; uid: string; start: number; isStaff: boolean; onClose: () => void; onDeleted: () => void }) {
+function Reader({ book, uid, start, isStaff, shelves, onClose, onDeleted }: { book: Book; uid: string; start: number; isStaff: boolean; shelves: string[]; onClose: () => void; onDeleted: () => void }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(start);
   const [zoom, setZoom] = useState(1);
@@ -144,6 +146,11 @@ function Reader({ book, uid, start, isStaff, onClose, onDeleted }: { book: Book;
     await supabase.from("books").delete().eq("id", book.id);
     onDeleted();
   };
+  const moveShelf = async () => {
+    const v = window.prompt(`Move “${book.title}” to which shelf?\n\nShelves: ${shelves.join(", ")}\n\nType one of these or a new shelf name.`, book.category)?.trim().replace(/\s+/g, " ");
+    if (!v || v === book.category) return;
+    await supabase.from("books").update({ category: v.slice(0, 40) }).eq("id", book.id); onClose();
+  };
   const togglePublish = async () => { await supabase.from("books").update({ published: !book.published }).eq("id", book.id); onClose(); };
 
   return (
@@ -160,6 +167,7 @@ function Reader({ book, uid, start, isStaff, onClose, onDeleted }: { book: Book;
         <p className="muted">{book.category}{total ? ` · ${total} pages` : ""}</p>
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <a className="btn ghost" href={book.file_url} target="_blank" rel="noreferrer" download>Download PDF</a>
+          {isStaff && <button className="btn ghost" onClick={moveShelf}>Change shelf</button>}
           {isStaff && <button className="btn ghost" onClick={togglePublish}>{book.published ? "Hide from members" : "Publish"}</button>}
           {isStaff && <button className="btn ghost danger" onClick={remove}>Remove book</button>}
         </div>
@@ -179,7 +187,7 @@ function Reader({ book, uid, start, isStaff, onClose, onDeleted }: { book: Book;
   );
 }
 
-function AddBook({ uid, onClose, onDone }: { uid: string; onClose: () => void; onDone: () => void }) {
+function AddBook({ uid, shelves, onClose, onDone }: { uid: string; shelves: string[]; onClose: () => void; onDone: () => void }) {
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setErr("");
@@ -187,6 +195,8 @@ function AddBook({ uid, onClose, onDone }: { uid: string; onClose: () => void; o
     const pdf = f.get("pdf") as File; const cover = f.get("cover") as File;
     const title = String(f.get("title") || "").trim();
     if (!title) return setErr("Give the book a title.");
+    const shelf = String(f.get("category") || "").trim().replace(/\s+/g, " ");
+    if (!shelf) return setErr("Pick a shelf or type a new one.");
     if (!pdf || !pdf.size) return setErr("Choose the PDF file.");
     if (pdf.type && pdf.type !== "application/pdf") return setErr("The book must be a PDF file.");
     if (pdf.size > 50 * 1024 * 1024) return setErr("That PDF is bigger than 50 MB. Please compress it first (e.g. ilovepdf.com/compress_pdf).");
@@ -203,12 +213,15 @@ function AddBook({ uid, onClose, onDone }: { uid: string; onClose: () => void; o
       const cu = await supabase.storage.from("books").upload(`${stamp}-cover.jpg`, coverBlob, { contentType: "image/jpeg" });
       const cover_url = cu.error ? null : supabase.storage.from("books").getPublicUrl(`${stamp}-cover.jpg`).data.publicUrl;
       setBusy("Saving…");
-      const { error } = await supabase.from("books").insert({
-        title, author: String(f.get("author") || "").trim() || null, category: String(f.get("category")),
+      const published = f.get("published") === "on";
+      const { data: saved, error } = await supabase.from("books").insert({
+        title, author: String(f.get("author") || "").trim() || null, category: shelf,
         description: String(f.get("description") || "").trim() || null, file_url, cover_url, pages,
-        published: f.get("published") === "on", created_by: uid,
-      });
+        published, created_by: uid,
+      }).select("id").single();
       if (error) throw error;
+      if (published && f.get("notify") === "on")
+        await supabase.rpc("notify_everyone", { p_kind: "book", p_body: `📚 New in the Reading room: ${title}`, p_link: `/reading?book=${saved.id}` });
       onDone();
     } catch (x) { setErr((x as Error).message || "Upload failed. Try again."); setBusy(""); }
   };
@@ -218,11 +231,14 @@ function AddBook({ uid, onClose, onDone }: { uid: string; onClose: () => void; o
         <h2>Add a book</h2>
         <label className="field">Title<input name="title" required /></label>
         <label className="field">Author<input name="author" /></label>
-        <label className="field">Shelf<select name="category">{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></label>
+        <label className="field">Shelf <small className="muted">(pick one, or type a new shelf name)</small>
+          <input name="category" list="rr-shelves" defaultValue="Mentorship" maxLength={40} autoComplete="off" onFocus={(e) => e.currentTarget.select()} />
+          <datalist id="rr-shelves">{shelves.map((c) => <option key={c} value={c} />)}</datalist></label>
         <label className="field">Short description (optional)<textarea name="description" rows={3} /></label>
         <label className="field">PDF file (up to 50 MB)<input name="pdf" type="file" accept="application/pdf,.pdf" required /></label>
         <label className="field">Cover image (optional; we use the first page if you skip this)<input name="cover" type="file" accept="image/*" /></label>
         <label className="choice"><input type="checkbox" name="published" defaultChecked /> Show it to members now</label>
+        <label className="choice"><input type="checkbox" name="notify" defaultChecked /> Tell everyone (a notification on their phones). It also shows on Home for 7 days.</label>
         <p className="muted small">Only upload books BCIL has the right to share: your own guides, free or public-domain books, or books whose author has given permission.</p>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ gap: 8 }}>

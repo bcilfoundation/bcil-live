@@ -6,6 +6,8 @@ import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when
 
 type Quote = { body: string; author: string; show_on: string };
 type Session = { id: string; title: string; starts_at: string; status: string };
+type NewItem = { id: string; title: string; sub: string; cover: string | null; to: string; at: string; icon: string };
+const NEW_FOR_DAYS = 7;   // new books and talks stay on Home this long
 
 const shared = (d: string) => {
   const day = new Date(d + "T12:00:00"); const today = new Date();
@@ -19,6 +21,7 @@ export default function Home() {
   const [next, setNext] = useState<Session | null>(null);
   const [events, setEvents] = useState<Ev[] | null>(null);
   const [, tick] = useState(0);
+  const [fresh, setFresh] = useState<NewItem[]>([]);
 
   useEffect(() => {
     supabase.from("quotes").select("body, author, show_on").order("show_on", { ascending: false }).limit(1)
@@ -26,6 +29,19 @@ export default function Home() {
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
     supabase.from("event_pages").select(EVENT_COLS).eq("listed", true).then(({ data }) => setEvents((data ?? []) as Ev[]));
+    // new in the Reading room and the Library this week
+    const since = new Date(Date.now() - NEW_FOR_DAYS * 864e5);
+    Promise.all([
+      supabase.from("books").select("id, title, author, category, cover_url, created_at").eq("published", true).gte("created_at", since.toISOString()).order("created_at", { ascending: false }).limit(6),
+      supabase.from("talks").select("id, title, program, kind, youtube_id, published_on, live_session_id").eq("status", "published").gte("published_on", since.toISOString().slice(0, 10)).order("published_on", { ascending: false }).limit(6),
+    ]).then(([{ data: b }, { data: t }]) => {
+      const books: NewItem[] = ((b ?? []) as { id: string; title: string; author: string | null; category: string; cover_url: string | null; created_at: string }[])
+        .map((x) => ({ id: x.id, title: x.title, sub: `Reading room · ${x.category}`, cover: x.cover_url, to: `/reading?book=${x.id}`, at: x.created_at, icon: "📚" }));
+      const talks: NewItem[] = ((t ?? []) as { id: string; title: string; program: string | null; kind: string; youtube_id: string | null; published_on: string; live_session_id: string | null }[])
+        .map((x) => ({ id: x.id, title: x.title, sub: x.live_session_id ? "Live recording" : x.kind === "audio" ? "Audio talk" : "Video talk",
+          cover: x.youtube_id ? `https://i.ytimg.com/vi/${x.youtube_id}/mqdefault.jpg` : null, to: `/library?talk=${x.id}`, at: x.published_on + "T12:00:00", icon: x.kind === "audio" ? "🎧" : "▶" }));
+      setFresh([...books, ...talks].sort((a, c) => c.at.localeCompare(a.at)).slice(0, 8));
+    });
     const t = setInterval(() => tick((n) => n + 1), 60000);   // keep the countdowns fresh
     return () => clearInterval(t);
   }, []);
@@ -56,6 +72,17 @@ export default function Home() {
         <div className="prog-list">{rest.map(({ e, at }) => <ProgrammeCard key={e.slug} e={e} at={at} />)}</div>
       </>}
       {events && !upcoming.length && <Link to="/events" className="card"><b>Programmes</b><br /><small className="muted">See past and upcoming BCIL programmes</small></Link>}
+
+      {/* new books and talks this week */}
+      {fresh.length > 0 && <>
+        <h2 className="home-h">New this week</h2>
+        <div className="newrow">{fresh.map((n) => (
+          <Link key={n.id} to={n.to} className="newcard">
+            {n.cover ? <img src={n.cover} alt="" loading="lazy" /> : <span className="newart" aria-hidden="true">{n.icon}</span>}
+            <b>{n.title}</b><small className="muted">{n.sub}</small>
+          </Link>
+        ))}</div>
+      </>}
 
       {/* today's quote */}
       {quote && (
