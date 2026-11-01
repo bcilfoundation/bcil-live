@@ -21,17 +21,18 @@ const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Reading = lazy(() => import("./pages/Reading"));
 
-import { PAYMENTS_ENABLED as GIVING_ENABLED } from "./lib/pay";
+import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
   ["/chat", "Chat"], ["/groups", "Groups & Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
-] as const).filter(([to]) => GIVING_ENABLED || to !== "/give");
+] as const);
 
 const ICONS: Record<string, string> = { "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
+  const nav = NAV.filter(([to]) => to !== "/give" || paymentsOn(isStaff));
   const { pathname } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
@@ -45,7 +46,7 @@ export default function App() {
       <aside className="side">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <nav className="menu">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
+          {nav.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
           {isStaff && <NavLink to="/admin"><Icon name="shield" size={20} />Admin</NavLink>}
         </nav>
       </aside>
@@ -66,14 +67,14 @@ export default function App() {
             <Route path="/join/:code" element={<JoinWithLink />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/forms" element={<Forms />} />
-            {GIVING_ENABLED && <Route path="/give" element={<Give />} />}
+            <Route path="/give" element={<Give />} />
             <Route path="/library" element={<Library />} />
             <Route path="/reading" element={<Reading />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
               <section className="view"><h1>More</h1>
-                <div className="list morelist">{NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
+                <div className="list morelist">{nav.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}</div>
                 {!isNative && <a className="btn primary" href={`${import.meta.env.BASE_URL}bcil-live.apk`} download>Get the Android app</a>}
                 <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />

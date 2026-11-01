@@ -5,7 +5,7 @@ import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
-import { PAID_GIFTS, PAYMENTS_ENABLED, savedGiver, startPayment, type Giver } from "../lib/pay";
+import { PAID_GIFTS, PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, savedGiver, startPayment, type Giver } from "../lib/pay";
 import GiverCheck from "../components/GiverCheck";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
 
@@ -427,7 +427,8 @@ function PreJoin({ openBg, label }: { openBg: () => void; label: string }) {
 // Gifts: free ones for everyone, and (once giving is on) paid gifts where 100% goes to BCIL Foundation
 function GiftSheet({ close }: { close: () => void }) {
   const L = useLive();
-  const [tab, setTab] = useState<"free" | "support">(PAYMENTS_ENABLED ? "support" : "free");
+  const canPay = paymentsOn(L.isStaff);
+  const [tab, setTab] = useState<"free" | "support">(canPay ? "support" : "free");
   const [asking, setAsking] = useState<(typeof PAID_GIFTS)[number] | null>(null);
   const [busy, setBusy] = useState("");
   const pay = async (g: (typeof PAID_GIFTS)[number], giver: Giver) => {
@@ -443,7 +444,7 @@ function GiftSheet({ close }: { close: () => void }) {
   if (asking) return <div className="sheet"><GiverCheck onDone={(giver) => pay(asking, giver)} onCancel={() => setAsking(null)} /></div>;
   return (
     <div className="sheet"><h3>Send a gift</h3>
-      {PAYMENTS_ENABLED && (
+      {canPay && (
         <div className="seg" role="tablist">
           <button role="tab" aria-selected={tab === "support"} onClick={() => setTab("support")}>💛 Support BCIL</button>
           <button role="tab" aria-selected={tab === "free"} onClick={() => setTab("free")}>Free gifts</button>
@@ -453,6 +454,7 @@ function GiftSheet({ close }: { close: () => void }) {
         <p className="muted">Free gifts show up big for everyone and highlight your comment.</p>
         <div className="giftgrid">{GIFTS.map((g) => <button key={g.name} onClick={() => { L.sendGift(g); close(); }}><span>{g.emoji}</span>{g.name}</button>)}</div>
       </> : <>
+        {!PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
         <p className="muted">100% goes to BCIL Foundation's programmes. Pay with Mobile Money or card. Your gift shows in the room for everyone (the amount is never shown).</p>
         <div className="giftgrid paid">{PAID_GIFTS.map((g) => (
           <button key={g.code} onClick={() => tapPaid(g)} disabled={!!busy}><span>{g.emoji}</span>{g.name}<em>{busy === g.code ? "…" : `GH₵ ${g.cedis}`}</em></button>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { PAYMENTS_ENABLED, savedGiver, startPayment, type Giver } from "../lib/pay";
+import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, savedGiver, startPayment, type Giver } from "../lib/pay";
+import { useAuth } from "../lib/auth";
 import GiverCheck from "../components/GiverCheck";
 
 type Gift = { id: number; amount_pesewas: number; purpose: string; kind: string; status: string; created_at: string };
@@ -11,6 +12,8 @@ const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting", f
 
 // Give any amount to BCIL Foundation (Mobile Money or card through Paystack). 100% goes to BCIL.
 export default function Give() {
+  const { isStaff } = useAuth();
+  const canPay = paymentsOn(isStaff);
   const [amount, setAmount] = useState("50");
   const [purpose, setPurpose] = useState(PURPOSES[0]);
   const [error, setError] = useState("");
@@ -43,7 +46,8 @@ export default function Give() {
     <section className="view">
       <h1>Give to BCIL Foundation</h1>
       <p className="muted">Your gift helps students through Finding Campus Balance, mentorship, Campus Sync and more. 100% goes to BCIL Foundation. GH₵ 20 covers one student's refreshment at FCB, and GH₵ 5,000 buys a laptop for a student.</p>
-      {!PAYMENTS_ENABLED ? (
+      {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
+      {!canPay ? (
         <div className="card"><b>Giving in the app opens soon.</b><p className="muted">We're finishing setup with our payment provider. Thank you for wanting to help!</p></div>
       ) : asking ? (
         <div className="card"><GiverCheck onDone={go} onCancel={() => setAsking(false)} /></div>

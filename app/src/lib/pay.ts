@@ -4,6 +4,10 @@ import { isNative } from "./native";
 
 // Switch on once Paystack has approved BCIL's account and the give + paystack-webhook functions have the secret key
 export const PAYMENTS_ENABLED = false;
+// While Paystack is in test mode, only admins and moderators see paid gifts and Give (fake money, for testing)
+export const PAYMENTS_TEST_FOR_STAFF = true;
+export const paymentsOn = (isStaff: boolean) => PAYMENTS_ENABLED || (PAYMENTS_TEST_FOR_STAFF && isStaff);
+export const TEST_NOTE = "Test mode: no real money is taken. Use Paystack's test card or test Mobile Money.";
 
 // Live gift prices in Ghana cedis (keep in step with supabase/functions/give/index.ts)
 export const PAID_GIFTS = [
