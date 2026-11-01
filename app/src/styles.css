@@ -607,3 +607,4 @@ html,body{max-width:100%;overflow-x:hidden}
 .newcard .newart{display:grid;place-items:center;font-size:2.4rem}
 .newcard b{font-size:.86rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .newcard small{font-size:.74rem}
+.privpill{background:#ffd54a;color:#1b1203;font-weight:800}

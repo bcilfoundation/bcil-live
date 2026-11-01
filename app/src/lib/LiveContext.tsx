@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
-export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null };
+export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number };
@@ -40,6 +40,8 @@ function useLiveEngine() {
   const [hostName, setHostName] = useState("BCIL Foundation");
   const [upcoming, setUpcoming] = useState<Session[]>([]);
   const [joined, setJoined] = useState(false);
+  const joinedRef = useRef(false);
+  useEffect(() => { joinedRef.current = joined; }, [joined]);
   const [speaker, setSpeaker] = useState(false);
   const [muted, setMuted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -84,13 +86,16 @@ function useLiveEngine() {
   useEffect(() => {
     supabase.from("live_sessions").select("*").neq("status", "ended").order("starts_at").then(({ data }) => {
       const list = (data ?? []) as Session[];
-      setLive(list.find((s) => s.status === "live") ?? null);
+      // your own session first, then a public one, then a private one you were invited to
+      const on = list.filter((s) => s.status === "live");
+      setLive(on.find((s) => s.host_id === me) ?? on.find((s) => !s.is_private) ?? on[0] ?? null);
       setUpcoming(list.filter((s) => s.status === "scheduled"));
     });
     const ch = supabase.channel("live-sessions")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (p) => {
         const s = p.new as Session;
-        if (s.status === "live") setLive((cur) => (cur && cur.id === s.id ? { ...cur, ...s } : s));
+        // a second session going live doesn't pull you out of the one you're in (unless you're its host)
+        if (s.status === "live") setLive((cur) => (cur && cur.id === s.id ? { ...cur, ...s } : !cur || s.host_id === me || (cur.is_private && !s.is_private && !joinedRef.current) ? s : cur));
         else if (s.status === "ended") { setLive((cur) => (cur?.id === s.id ? null : cur)); leave(); }
       }).subscribe();
     return () => { supabase.removeChannel(ch); leave(); };
@@ -579,17 +584,20 @@ function useLiveEngine() {
       setLive((s) => (s ? { ...s, background: bg } : s));
   }
   async function share() {
-    const url = `${window.location.origin}${import.meta.env.BASE_URL}live`;
-    const shareText = `Join "${live?.title}" live on BCIL Live`;
+    const priv = live?.is_private && live.invite_code;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}live${priv ? `?join=${live!.invite_code}` : ""}`;
+    const shareText = priv ? `You're invited to a private BCIL Live session: "${live?.title}". Open this link to join` : `Join "${live?.title}" live on BCIL Live`;
     try {
       if (navigator.share) await navigator.share({ title: "BCIL Live", text: shareText, url });
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
-  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean }) {
-    const title = opts.title.trim() || `BCIL Live · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean }) {
+    const title = opts.title.trim() || `${opts.private ? "Private meeting" : "BCIL Live"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+    const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
     const { data, error } = await supabase.from("live_sessions")
-      .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind })
+      .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind,
+        ...(opts.private ? { is_private: true, invite_code: code } : {}) })
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return false; }
     setLive(data as Session);
@@ -597,6 +605,7 @@ function useLiveEngine() {
     left.current.delete(data.id);
     const ok = await join(data as Session, { cam: opts.kind === "video" && opts.cam !== false });
     if (ok && opts.record) await startRecording();
+    if (ok && opts.private) setNotice("🔒 Private session. Only people with the link can join. Tap ⤴ at the top to copy and send the link.");
     return ok;
   }
   async function startScheduled(s: Session) {
@@ -606,6 +615,14 @@ function useLiveEngine() {
     setLive(data as Session); setUpcoming((u) => u.filter((x) => x.id !== s.id));
     left.current.delete(s.id);
     await join(data as Session);
+  }
+  /** Opening a private session link: get on the guest list, then show that session. */
+  async function joinWithCode(code: string) {
+    const { data: id, error } = await supabase.rpc("join_live_with_code", { p_code: code });
+    if (error || !id) { setError(/ended|not valid/i.test(error?.message ?? "") ? "This private session has ended, or the link is not valid." : "Could not open the private session: " + (error?.message ?? "")); return false; }
+    const { data } = await supabase.from("live_sessions").select("*").eq("id", id).single();
+    if (data) { left.current.delete(data.id); if (!joinedRef.current) setLive(data as Session); }
+    return !!data;
   }
   async function remind(s: Session) {
     if (await run("Reminder", supabase.from("live_reminders").upsert({ session_id: s.id, user_id: me }))) setNotice("We will remind you when it starts.");
@@ -638,7 +655,7 @@ function useLiveEngine() {
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
-    goLiveNow, startScheduled, remind,
+    goLiveNow, startScheduled, remind, joinWithCode,
   };
   return value;
 }
