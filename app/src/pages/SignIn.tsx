@@ -99,14 +99,12 @@ export default function SignIn() {
   return (
     <div className="center signin-wrap">
       <GetApp where="signin" />
-      <div className="signin-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.15), rgba(10,25,60,.85)), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` }}>
-        <span className="eyebrow">BCIL Foundation · Grooming generational leaders</span>
-        <b>Live sessions, talks and mentorship, all in one place</b>
+      <div className="signin-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.25), rgba(10,25,60,.8)), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` }}>
+        <img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><span>Live</span>
       </div>
       <div className="card signin">
-        <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <h1>{step === "signup" || step === "confirm" ? "Create your account" : step === "forgot" || step === "reset" ? "Reset your password" : "Welcome back"}</h1>
-        <p className="muted">Live sessions, talks, daily quotes and the BCIL community.</p>
+        <p className="muted">Live sessions, talks, daily quotes and mentorship from BCIL Foundation.</p>
 
         {(step === "signin" || step === "signup") && (
           <div className="seg" role="tablist">
