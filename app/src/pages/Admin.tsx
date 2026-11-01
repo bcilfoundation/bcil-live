@@ -135,18 +135,18 @@ function TalksAdmin() {
 }
 
 type Field = { key: string; label: string; type?: string };
-type FormRow = { id: string; title: string; fields: Field[]; is_open: boolean };
-type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; profiles: { full_name: string } | null };
+type FormRow = { id: string; title: string; fields: Field[]; is_open: boolean; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
+type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; paid_at: string | null; checked_in_at: string | null; profiles: { full_name: string } | null };
 
 function FormsAdmin() {
   const [forms, setForms] = useState<FormRow[]>([]);
   const [formId, setFormId] = useState("");
   const [rows, setRows] = useState<RespRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const loadForms = () => supabase.from("forms").select("id, title, fields, is_open").order("created_at")
+  const loadForms = () => supabase.from("forms").select("id, title, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
     .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
   useEffect(() => { loadForms(); }, []);
-  const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, profiles(full_name)")
+  const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, paid_at, checked_in_at, profiles(full_name)")
     .eq("form_id", formId).order("created_at", { ascending: false }).then(({ data }) => setRows((data ?? []) as unknown as RespRow[]));
   useEffect(() => { load(); }, [formId]);
   const found = forms.find((f) => f.id === formId);
@@ -158,18 +158,20 @@ function FormsAdmin() {
     setBusy(true);
     try {
       const { default: writeXlsxFile } = await import("write-excel-file/browser");
-      const head = ["Timestamp", "Account name", "Status", ...form.fields.map((f) => f.label)]
+      const head = ["Timestamp", "Account name", "Status", ...(form.fee_pesewas ? ["Paid"] : []), "Checked in", ...form.fields.map((f) => f.label)]
         .map((value) => ({ value, fontWeight: "bold" as const, backgroundColor: "#e3ebf6", wrap: true }));
       const body = [...rows].reverse().map((r) => [
         { value: new Date(r.created_at), type: Date, format: "dd/mm/yyyy hh:mm" },
         { value: r.profiles?.full_name ?? "" },
         { value: r.status },
+        ...(form.fee_pesewas ? [{ value: r.paid_at ? "Yes" : "No" }] : []),
+        { value: r.checked_in_at ? "Yes" : "" },
         ...form.fields.map((f) => ({ value: String(r.answers[f.key] ?? "") })),
       ]);
       const safe = form.title.replace(/[^a-z0-9]+/gi, " ").trim();
       await writeXlsxFile([head, ...body] as never, {
         sheet: "Responses", stickyRowsCount: 1,
-        columns: [{ width: 18 }, { width: 24 }, { width: 12 }, ...form.fields.map(() => ({ width: 30 }))],
+        columns: [{ width: 18 }, { width: 24 }, { width: 12 }, ...(form.fee_pesewas ? [{ width: 8 }] : []), { width: 10 }, ...form.fields.map(() => ({ width: 30 }))],
       }).toFile(`${safe} (Responses).xlsx`);
     } finally { setBusy(false); }
   }
@@ -188,9 +190,12 @@ function FormsAdmin() {
       {form && <button className="btn ghost" onClick={toggleOpen}>{form.is_open ? "Close form" : "Reopen form"}</button>}
     </div>
     {form && !form.is_open && <p className="muted">This form is closed. Members can no longer see or fill it in.</p>}
+    {form && <FeeEditor form={form} onSaved={loadForms} paid={rows.filter((r) => r.paid_at).length} total={rows.length} checkedIn={rows.filter((r) => r.checked_in_at).length} />}
     <div className="list">{rows.map((r) => (
       <div key={r.id}><div className="grow">
         <b>{r.answers.full_name || r.answers.name || r.profiles?.full_name || "Member"}</b> <small className="muted">· {fmt(r.created_at)}</small>
+        {form?.fee_pesewas ? (r.paid_at ? <span className="pill paid" style={{ marginLeft: 6 }}>Paid</span> : <span className="pill" style={{ marginLeft: 6 }}>Not paid</span>) : null}
+        {r.checked_in_at && <span className="pill sent" style={{ marginLeft: 6 }}>Checked in</span>}
         {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {r.answers[f.key]}</div> : null)}
       </div>
         <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} aria-label="Status" style={{ width: 130 }}>{["received", "accepted", "waitlist", "declined"].map((s) => <option key={s}>{s}</option>)}</select></div>
@@ -252,4 +257,34 @@ function PeopleAdmin() {
         <select value={r.role} onChange={(e) => update(r.id, { role: e.target.value })} aria-label="Role" style={{ width: 130 }}>{["member", "mentor", "moderator", "admin"].map((x) => <option key={x}>{x}</option>)}</select></div>
     ))}</div>
   </>);
+}
+
+// A fee on a form (e.g. FCB certificate). Members pay after submitting; paid responses are marked automatically.
+function FeeEditor({ form, onSaved, paid, total, checkedIn }: { form: FormRow; onSaved: () => void; paid: number; total: number; checkedIn: number }) {
+  const [amount, setAmount] = useState(form.fee_pesewas ? String(form.fee_pesewas / 100) : "");
+  const [label, setLabel] = useState(form.fee_label ?? "Certificate fee");
+  const [required, setRequired] = useState(form.fee_required);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { setAmount(form.fee_pesewas ? String(form.fee_pesewas / 100) : ""); setLabel(form.fee_label ?? "Certificate fee"); setRequired(form.fee_required); setMsg(""); }, [form.id]);
+  const save = async () => {
+    const n = Number(amount);
+    if (amount && !(n >= 1)) { setMsg("The smallest fee is GH₵ 1."); return; }
+    const { error } = await supabase.from("forms").update({ fee_pesewas: amount ? Math.round(n * 100) : null, fee_label: label.trim() || null, fee_required: required }).eq("id", form.id);
+    setMsg(error ? error.message : amount ? "Saved. Members will be asked to pay after they submit." : "Fee removed."); onSaved();
+  };
+  return (
+    <div className="card feeeditor">
+      <b>💳 Fee for this form</b>
+      <div className="grid2">
+        <label className="field">What is it for?<input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Certificate fee" /></label>
+        <label className="field">Amount (GH₵), leave empty for no fee<input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" placeholder="e.g. 20" /></label>
+      </div>
+      <label className="choice"><input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Payment is required (not optional)</label>
+      <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <button className="btn primary sm" onClick={save}>Save fee</button>
+        {form.fee_pesewas ? <span className="muted">{paid} of {total} paid · {checkedIn} checked in</span> : checkedIn ? <span className="muted">{checkedIn} checked in</span> : null}
+      </div>
+      {msg && <small className="muted">{msg}</small>}
+    </div>
+  );
 }

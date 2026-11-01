@@ -5,8 +5,7 @@ import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
-import { PAID_GIFTS, PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, savedGiver, startPayment, type Giver } from "../lib/pay";
-import GiverCheck from "../components/GiverCheck";
+import { PAID_GIFTS, PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
 
 // Room backgrounds the host can pick (or upload a photo)
@@ -429,19 +428,16 @@ function GiftSheet({ close }: { close: () => void }) {
   const L = useLive();
   const canPay = paymentsOn(L.isStaff);
   const [tab, setTab] = useState<"free" | "support">(canPay ? "support" : "free");
-  const [asking, setAsking] = useState<(typeof PAID_GIFTS)[number] | null>(null);
   const [busy, setBusy] = useState("");
-  const pay = async (g: (typeof PAID_GIFTS)[number], giver: Giver) => {
-    setBusy(g.code); setAsking(null);
+  const pay = async (g: (typeof PAID_GIFTS)[number]) => {
+    setBusy(g.code);
     try {
-      await startPayment({ kind: "live_gift", gift_code: g.code, session_id: L.live!.id, ...giver });
+      await startPayment({ kind: "live_gift", gift_code: g.code, session_id: L.live!.id });
       L.setNotice("Finish paying on the Paystack page. Your gift appears in the room as soon as it's paid. Thank you!");
       close();
     } catch (e) { L.setError((e as Error).message); }
     finally { setBusy(""); }
   };
-  const tapPaid = (g: (typeof PAID_GIFTS)[number]) => { const giver = savedGiver(); if (giver) pay(g, giver); else setAsking(g); };
-  if (asking) return <div className="sheet"><GiverCheck onDone={(giver) => pay(asking, giver)} onCancel={() => setAsking(null)} /></div>;
   return (
     <div className="sheet"><h3>Send a gift</h3>
       {canPay && (
@@ -457,7 +453,7 @@ function GiftSheet({ close }: { close: () => void }) {
         {!PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
         <p className="muted">100% goes to BCIL Foundation's programmes. Pay with Mobile Money or card. Your gift shows in the room for everyone (the amount is never shown).</p>
         <div className="giftgrid paid">{PAID_GIFTS.map((g) => (
-          <button key={g.code} onClick={() => tapPaid(g)} disabled={!!busy}><span>{g.emoji}</span>{g.name}<em>{busy === g.code ? "…" : `GH₵ ${g.cedis}`}</em></button>
+          <button key={g.code} onClick={() => pay(g)} disabled={!!busy}><span>{g.emoji}</span>{g.name}<em>{busy === g.code ? "…" : `GH₵ ${g.cedis}`}</em></button>
         ))}</div>
         <p className="muted small">Want to give a different amount? Use <a href={`${import.meta.env.BASE_URL}give`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>Give</a> in the menu.</p>
       </>}

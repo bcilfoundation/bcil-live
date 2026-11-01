@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, savedGiver, startPayment, type Giver } from "../lib/pay";
+import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 import { useAuth } from "../lib/auth";
-import GiverCheck from "../components/GiverCheck";
 
 type Gift = { id: number; amount_pesewas: number; purpose: string; kind: string; status: string; created_at: string };
 const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027", "Laptop for a student", "Refreshments for students", "Academic Mentorship", "Campus Sync", "Keys to Success"];
@@ -19,17 +18,16 @@ export default function Give() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [asking, setAsking] = useState(false);
   const [gifts, setGifts] = useState<Gift[]>([]);
 
   const load = () => supabase.from("gifts").select("id, amount_pesewas, purpose, kind, status, created_at").order("created_at", { ascending: false }).limit(30)
     .then(({ data }) => setGifts((data ?? []) as Gift[]));
   useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, []);
 
-  const go = async (giver: Giver) => {
-    setAsking(false); setBusy(true); setError(""); setMsg("");
+  const go = async () => {
+    setBusy(true); setError(""); setMsg("");
     try {
-      await startPayment({ kind: "donation", amount_cedis: Number(amount), purpose, ...giver });
+      await startPayment({ kind: "donation", amount_cedis: Number(amount), purpose });
       setMsg("Finish on the Paystack page (Mobile Money or card). Your gift shows below as Received once it's paid. Thank you!");
       load();
     } catch (e) { setError((e as Error).message); }
@@ -38,7 +36,7 @@ export default function Give() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!(Number(amount) >= 1)) { setError("Enter an amount of at least GH₵ 1."); return; }
-    const g = savedGiver(); if (g) go(g); else setAsking(true);
+    go();
   };
   const total = gifts.filter((g) => g.status === "paid").reduce((n, g) => n + g.amount_pesewas, 0);
 
@@ -49,8 +47,6 @@ export default function Give() {
       {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
       {!canPay ? (
         <div className="card"><b>Giving in the app opens soon.</b><p className="muted">We're finishing setup with our payment provider. Thank you for wanting to help!</p></div>
-      ) : asking ? (
-        <div className="card"><GiverCheck onDone={go} onCancel={() => setAsking(false)} /></div>
       ) : (
         <form className="card stack" onSubmit={submit}>
           <div className="chips">{AMOUNTS.map((a) => <button type="button" key={a} className="chip" aria-pressed={amount === String(a)} onClick={() => setAmount(String(a))}>GH₵ {a}</button>)}</div>

@@ -475,3 +475,31 @@ main.inroom{display:flex;flex-direction:column}
 .giftgrid.paid button em{display:block;font-style:normal;font-size:.75rem;font-weight:700;color:#c9a227;margin-top:2px}
 .givercheck{display:flex;flex-direction:column;gap:12px}.givercheck h3{margin:0}
 .testnote{background:#fff4cc;color:#6b5200;border:1px solid #f0d77a;border-radius:10px;padding:8px 12px;font-size:.85rem;margin:6px 0}
+.feenote{background:var(--panel-2);border-radius:10px;padding:8px 12px;margin:8px 0}.paycard{display:flex;flex-direction:column;gap:8px;border:2px solid #f0d77a}
+.feeeditor{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.dobprompt{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;border-left:4px solid #ffd54a}
+.updatebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff4cc;color:#4a3800;padding:8px 14px;font-size:.9rem}.updatebar span{flex:1}
+
+/* event page */
+.event .banner.hero{position:relative}
+.evstats{display:flex;gap:18px;margin:8px 0 2px;flex-wrap:wrap}.evstats span{color:#dbe5f4}.evstats b{color:#fff;font-size:1.3rem;margin-right:4px}
+.evedit{margin-top:10px;align-self:flex-start;background:rgba(255,255,255,.15)!important;color:#fff!important;border-color:rgba(255,255,255,.35)!important}
+.btn.ghost.light{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.4)}
+.evme{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.evreg{display:block;text-align:center;margin:12px 0}
+.evabout{margin:12px 0;line-height:1.6}
+.evsched{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:2px;border-left:3px solid var(--line);margin-left:6px}
+.evsched li{display:flex;gap:12px;padding:8px 0 8px 14px;position:relative}
+.evsched li::before{content:"";position:absolute;left:-7px;top:14px;width:11px;height:11px;border-radius:50%;background:var(--navy)}
+.evsched .t{min-width:48px;font-weight:700;color:var(--navy)}.evsched li div{display:flex;flex-direction:column}
+.evspeakers{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px}
+.evspk{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.evspk img,.evspk .ava{width:90px;height:90px;border-radius:50%;object-fit:cover;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;font-size:1.4rem}
+.ticket{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:12px;background:#fff;border-radius:14px;border:2px dashed var(--line)}
+.ticket img{width:min(260px,80vw);height:auto;image-rendering:pixelated}
+/* check-in */
+.scanbox{position:relative;width:100%;max-width:480px;aspect-ratio:1;border-radius:16px;overflow:hidden;background:#111;display:grid;place-items:center;margin:10px 0}
+.scanbox video{width:100%;height:100%;object-fit:cover}
+.checkres{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;margin-top:10px;max-width:480px}
+.checkres.good{background:#e3f6e8;color:#13532a}.checkres.warn{background:#fff4cc;color:#5a4300}.checkres.bad{background:#fde4e4;color:#7a1a1a}
+.checkres .big{font-size:1.4rem;font-weight:800}

@@ -18,10 +18,10 @@ export const PAID_GIFTS = [
   { code: "crown", emoji: "👑", name: "Crown", cedis: 50 },
 ] as const;
 
-export type Giver = { adult: boolean; guardian_ok: boolean };
 export type PayRequest =
-  | ({ kind: "live_gift"; gift_code: string; session_id: string } & Giver)
-  | ({ kind: "donation"; amount_cedis: number; purpose: string; anonymous?: boolean } & Giver);
+  | { kind: "live_gift"; gift_code: string; session_id: string }
+  | { kind: "donation"; amount_cedis: number; purpose: string; anonymous?: boolean }
+  | { kind: "form_fee"; response_id: number };
 
 /**
  * Start a payment and open Paystack's secure page. Call it straight from a tap: on phones a new
@@ -49,10 +49,3 @@ export async function startPayment(req: PayRequest): Promise<void> {
     throw e;
   }
 }
-
-// Remember the age answer on this phone for this visit, so people are not asked every time
-const KEY = "bcil.giver";
-export function savedGiver(): Giver | null {
-  try { const v = JSON.parse(sessionStorage.getItem(KEY) || "null"); return v && typeof v.adult === "boolean" ? v : null; } catch { return null; }
-}
-export function saveGiver(g: Giver) { try { sessionStorage.setItem(KEY, JSON.stringify(g)); } catch { /* blocked */ } }

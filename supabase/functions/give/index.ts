@@ -1,6 +1,7 @@
 // give: starts a payment to BCIL Foundation with Paystack checkout (Mobile Money or card).
 // Two kinds: a donation of any amount, or a gift during a live session (fixed prices below).
-// All money goes to BCIL Foundation. Under-18s may give with a parent/guardian's knowledge, up to a small daily limit.
+// Three kinds: a donation of any amount, a gift during a live session, or a form fee (e.g. FCB certificate).
+// All money goes to BCIL Foundation. Members marked under 18 can give up to a small daily limit (no extra questions for anyone).
 // Secrets: PAYSTACK_SECRET_KEY (sk_live_... or sk_test_...)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -39,13 +40,19 @@ Deno.serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
     const { data: profile } = await admin.from("profiles").select("full_name, is_minor").eq("id", user.id).single();
-    const under18 = !!profile?.is_minor || body.adult !== true;
-    if (under18 && body.guardian_ok !== true)
-      return json({ error: "Please confirm that your parent or guardian knows you are giving." }, 400);
+    const under18 = !!profile?.is_minor;
 
     // what is being paid for
-    let pesewas: number, purpose: string, kind: "donation" | "live_gift", giftCode: string | null = null, giftLabel: string | null = null, sessionId: string | null = null;
-    if (body.kind === "live_gift") {
+    let pesewas: number, purpose: string, kind: "donation" | "live_gift" | "form_fee", giftCode: string | null = null, giftLabel: string | null = null, sessionId: string | null = null, responseId: number | null = null;
+    if (body.kind === "form_fee") {
+      // the fee comes from the form itself, and the response must be the payer's own
+      const { data: r } = await admin.from("form_responses").select("id, user_id, paid_at, forms(title, fee_pesewas, fee_label)").eq("id", body.response_id).single();
+      const f = (r as unknown as { forms: { title: string; fee_pesewas: number | null; fee_label: string | null } } | null)?.forms;
+      if (!r || r.user_id !== user.id || !f?.fee_pesewas) return json({ error: "This form has no fee to pay." }, 400);
+      if (r.paid_at) return json({ error: "This is already paid. Thank you!" }, 400);
+      kind = "form_fee"; pesewas = f.fee_pesewas; responseId = r.id;
+      purpose = `${f.fee_label || "Fee"} · ${f.title}`.slice(0, 200);
+    } else if (body.kind === "live_gift") {
       const g = GIFTS[String(body.gift_code)];
       if (!g) return json({ error: "Unknown gift" }, 400);
       const { data: s } = await admin.from("live_sessions").select("id, title, status").eq("id", body.session_id).single();
@@ -60,11 +67,11 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(pesewas) || pesewas < 100) return json({ error: "The smallest gift is GH₵ 1." }, 400);
     if (pesewas > MAX_PAYMENT_PESEWAS) return json({ error: "For gifts above GH₵ 10,000, please contact info@bcilfoundation.org." }, 400);
 
-    if (under18) {
+    if (under18 && kind !== "form_fee") {
       const since = new Date(); since.setUTCHours(0, 0, 0, 0);    // Ghana is on UTC
       const recent = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: today } = await admin.from("gifts").select("amount_pesewas, status, created_at")
-        .eq("user_id", user.id).gte("created_at", since.toISOString());
+        .eq("user_id", user.id).neq("kind", "form_fee").gte("created_at", since.toISOString());
       const used = (today ?? []).filter((g) => g.status === "paid" || (g.status === "pending" && g.created_at >= recent))
         .reduce((n, g) => n + g.amount_pesewas, 0);
       if (used + pesewas > MINOR_DAILY_PESEWAS)
@@ -75,7 +82,7 @@ Deno.serve(async (req) => {
     const { error: insErr } = await admin.from("gifts").insert({
       user_id: user.id, amount_pesewas: pesewas, purpose, method: "mobile_money", status: "pending", paystack_reference: reference,
       kind, session_id: sessionId, gift_code: giftCode, gift_label: giftLabel,
-      under_18: under18, guardian_ok: under18 && body.guardian_ok === true, anonymous: body.anonymous === true,
+      under_18: under18, anonymous: body.anonymous === true, form_response_id: responseId,
     });
     if (insErr) return json({ error: "Could not start the payment. Please try again." }, 500);
 

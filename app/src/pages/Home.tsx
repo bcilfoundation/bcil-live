@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import DobPrompt from "../components/DobPrompt";
 
 type Quote = { body: string; author: string; theme: string; reflection: string | null };
 type Session = { id: string; title: string; starts_at: string; status: string };
@@ -24,13 +25,17 @@ export default function Home() {
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} · Welcome to BCIL Live</p>
+      <DobPrompt />
       {/* 1. the main thing: the flagship event */}
       <div className="banner hero photo" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.55), rgba(10,25,60,.92)), url(${import.meta.env.BASE_URL}fcb/hero.jpg)` }}>
         <span className="eyebrow">6th edition · Saturday 23 January 2027</span>
         <h1>Finding Campus Balance 2027</h1>
         <p>Digital safety, academic wellbeing, a campus life panel, and a CV and cover letter clinic.</p>
         <p className="venue">📍 Auditorium 900, University of Cape Coast</p>
-        <Link className="btn primary" to="/forms">Register for FCB 2027</Link>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <Link className="btn primary" to="/forms?form=fcb27-registration">Register for FCB 2027</Link>
+          <Link className="btn ghost light" to="/fcb">Programme &amp; ticket</Link>
+        </div>
       </div>
       <div className="fcb-strip" aria-label="Photos from FCB 2026">
         {[1, 2, 3, 4, 5, 6].map((i) => <img key={i} src={`${import.meta.env.BASE_URL}fcb/p${i}.jpg`} alt="" loading="lazy" />)}
