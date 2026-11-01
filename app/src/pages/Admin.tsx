@@ -103,8 +103,8 @@ function youtubeId(link: string) {
   return m ? m[1] : /^[\w-]{11}$/.test(link.trim()) ? link.trim() : null;
 }
 function TalksAdmin() {
-  const [rows, setRows] = useState<{ id: string; title: string; program: string; youtube_id: string | null; kind: string }[]>([]);
-  const [f, setF] = useState({ link: "", title: "", program: PROGRAMS[0], published_on: "" });
+  const [rows, setRows] = useState<{ id: string; title: string; program: string | null; youtube_id: string | null; kind: string }[]>([]);
+  const [f, setF] = useState({ link: "", title: "", program: "", published_on: "" });
   const [msg, setMsg] = useState("");
   const load = () => supabase.from("talks").select("id, title, program, youtube_id, kind").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
   useEffect(() => { load(); }, []);
@@ -113,7 +113,7 @@ function TalksAdmin() {
     const id = youtubeId(f.link);
     if (!id) { setMsg("Paste a YouTube link, for example https://youtu.be/…"); return; }
     if (!f.title.trim()) { setMsg("Add a title."); return; }
-    const { error } = await supabase.from("talks").insert({ youtube_id: id, title: f.title.trim(), program: f.program, published_on: f.published_on || null });
+    const { error } = await supabase.from("talks").insert({ youtube_id: id, title: f.title.trim(), program: f.program.trim() || null, published_on: f.published_on || null });
     setMsg(error ? error.message : "Added to the Library."); if (!error) { setF({ ...f, link: "", title: "" }); load(); }
   }
   return (<>
@@ -122,14 +122,14 @@ function TalksAdmin() {
       <label className="field">YouTube link<input value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="https://youtu.be/…" /></label>
       <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
       <div className="grid2">
-        <label className="field">Program<select value={f.program} onChange={(e) => setF({ ...f, program: e.target.value })}>{PROGRAMS.map((p) => <option key={p}>{p}</option>)}</select></label>
+        <label className="field">Programme or type (optional)<input list="programs" value={f.program} onChange={(e) => setF({ ...f, program: e.target.value })} /><datalist id="programs">{PROGRAMS.map((p) => <option key={p} value={p} />)}</datalist></label>
         <label className="field">Date (optional)<input type="date" value={f.published_on} onChange={(e) => setF({ ...f, published_on: e.target.value })} /></label>
       </div>
       <p className="muted">{msg}</p>
       <button className="btn primary">Add talk</button>
     </form>
     <AddAudioTalk onSaved={load} />
-    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{r.kind === "audio" ? "🎧 Audio" : "▶ YouTube"} · {r.program}</small></div>
+    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{r.kind === "audio" ? "🎧 Audio" : "▶ YouTube"}{r.program ? ` · ${r.program}` : ""}</small></div>
       <button className="linkbtn" onClick={async () => { if (window.confirm(`Remove “${r.title}” from the Library?`)) { await supabase.from("talks").delete().eq("id", r.id); load(); } }}>Remove</button></div>)}</div>
   </>);
 }

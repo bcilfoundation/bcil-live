@@ -14,7 +14,7 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
   const [state, setState] = useState<"idle" | "recording" | "paused">("idle");
   const [secs, setSecs] = useState(0);
   const [title, setTitle] = useState("");
-  const [program, setProgram] = useState(PROGRAMS[0]);
+  const [program, setProgram] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
@@ -66,7 +66,7 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
       const url = await uploadAudio(session!.user.id, blob, title);
       const duration = (await audioDuration(blob)) ?? (mode === "record" ? secs : null);
       const { error } = await supabase.from("talks").insert({
-        kind: "audio", audio_url: url, title: title.trim(), program, description: description.trim() || null,
+        kind: "audio", audio_url: url, title: title.trim(), program: program.trim() || null, description: description.trim() || null,
         published_on: date || null, duration_seconds: duration, created_by: session!.user.id, status,
       });
       if (error) throw error;
@@ -107,7 +107,7 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
 
       <label className="field">Title<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Keys to Success: planning your semester" /></label>
       <div className="grid2">
-        <label className="field">Programme<select value={program} onChange={(e) => setProgram(e.target.value)}>{PROGRAMS.map((p) => <option key={p}>{p}</option>)}</select></label>
+        <label className="field">Programme or type (optional)<input list="programs" value={program} onChange={(e) => setProgram(e.target.value)} placeholder="e.g. Keys to Success, Q&A, Devotion" /><datalist id="programs">{PROGRAMS.map((p) => <option key={p} value={p} />)}</datalist></label>
         <label className="field">Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
       <label className="field">Short description (optional)<textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ minHeight: 70 }} /></label>

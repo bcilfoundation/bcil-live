@@ -89,17 +89,17 @@ export default function Live() {
   );
 
   // ---------- the live room ----------
+  const amHost = live.host_id === me;
   const onStage = requests.filter((r) => r.status === "on_air");
   const waiting = requests.filter((r) => r.status === "waiting");
   // listeners who switched their camera on (video sessions work like Zoom)
   const stageUids = new Set([live?.host_id, ...onStage.map((r) => r.user_id)].filter(Boolean).map((id) => String(agoraUid(id as string))));
   const guestCams = Object.entries(L.remoteVideo).filter(([uid]) => !stageUids.has(uid))
     .map(([uid, track]) => ({ uid, track, name: people.find((p) => String(agoraUid(p.id)) === uid)?.name ?? "Guest" }));
-  const meGuestCam = !speaker && L.camOn;
+  const meGuestCam = L.camOn && !amHost && !onStage.some((r) => r.user_id === me);
   const tiles = 1 + onStage.length + guestCams.length + (meGuestCam ? 1 : 0);
   const listeners = people.filter((p) => !onStage.some((r) => r.user_id === p.id) && p.role !== "host");
   const isTalking = (userId: string) => talking.has(agoraUid(userId));
-  const amHost = live.host_id === me;
   const mine = L.mine;
   const myQueue = waiting.findIndex((r) => r.user_id === me);
   const pinned = chat.find((c) => c.id === live.pinned_chat_id);
@@ -127,19 +127,22 @@ export default function Live() {
           {(L.recording || live.recording) && <span className="pill rec" title="Being recorded">● REC</span>}
           <span>{L.elapsed}</span>
           <button className="room-icon" onClick={L.share} aria-label="Share">⤴</button>
-          {(amHost || isStaff) && joined && <button className="room-icon" onClick={() => setSheet("host")} aria-label="Host tools">⚙</button>}
+          {amHost && joined && <button className="room-icon" onClick={() => setSheet("host")} aria-label="Host tools">⚙</button>}
         </div>
       </div>
       {live.topic && <p className="room-topic">{live.topic} · Hosted by {L.hostName}</p>}
 
       {!joined && live.kind === "video" ? (
-        <PreJoin openBg={() => setSheet("cambg")} label={isStaff ? (amHost ? "Continue hosting" : "Join (you'll be on the mic)") : "Join the session"} />
+        <PreJoin openBg={() => setSheet("cambg")} label={amHost ? "Continue hosting" : "Join the session"} />
       ) : !joined ? (
-        <button className="room-tap" onClick={() => L.join()} disabled={busy}>{busy ? "Connecting…" : isStaff ? (amHost ? "▶ Continue hosting" : "▶ Join (you'll be on the mic)") : "🎧 Tap to listen"}</button>
+        <button className="room-tap" onClick={() => L.join()} disabled={busy}>{busy ? "Connecting…" : amHost ? "▶ Continue hosting" : "🎧 Tap to listen"}</button>
       ) : L.needTap ? (
         <button className="room-tap" onClick={L.tapToHear}>🔊 Tap to hear the room</button>
       ) : null}
 
+      {isStaff && !amHost && joined && !people.some((p) => p.id === live.host_id) && (
+        <div className="room-takeover">The host has left the room. <button className="chip" onClick={L.takeOver}>Take over as host</button></div>
+      )}
       {/* stage: host + call-in spots */}
       {live.kind === "video" ? (
         <div className={`vgrid n${Math.min(tiles, 4)}${tiles > 4 ? " many" : ""}`}>
@@ -148,7 +151,7 @@ export default function Live() {
           {onStage.map((r) => (
             <VideoTile key={r.id} name={r.user_id === me ? "You" : r.profiles?.full_name ?? "Caller"} label={r.muted_by_host ? "Muted" : "Caller"} talking={isTalking(r.user_id)} muted={r.muted_by_host}
               track={r.user_id === me ? (L.camOn ? L.cam.current : null) : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me}>
-              {isStaff && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
+              {amHost && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
             </VideoTile>
           ))}
           {meGuestCam && <VideoTile name="You" label="Camera on" talking={false} track={L.cam.current} mirror />}
@@ -166,11 +169,11 @@ export default function Live() {
               <div key={r.id} className={`slot${isTalking(r.user_id) ? " talking" : ""}`}>
                 <div className="ava">{initials(r.profiles?.full_name ?? "")}{r.muted_by_host && <span className="mutedot">🔇</span>}</div>
                 <b>{r.user_id === me ? "You" : (r.profiles?.full_name ?? "Caller").split(" ")[0]}</b>
-                {isStaff && <span className="slotctl"><button onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button onClick={() => L.setStatus(r.id, "done")}>End</button></span>}
+                {amHost && <span className="slotctl"><button onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button onClick={() => L.setStatus(r.id, "done")}>End</button></span>}
               </div>
             );
             return (
-              <button key={`e${i}`} className="slot empty" onClick={() => !isStaff && !mine && L.requestCall()} disabled={isStaff || !!mine || !joined}>
+              <button key={`e${i}`} className="slot empty" onClick={() => !amHost && !mine && L.requestCall()} disabled={amHost || !!mine || !joined}>
                 <div className="ava">＋</div><b>#{i + 1} Call in</b>
               </button>
             );
@@ -197,18 +200,18 @@ export default function Live() {
 
       {pinned && (
         <div className="room-pin"><span>📌</span><div className="grow"><b>{pinned.profiles?.full_name ?? "Member"}</b> {pinned.body}</div>
-          {isStaff && <button onClick={() => L.pinComment(null)} aria-label="Unpin">✕</button>}</div>
+          {amHost && <button onClick={() => L.pinComment(null)} aria-label="Unpin">✕</button>}</div>
       )}
 
       {/* comments */}
       <div className="room-chat">
-        {(isStaff || questions > 0) && (
+        {(amHost || questions > 0) && (
           <div className="room-filter">
             <button className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>All comments</button>
             <button className={filter === "questions" ? "on" : ""} onClick={() => setFilter("questions")}>❓ Questions {questions ? `(${questions})` : ""}</button>
           </div>
         )}
-        {shown.map((c) => <ChatLine key={c.id} c={c} me={me} canPin={isStaff} pinned={c.id === live.pinned_chat_id} onPin={() => L.pinComment(c.id)} />)}
+        {shown.map((c) => <ChatLine key={c.id} c={c} me={me} canPin={amHost} pinned={c.id === live.pinned_chat_id} onPin={() => L.pinComment(c.id)} />)}
         {!shown.length && <p className="room-empty">{filter === "questions" ? "No questions yet." : "Say hello 👋"}</p>}
         <div ref={chatEnd} />
       </div>
@@ -235,7 +238,8 @@ export default function Live() {
       {sheet === "people" && (
         <div className="sheet"><h3>In the room · {Math.max(people.length, 1)}</h3>
           <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0)).map((p) => (
-            <div key={p.id} className="row"><div className="ava sm">{initials(p.name)}</div><span className="grow">{p.id === me ? "You" : p.name}</span>{p.role === "host" && <span className="tag">HOST</span>}</div>
+            <div key={p.id} className="row"><div className="ava sm">{initials(p.name)}</div><span className="grow">{p.id === me ? "You" : p.name}</span>{p.role === "host" && <span className="tag">HOST</span>}
+              {amHost && p.id !== me && p.staff && <button className="chip" onClick={() => { setSheet(""); L.makeHost(p.id); }}>Make host</button>}</div>
           ))}{!listeners.length && people.length <= 1 && <p className="muted">Share the link so others can join.</p>}</div>
           <button className="btn primary" onClick={L.share}>Invite people</button>
         </div>
@@ -341,9 +345,12 @@ function VideoTile({ track, name, label, talking, muted, mirror, children }: {
 }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!track || !box.current) return;
-    track.play(box.current, { fit: "cover", ...(mirror ? { mirror: true } : {}) });
-    return () => { track.stop(); };
+    const el = box.current;
+    if (!track || !el) return;
+    track.play(el, { fit: "cover", ...(mirror ? { mirror: true } : {}) });
+    // only stop if the video is still playing here: when the same camera moves to another tile
+    // (preview -> room), stopping it would blank your own view while others still see you
+    return () => { if (el.querySelector("video")) track.stop(); };
   }, [track, mirror]);
   return (
     <div className={`vtile${talking ? " talking" : ""}`}>

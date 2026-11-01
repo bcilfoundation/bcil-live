@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import AddAudioTalk, { PROGRAMS } from "../components/AddAudioTalk";
 import { clock } from "../lib/recorder";
 
-type Talk = { id: string; youtube_id: string | null; title: string; program: string; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null; status: string; trim_start: number | null; trim_end: number | null };
+type Talk = { id: string; youtube_id: string | null; title: string; program: string | null; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null; status: string; trim_start: number | null; trim_end: number | null };
 type Comment = { id: number; user_id: string; body: string; created_at: string; profiles?: { full_name: string } | null };
 
 export default function Library() {
@@ -42,7 +42,7 @@ export default function Library() {
     setOpen(t); setSpeed(1);
     if (params.get("talk") !== t.id) setParams({ talk: t.id }, { replace: true });
     if (t.kind === "audio" && "mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "BCIL Foundation", album: t.program,
+      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "BCIL Foundation", album: t.program ?? "BCIL Live",
         artwork: [{ src: `${import.meta.env.BASE_URL}icon-512.png`, sizes: "512x512", type: "image/png" }] });
     }
     const [{ count }, { data: mine }, { data: sv }, { data: cs }] = await Promise.all([
@@ -108,7 +108,7 @@ export default function Library() {
         onDelete={() => { setTalks((list) => list.filter((x) => x.id !== open.id)); setOpen(null); setParams({}, { replace: true }); }} />}
       <h1>{open.title}{open.status === "draft" && <span className="pill" style={{ marginLeft: 10, verticalAlign: "middle" }}>Draft</span>}</h1>
       {open.description && <p>{open.description}</p>}
-      <p className="muted">{open.program}{playLength(open) ? ` · ${clock(playLength(open)!)}` : ""}{open.published_on ? ` · ${new Date(open.published_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
+      <p className="muted">{open.program ?? (open.kind === "audio" ? "Audio talk" : "Talk")}{playLength(open) ? ` · ${clock(playLength(open)!)}` : ""}{open.published_on ? ` · ${new Date(open.published_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
       <div className="row" style={{ flexWrap: "wrap" }}>
         <button className="btn ghost" onClick={toggleLike} aria-pressed={liked}>{liked ? "♥" : "♡"} {likes}</button>
         <button className="btn ghost" onClick={toggleSave}>{saved ? "Saved" : "Save for later"}</button>
@@ -123,10 +123,10 @@ export default function Library() {
     </section>
   );
 
-  const programs = ["All", ...new Set(talks.filter((t) => t.status !== "draft").map((t) => t.program))];
+  const programs = ["All", ...new Set(talks.filter((t) => t.status !== "draft" && t.program).map((t) => t.program as string))];
   const drafts = talks.filter((t) => t.status === "draft");
   const ofType = (t: Talk) => type === "all" || (type === "video" && t.kind !== "audio") || (type === "audio" && t.kind === "audio" && !t.live_session_id) || (type === "live" && !!t.live_session_id);
-  const shown = talks.filter((t) => t.status !== "draft" && ofType(t) && (filter === "All" || t.program === filter) && (t.title + t.program).toLowerCase().includes(q.toLowerCase()));
+  const shown = talks.filter((t) => t.status !== "draft" && ofType(t) && (filter === "All" || t.program === filter) && (t.title + " " + (t.program ?? "") + " " + (t.description ?? "")).toLowerCase().includes(q.toLowerCase()));
   return (
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
@@ -141,7 +141,7 @@ export default function Library() {
         <div className="list">{drafts.map((t) => (
           <button key={t.id} onClick={() => loadTalk(t)}>
             <span className="pill rec" style={{ animation: "none" }}>Draft</span>
-            <div className="grow"><b>{t.title}</b><br /><small className="muted">{t.live_session_id ? "Live recording" : "Audio"} · {t.program}{playLength(t) ? ` · ${clock(playLength(t)!)}` : ""}</small></div>
+            <div className="grow"><b>{t.title}</b><br /><small className="muted">{t.live_session_id ? "Live recording" : "Audio"}{t.program ? ` · ${t.program}` : ""}{playLength(t) ? ` · ${clock(playLength(t)!)}` : ""}</small></div>
             <span className="btn ghost">Review</span>
           </button>))}</div>
       </>}
@@ -155,7 +155,7 @@ export default function Library() {
           <button key={t.id} className="tile" onClick={() => loadTalk(t)}>
             {t.youtube_id ? <img src={`https://i.ytimg.com/vi/${t.youtube_id}/hqdefault.jpg`} alt="" loading="lazy" />
               : <div className="art audio"><span className="badge">{t.live_session_id ? "● Live recording" : "🎧 Audio"}</span><span className="t">{t.title}</span>{playLength(t) ? <span className="dur">{clock(playLength(t)!)}</span> : null}</div>}
-            <b>{t.title}</b><small className="muted">{t.program}</small>
+            <b>{t.title}</b>{t.program && <small className="muted">{t.program}</small>}
           </button>
         ))}
       </div>
@@ -176,12 +176,12 @@ const toSecs = (v: string) => {
 
 // Hosts: edit details, trim the start/end, publish or unpublish, delete
 function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: React.MutableRefObject<HTMLAudioElement | null>; onChange: (t: Talk) => void; onDelete: () => void }) {
-  const [f, setF] = useState({ title: talk.title, program: talk.program, description: talk.description ?? "", published_on: talk.published_on ?? "",
+  const [f, setF] = useState({ title: talk.title, program: talk.program ?? "", description: talk.description ?? "", published_on: talk.published_on ?? "",
     start: talk.trim_start ? clock(talk.trim_start) : "", end: talk.trim_end ? clock(talk.trim_end) : "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [openEd, setOpenEd] = useState(talk.status === "draft");
-  useEffect(() => { setF({ title: talk.title, program: talk.program, description: talk.description ?? "", published_on: talk.published_on ?? "",
+  useEffect(() => { setF({ title: talk.title, program: talk.program ?? "", description: talk.description ?? "", published_on: talk.published_on ?? "",
     start: talk.trim_start ? clock(talk.trim_start) : "", end: talk.trim_end ? clock(talk.trim_end) : "" }); }, [talk.id]);
 
   async function save(status?: string) {
@@ -191,7 +191,7 @@ function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: 
     if (start !== null && end !== null && end <= start) { setMsg("The end must be after the start."); return; }
     if (!f.title.trim()) { setMsg("Add a title."); return; }
     setBusy(true); setMsg("");
-    const patch = { title: f.title.trim(), program: f.program, description: f.description.trim() || null, published_on: f.published_on || null,
+    const patch = { title: f.title.trim(), program: f.program.trim() || null, description: f.description.trim() || null, published_on: f.published_on || null,
       trim_start: start || null, trim_end: end || null, ...(status ? { status } : {}) };
     const { error } = await supabase.from("talks").update(patch).eq("id", talk.id);
     setBusy(false);
@@ -216,7 +216,7 @@ function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: 
       {openEd && <>
         <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
         <div className="grid2">
-          <label className="field">Programme<select value={f.program} onChange={(e) => setF({ ...f, program: e.target.value })}>{[...new Set([f.program, ...PROGRAMS])].map((p) => <option key={p}>{p}</option>)}</select></label>
+          <label className="field">Programme or type (optional)<input list="programs" value={f.program} onChange={(e) => setF({ ...f, program: e.target.value })} /><datalist id="programs">{PROGRAMS.map((p) => <option key={p} value={p} />)}</datalist></label>
           <label className="field">Date<input type="date" value={f.published_on} onChange={(e) => setF({ ...f, published_on: e.target.value })} /></label>
         </div>
         <label className="field">Description<textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} style={{ minHeight: 70 }} /></label>

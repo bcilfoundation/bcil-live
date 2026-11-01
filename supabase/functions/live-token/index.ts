@@ -1,5 +1,5 @@
 // live-token: gives a signed-in user a short-lived pass (Agora token) for a live session.
-// Listeners get an audience pass; hosts/moderators and callers the host brought on air get a speaker pass.
+// Listeners get an audience pass; the session's host and callers the host brought on air get a speaker pass.
 // Deploy: supabase functions deploy live-token
 // Secrets: supabase secrets set AGORA_APP_ID=... AGORA_APP_CERTIFICATE=...
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -37,11 +37,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Please sign in" }, 401);
 
-    const { data: session } = await supabase.from("live_sessions").select("id, channel, status, kind").eq("id", session_id).single();
+    const { data: session } = await supabase.from("live_sessions").select("id, channel, status, kind, host_id").eq("id", session_id).single();
     if (!session || session.status !== "live") return json({ error: "This session is not live" }, 400);
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-    const isHost = profile?.role === "admin" || profile?.role === "moderator";
+    // one host per session: the person in host_id (other admins join as listeners and can call in, or take over)
+    const isHost = session.host_id === user.id;
     const { data: onAir } = await supabase.from("call_requests").select("id")
       .eq("session_id", session_id).eq("user_id", user.id).eq("status", "on_air").maybeSingle();
     const speaker = isHost || !!onAir;

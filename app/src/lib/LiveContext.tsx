@@ -10,7 +10,7 @@ import { useAuth } from "./auth";
 export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; profiles?: { full_name: string } | null };
-export type Person = { id: string; name: string; role: "host" | "listener" };
+export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean };
 export type Float = { id: number; emoji: string; left: number };
 export type Gift = { emoji: string; name: string };
 export type GiftShow = Gift & { from: string; id?: number };
@@ -139,17 +139,19 @@ function useLiveEngine() {
     if (!live || !joined) return;
     const ch = supabase.channel(`room:${live.id}`, { config: { presence: { key: me } } });
     ch.on("presence", { event: "sync" }, () => {
-      const state = ch.presenceState<{ name: string; role: "host" | "listener" }>();
-      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener" })));
+      const state = ch.presenceState<{ name: string; role: "host" | "listener"; staff?: boolean }>();
+      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener", staff: !!metas[0]?.staff })));
     })
       .on("broadcast", { event: "react" }, ({ payload }) => { showFloat(payload.emoji); if (payload.emoji === "❤️") setLikes((n) => n + 1); })
       .on("broadcast", { event: "gift" }, ({ payload }) => showGift(payload as GiftShow))
       .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") await ch.track({ name: myName, role: isStaff ? "host" : "listener" });
+        if (status === "SUBSCRIBED") await ch.track({ name: myName, role: liveRef.current?.host_id === me ? "host" : "listener", staff: isStaff });
       });
     room.current = ch;
     return () => { supabase.removeChannel(ch); room.current = null; setPeople([]); };
   }, [live?.id, joined]);
+  // when the host changes hands, update the "HOST" label in the People list
+  useEffect(() => { room.current?.track({ name: myName, role: live?.host_id === me ? "host" : "listener", staff: isStaff }).catch(() => {}); }, [live?.host_id]);
 
   function showFloat(emoji: string) {
     const f = { id: Date.now() + Math.random(), emoji, left: 10 + Math.random() * 70 };
@@ -171,10 +173,10 @@ function useLiveEngine() {
   // ---------- audio (Agora) ----------
   const mine = requests.find((r) => r.user_id === me);
   useEffect(() => {
-    if (!joined || isStaff) return;
-    const shouldSpeak = mine?.status === "on_air";
+    if (!joined) return;
+    const shouldSpeak = live?.host_id === me || mine?.status === "on_air";
     if (shouldSpeak !== speakerRef.current) { const keep = camOnRef.current; leave().then(() => join(undefined, { cam: keep })); }
-  }, [mine?.status]);
+  }, [mine?.status, live?.host_id]);
 
   // Every listener's app silences callers the host has muted, so a muted caller is never heard
   const silenced = useRef<Set<number>>(new Set());
@@ -520,6 +522,18 @@ function useLiveEngine() {
     if (liveRef.current) left.current.add(liveRef.current.id);   // don't rejoin automatically
     await leave();
   }
+  // only one host at a time: the host can hand over, and an admin can take over if the host has left
+  async function makeHost(userId: string) {
+    if (!live) return;
+    if (!window.confirm("Make this person the host? You will become a listener.")) return;
+    if (await run("Handing over", supabase.from("live_sessions").update({ host_id: userId }).eq("id", live.id)))
+      setLive((s) => (s ? { ...s, host_id: userId } : s));
+  }
+  async function takeOver() {
+    if (!live) return;
+    if (await run("Taking over", supabase.from("live_sessions").update({ host_id: me }).eq("id", live.id)))
+      setLive((s) => (s ? { ...s, host_id: me } : s));
+  }
   async function sendChat(text: string, kind: "chat" | "question" = "chat") {
     const body = text.trim();
     if (!body || !live) return false;
@@ -588,8 +602,6 @@ function useLiveEngine() {
   // Join automatically: listeners as soon as a session is live, and the host again when they come back to the app
   useEffect(() => {
     if (!live || live.status !== "live" || joined || joining.current || left.current.has(live.id)) return;
-    const amHost = live.host_id === me;
-    if (isStaff && !amHost) return;              // other admins choose to join (they would be on the microphone)
     if (live.kind === "video") return;           // video: everyone first chooses camera on or off
     join(live);
   }, [live?.id, live?.status, isStaff, joined]);
@@ -599,7 +611,7 @@ function useLiveEngine() {
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
-    setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
+    makeHost, takeOver, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind,
   };
   return value;
