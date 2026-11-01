@@ -595,3 +595,5 @@ html,body{max-width:100%;overflow-x:hidden}
 .lc-kind{font-size:.85rem;color:#c7d3e8}.lc-title{font:800 1.35rem var(--display);line-height:1.2}
 .livecard small{color:#c7d3e8}
 .lc-join{background:#fff;color:var(--navy);font-weight:800;margin-top:8px;align-self:flex-start;padding:12px 22px}
+.convertbox{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--navy-soft);border-radius:12px;padding:12px;margin:8px 0}
+.convertbox .grow{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}

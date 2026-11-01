@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { MicRecorder, audioDuration, clock, uploadAudio } from "../lib/recorder";
+import { convertToMp3 } from "../lib/mp3";
 
 export const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions", "Campus Sync"];
 
@@ -63,8 +64,15 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
     if (!title.trim()) { setMsg("Give the talk a title."); return; }
     setBusy(true); setMsg("Uploading… keep this page open.");
     try {
-      const url = await uploadAudio(session!.user.id, blob, title);
-      const duration = (await audioDuration(blob)) ?? (mode === "record" ? secs : null);
+      // phone recordings come out as WebM, which iPhones can't play: turn them into MP3 first
+      let file: Blob = blob, known: number | null = null;
+      if (/webm|ogg/.test(blob.type)) {
+        try { const c = await convertToMp3(blob, (p) => setMsg(`Preparing the audio… ${Math.round(p * 100)}%`)); file = c.blob; known = c.seconds; }
+        catch { /* upload the original */ }
+        setMsg("Uploading… keep this page open.");
+      }
+      const url = await uploadAudio(session!.user.id, file, title);
+      const duration = known ?? (await audioDuration(file)) ?? (mode === "record" ? secs : null);
       const { error } = await supabase.from("talks").insert({
         kind: "audio", audio_url: url, title: title.trim(), program: program.trim() || null, description: description.trim() || null,
         published_on: date || null, duration_seconds: duration, created_by: session!.user.id, status,

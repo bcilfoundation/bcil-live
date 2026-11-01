@@ -24,7 +24,8 @@ const bgCss = (bg?: string | null) => {
   if (preset) return preset.css;
   return `linear-gradient(rgba(5,10,25,.55),rgba(5,10,25,.85)), url("${bg}") center/cover`;
 };
-const SLOTS = 9;
+const SLOTS = 9;          // call-in spots shown at first
+export const MAX_STAGE = 20; // most people who can talk at once (besides the host); more spots appear as people come on
 
 export default function Live() {
   const L = useLive();
@@ -201,7 +202,7 @@ export default function Live() {
             <div className="ava">{initials(amHost ? (session?.user ? L.myName : L.hostName) : L.hostName)}</div>
             <b>{amHost ? "You" : L.hostName.split(" ")[0]}</b><span className="tag">HOST</span>
           </div>
-          {Array.from({ length: SLOTS }).map((_, i) => {
+          {Array.from({ length: Math.min(MAX_STAGE, Math.max(SLOTS, onStage.length + 1)) }).map((_, i) => {
             const r = onStage[i];
             if (r) return (
               <div key={r.id} className={`slot${isTalking(r.user_id) ? " talking" : ""}`}>
@@ -332,9 +333,10 @@ function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: 
         {waiting.map((r) => (
           <div key={r.id} className="row"><div className="ava sm">{initials(r.profiles?.full_name ?? "")}</div>
             <div className="grow"><b>{r.profiles?.full_name}</b><br /><small className="muted">{r.topic ?? "No topic"}</small></div>
-            <button className="btn primary" onClick={() => L.setStatus(r.id, "on_air")}>Bring on</button>
+            <button className="btn primary" disabled={onStageCount >= MAX_STAGE} title={onStageCount >= MAX_STAGE ? `Up to ${MAX_STAGE} people can talk at once. End someone's turn first.` : undefined} onClick={() => L.setStatus(r.id, "on_air")}>Bring on</button>
             <button className="btn ghost" aria-label="Decline" onClick={() => L.setStatus(r.id, "declined")}>✕</button></div>
         ))}
+        {onStageCount >= MAX_STAGE && <p className="muted">The stage is full ({MAX_STAGE} people talking). End someone's turn to bring on the next person.</p>}
         {!waiting.length && <p className="muted">No one is waiting. Listeners tap a “Call in” spot to join the queue.</p>}
       </div>
       <div className="toolgrid">

@@ -1,10 +1,16 @@
 import { supabase } from "./supabase";
+import { Mp3Stream } from "./mp3";
 
 // Records several audio tracks mixed into one file (the host plus everyone on stage).
 // Tracks can be added and removed while recording, e.g. when a caller is brought on or muted.
+// The mix is encoded to MP3 as it goes (plays everywhere, downloadable); a WebM copy is kept as a backup.
 export class MixRecorder {
   private ctx = new AudioContext();
   private dest = this.ctx.createMediaStreamDestination();
+  private mix = this.ctx.createGain();
+  private proc: ScriptProcessorNode | null = null;
+  private silent = this.ctx.createGain();
+  private mp3: Mp3Stream | null = null;
   private sources = new Map<string, MediaStreamAudioSourceNode>();
   private rec: MediaRecorder | null = null;
   private chunks: Blob[] = [];
@@ -14,7 +20,7 @@ export class MixRecorder {
   add(id: string, track: MediaStreamTrack | undefined | null) {
     if (!track || this.sources.has(id)) return;
     const src = this.ctx.createMediaStreamSource(new MediaStream([track]));
-    src.connect(this.dest);
+    src.connect(this.mix);
     this.sources.set(id, src);
   }
   remove(id: string) {
@@ -25,6 +31,14 @@ export class MixRecorder {
 
   start() {
     this.ctx.resume().catch(() => {});
+    this.mix.connect(this.dest);
+    try {
+      this.mp3 = new Mp3Stream(this.ctx.sampleRate);
+      this.proc = this.ctx.createScriptProcessor(4096, 1, 1);
+      this.proc.onaudioprocess = (e) => { try { this.mp3?.push(new Float32Array(e.inputBuffer.getChannelData(0))); } catch { this.mp3 = null; } };
+      this.silent.gain.value = 0;
+      this.mix.connect(this.proc); this.proc.connect(this.silent); this.silent.connect(this.ctx.destination);
+    } catch { this.mp3 = null; }
     this.rec = new MediaRecorder(this.dest.stream, { mimeType: this.mime || undefined, audioBitsPerSecond: 48000 });
     this.rec.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
     this.rec.start(5000); // a chunk every 5 seconds, so little is lost if something goes wrong
@@ -32,12 +46,15 @@ export class MixRecorder {
   }
   get recording() { return this.rec?.state === "recording"; }
 
+  /** Stops and returns the MP3 when it worked, otherwise the WebM backup. */
   stop(): Promise<Blob> {
     return new Promise((resolve) => {
       const done = () => {
         for (const s of this.sources.values()) s.disconnect();
+        if (this.proc) { this.proc.onaudioprocess = null; this.proc.disconnect(); }
         this.ctx.close().catch(() => {});
-        resolve(new Blob(this.chunks, { type: this.rec?.mimeType || this.mime || "audio/webm" }));
+        const mp3 = this.mp3 && this.mp3.size > 2000 ? this.mp3.finish() : null;
+        resolve(mp3 ?? new Blob(this.chunks, { type: this.rec?.mimeType || this.mime || "audio/webm" }));
       };
       if (!this.rec || this.rec.state === "inactive") return done();
       this.rec.onstop = done;

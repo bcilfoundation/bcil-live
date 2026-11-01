@@ -3,7 +3,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { Link, useSearchParams } from "react-router-dom";
 import AddAudioTalk, { PROGRAMS } from "../components/AddAudioTalk";
-import { clock } from "../lib/recorder";
+import { clock, uploadAudio } from "../lib/recorder";
+import { convertToMp3 } from "../lib/mp3";
+import { isNative } from "../lib/native";
 import { ListenTracker, logOpen } from "../lib/engagement";
 
 type Talk = { id: string; youtube_id: string | null; title: string; program: string | null; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null; status: string; trim_start: number | null; trim_end: number | null };
@@ -123,6 +125,7 @@ export default function Library() {
         <button className="btn ghost" onClick={toggleLike} aria-pressed={liked}>{liked ? "♥" : "♡"} {likes}</button>
         <button className="btn ghost" onClick={toggleSave}>{saved ? "Saved" : "Save for later"}</button>
         <button className="btn ghost" onClick={share}>Share</button>
+        {open.kind === "audio" && open.audio_url && <button className="btn ghost" onClick={() => download(open)}>⬇ Download</button>}
       </div>
       <h2>Comments <span className="muted">{comments.length}</span></h2>
       <form className="composer card" onSubmit={comment}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment" aria-label="Write a comment" /><button className="btn primary">Post</button></form>
@@ -185,6 +188,16 @@ const toSecs = (v: string) => {
 };
 
 // Hosts: edit details, trim the start/end, publish or unpublish, delete
+// Download the audio file. Supabase sends it as a download when ?download=<name> is added.
+async function download(t: Talk) {
+  if (!t.audio_url) return;
+  const ext = (t.audio_url.split("?")[0].split(".").pop() || "mp3").toLowerCase();
+  const name = `${t.title.replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, " ").slice(0, 60) || "BCIL talk"}.${ext}`;
+  const url = `${t.audio_url}${t.audio_url.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`;
+  if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+
 function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: React.MutableRefObject<HTMLAudioElement | null>; onChange: (t: Talk) => void; onDelete: () => void }) {
   const [f, setF] = useState({ title: talk.title, program: talk.program ?? "", description: talk.description ?? "", published_on: talk.published_on ?? "",
     start: talk.trim_start ? clock(talk.trim_start) : "", end: talk.trim_end ? clock(talk.trim_end) : "" });
@@ -216,6 +229,26 @@ function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: 
     onDelete();
   }
   const here = () => clock(Math.floor(player.current?.currentTime ?? 0));
+  const isWebm = /\.(webm|ogg)(\?|$)/i.test(talk.audio_url ?? "");
+  async function toMp3() {
+    if (!talk.audio_url) return;
+    setBusy(true); setMsg("Downloading the recording…");
+    try {
+      const res = await fetch(talk.audio_url);
+      if (!res.ok) throw new Error("could not download it");
+      const { blob, seconds } = await convertToMp3(await res.blob(), (p) => setMsg(`Converting to MP3… ${Math.round(p * 100)}%`));
+      setMsg("Uploading the MP3…");
+      const { data: u } = await supabase.auth.getUser();
+      const url = await uploadAudio(u.user!.id, blob, talk.title);
+      const patch = { audio_url: url, duration_seconds: seconds };
+      const { error } = await supabase.from("talks").update(patch).eq("id", talk.id);
+      if (error) throw error;
+      if (talk.live_session_id) await supabase.from("live_sessions").update({ recording_url: url }).eq("id", talk.live_session_id);
+      onChange({ ...talk, ...patch });
+      setMsg("Done. It now plays on every phone (iPhone too) and can be downloaded as an MP3.");
+    } catch (e) { setMsg("Could not convert: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
 
   return (
     <div className="card editor">
@@ -223,6 +256,9 @@ function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: 
         <h3>{talk.status === "draft" ? "Review this draft" : "Edit talk"}</h3>
         <button className="linkbtn" onClick={() => setOpenEd((o) => !o)}>{openEd ? "Hide" : "Edit"}</button>
       </div>
+      {isWebm && <div className="convertbox"><div className="grow"><b>Make this play everywhere</b><small className="muted">This recording is a WebM file, which iPhones can't play and which can't be skipped through. Convert it to MP3 (takes about a minute; keep this page open).</small></div>
+        <button className="btn primary" disabled={busy} onClick={toMp3}>Convert to MP3</button></div>}
+      {isWebm && !openEd && msg && <p className="muted" role="status">{msg}</p>}
       {openEd && <>
         <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
         <div className="grid2">
