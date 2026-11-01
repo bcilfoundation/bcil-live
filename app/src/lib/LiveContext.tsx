@@ -183,6 +183,7 @@ function useLiveEngine() {
   }
 
   useEffect(() => { camOnRef.current = camOn; }, [camOn]);
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(""), 6000); return () => clearTimeout(t); }, [notice]);
   // engagement: a minute of attendance for every minute in the room
   useEffect(() => {
     if (!joined || !joinedId) return;
@@ -290,6 +291,7 @@ function useLiveEngine() {
       stayIn.current = true;
       startLiveService(sess.title, !!data.speaker);
       setSpeaker(!!data.speaker); setMuted(false); setJoined(true); setJoinedId(sess.id);
+      try { sessionStorage.setItem(`bcil.joined.${sess.id}`, "1"); } catch { /* ignore */ }
       reconnectTries.current = 0;
       return true;
     } catch (e) {
@@ -622,7 +624,11 @@ function useLiveEngine() {
   // Join automatically: listeners as soon as a session is live, and the host again when they come back to the app
   useEffect(() => {
     if (!live || live.status !== "live" || joined || joining.current || left.current.has(live.id)) return;
-    if (live.kind === "video") return;           // video: everyone first chooses camera on or off
+    // Nobody is pulled into a session they didn't choose: only the host, or someone who already joined
+    // this session in this browser (e.g. after a reload), comes back in automatically.
+    let joinedBefore = false; try { joinedBefore = !!sessionStorage.getItem(`bcil.joined.${live.id}`); } catch { /* ignore */ }
+    if (live.host_id !== me && !joinedBefore) return;
+    if (live.kind === "video" && live.host_id !== me) return;   // video: everyone first chooses camera on or off
     join(live);
   }, [live?.id, live?.status, isStaff, joined]);
 

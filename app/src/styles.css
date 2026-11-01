@@ -55,7 +55,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .sysmsg{align-self:center;font-size:.8rem;color:var(--muted);background:var(--panel);border-radius:999px;padding:4px 12px}
 .composer{display:flex;gap:10px;padding:12px;border-top:1px solid var(--line)}.composer input{border-radius:999px}
 /* live room */
-.liveroom{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}.stagecol{display:flex;flex-direction:column;gap:18px}
+.stagecol{display:flex;flex-direction:column;gap:18px}
 .stagecard{background:linear-gradient(180deg,var(--navy-soft),var(--panel) 60%)}
 .stage{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px}
 .spk{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}.spk small{color:var(--muted)}
@@ -75,7 +75,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
   .tabbar a.active::before{content:"";position:absolute;width:44px;height:30px;margin-top:-22px;border-radius:999px;background:var(--navy-soft);z-index:-1}
   .tabbar a{position:relative;isolation:isolate}
   .view{padding-bottom:110px}
-  .liveroom{grid-template-columns:1fr}.chatcol{height:420px}
+  .chatcol{height:420px}
 }
 
 /* library, quotes, admin */
@@ -135,7 +135,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .pod-golive{display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:20px;color:#fff;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%)}
 .pod-golive img{width:56px;height:56px;border-radius:12px;background:#fff}
 .pod-golive p{color:#cfdcf0;font-size:.9rem}
-.pod-golive input{background:#fff;border-color:transparent;color:var(--ink,#13233d);-webkit-text-fill-color:#13233d}
+.pod-golive input,[data-theme="dark"] .pod-golive input{background:#fff;border-color:transparent;color:#13233d;-webkit-text-fill-color:#13233d}
 .pod-golive input::placeholder{color:#6b7a90;-webkit-text-fill-color:#6b7a90}
 .app-version{font-size:.8rem;color:#6b7a90;text-align:center;margin-top:16px}
 .pod-golive-btn{background:#e0342c;color:#fff;padding:14px 20px;font-size:1.05rem}
@@ -350,7 +350,7 @@ main.inroom{display:flex;flex-direction:column}
 .giftpop span{font-size:2.6rem;animation:giftbounce .7s ease 2}
 @keyframes giftin{0%{opacity:0;transform:scale(.6) translateY(20px)}12%{opacity:1;transform:scale(1.05)}20%{transform:scale(1)}85%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
 @keyframes giftbounce{50%{transform:scale(1.35) rotate(-8deg)}}
-.room-msg{font-size:.85rem;background:rgba(0,0,0,.35);border-radius:10px;padding:8px 10px;color:#d6f5e3}.room-msg.err{color:#ffc4c0}
+.room-msg{position:fixed;left:50%;transform:translateX(-50%);top:76px;z-index:60;max-width:min(92vw,520px);font-size:.88rem;background:rgba(10,20,40,.92);border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 24px rgba(0,0,0,.35);border-radius:12px;padding:10px 14px;color:#d6f5e3;cursor:pointer}.room-msg.err{color:#ffc4c0}
 .room-compose{display:flex;flex-direction:column;gap:6px;position:sticky;bottom:0;padding-top:4px}
 .room-reacts{display:flex;gap:6px}
 .room-reacts button{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 10px;font-size:1.05rem;cursor:pointer}
