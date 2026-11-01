@@ -564,3 +564,6 @@ html,body{max-width:100%;overflow-x:hidden}
 .momo{display:flex;flex-direction:column;gap:6px;border:2px solid #ffd54a}
 .momo-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .momo-num{font:800 1.6rem var(--display);letter-spacing:.03em}
+.quotealert{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--navy-soft);margin:0 0 14px}
+.quotealert .grow{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.quotealert.on{justify-content:space-between;font-size:.9rem}

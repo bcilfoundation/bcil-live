@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { disablePush, enablePush, pushEnabled } from "../lib/push";
-import { isNative } from "../lib/native";
 import { getTheme, setTheme, type Theme } from "../lib/theme";
 import { uploadPhoto } from "../lib/media";
 import Avatar from "./Avatar";
@@ -144,12 +143,11 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   useEffect(() => { pushEnabled().then((on) => { if (on) setAlerts(true); }); }, []);
   async function toggleAlerts() {
     setMsg("");
-    if (isNative) { setMsg("Notifications in the Android app are coming soon. For now, open live.bcilfoundation.org in Chrome and turn alerts on there."); return; }
     try {
       if (alerts) { await disablePush(); localStorage.setItem(ALERTS_KEY, "off"); setAlerts(false); return; }
       await enablePush(session!.user.id);
       localStorage.setItem(ALERTS_KEY, "push"); setAlerts(true);
-      setMsg("Done. You'll get a notification on this device when BCIL goes live, someone messages you, and more.");
+      setMsg("Done. You'll get a notification on this device for the daily quote, when BCIL goes live, programme reminders and messages.");
     } catch (e) { setMsg((e as Error).message); }
   }
 

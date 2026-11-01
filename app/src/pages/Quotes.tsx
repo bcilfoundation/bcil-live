@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { enablePush, pushEnabled, pushSupported } from "../lib/push";
+import { isNative } from "../lib/native";
 
 type Quote = { id: number; show_on: string; theme: string; body: string; author: string; reflection: string | null };
 const THEMES = ["All", "Integrity", "Mentorship", "Persistence", "Impact", "Responsibility", "Excellence"];
@@ -54,6 +56,7 @@ export default function Quotes() {
   return (
     <section className="view">
       <h1>Daily Quotes</h1>
+      <QuoteAlerts me={me} />
       {q ? (
         <div className="quote">
           <span className="eyebrow">{i === 0 ? "Today · " : ""}{new Date(q.show_on + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · {q.theme}</span>
@@ -74,5 +77,47 @@ export default function Quotes() {
         <div className="card" key={x.id}><span className="eyebrow">{x.theme}</span><b>“{x.body}”</b><div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}><small className="muted">— {x.author}</small><Like id={x.id} /></div></div>
       ))}</div>
     </section>
+  );
+}
+
+// "Get today's quote on your phone every morning" — turns on phone notifications and the quote setting
+function QuoteAlerts({ me }: { me: string }) {
+  const [push, setPush] = useState<boolean | null>(null);
+  const [want, setWant] = useState(true);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    pushEnabled().then(setPush).catch(() => setPush(false));
+    supabase.from("profiles").select("notify_quotes").eq("id", me).maybeSingle().then(({ data }) => { if (data) setWant(data.notify_quotes !== false); });
+  }, [me]);
+  if (push === null) return null;
+  const iosBrowser = !isNative && /iPhone|iPad/.test(navigator.userAgent) && !pushSupported();
+  const turnOn = async () => {
+    setBusy(true); setMsg("");
+    try {
+      await enablePush(me);
+      await supabase.from("profiles").update({ notify_quotes: true }).eq("id", me);
+      setPush(true); setWant(true);
+      try { localStorage.setItem("bcil-alerts", "push"); } catch { /* ignore */ }
+      setMsg("Done! Today's quote will arrive on this phone every morning at 6:00 am.");
+    } catch (e) { setMsg((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  const setQuotes = async (on: boolean) => {
+    setWant(on);
+    const { error } = await supabase.from("profiles").update({ notify_quotes: on }).eq("id", me);
+    if (error) setWant(!on);
+  };
+  if (push && want) return (
+    <div className="quotealert on"><span>🔔 The daily quote comes to this phone every morning.</span>
+      <button className="linkbtn" onClick={() => setQuotes(false)}>Turn off</button></div>
+  );
+  return (
+    <div className="quotealert">
+      <div className="grow"><b>Get the daily quote on your phone</b>
+        <small className="muted">{iosBrowser ? "On iPhone: tap Share → Add to Home Screen, open BCIL Live from your home screen, then come back here." : "A notification every morning at 6:00 am, no need to open the app."}</small></div>
+      {!iosBrowser && <button className="btn small primary" disabled={busy} onClick={push ? () => setQuotes(true) : turnOn}>{busy ? "…" : "Turn on"}</button>}
+      {msg && <p className="muted" role="status" style={{ width: "100%", margin: 0 }}>{msg}</p>}
+    </div>
   );
 }

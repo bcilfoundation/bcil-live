@@ -78,15 +78,15 @@ Deno.serve(async (req) => {
   webpush.setVapidDetails(c.vapid_subject, c.vapid_public, c.vapid_private);
   let sa: ServiceAccount | null = null;
   try { const raw = Deno.env.get("FCM_SERVICE_ACCOUNT"); if (raw) sa = JSON.parse(raw); } catch { sa = null; }
-  const titles: Record<string, string> = { live: "BCIL is live now", message: "New message", friend_request: "Friend request", friend_accepted: "Friend request accepted", activity: "New group activity", post: "Group update" };
-  const payload = JSON.stringify({ title: titles[n.kind] ?? "BCIL Live", body: n.body, url: n.link ?? "/", tag: n.kind === "message" ? `msg-${n.link}` : undefined });
+  const titles: Record<string, string> = { live: "BCIL is live now", message: "New message", friend_request: "Friend request", friend_accepted: "Friend request accepted", activity: "New group activity", post: "Group update", quote: "Today's quote · BCIL", programme: "Starting soon" };
+  const payload = JSON.stringify({ title: titles[n.kind] ?? "BCIL Live", body: n.body, url: n.link ?? "/", tag: n.kind === "message" ? `msg-${n.link}` : n.kind === "quote" ? "quote" : undefined });
 
   let sent = 0;
   const msg = JSON.parse(payload) as { title: string; body: string; url: string; tag?: string };
   await Promise.all(subs.map(async (s) => {
     if (s.endpoint.startsWith("fcm:")) {
       if (!sa) return;
-      const r = await sendFcm(sa, s.endpoint.slice(4), { ...msg, high: n.kind === "live" }).catch(() => "error");
+      const r = await sendFcm(sa, s.endpoint.slice(4), { ...msg, high: n.kind === "live" || n.kind === "programme" }).catch(() => "error");
       if (r === "ok") sent++; else if (r === "gone") await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
       return;
     }
