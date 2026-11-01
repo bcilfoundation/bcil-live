@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refreshProfile() {
     if (!session) { setProfile(null); return; }
-    const { data } = await supabase.from("profiles").select("id, full_name, role, avatar_url, bio").eq("id", session.user.id).single();
+    const { data } = await supabase.from("profiles").select("id, full_name, role, avatar_url, bio, is_minor").eq("id", session.user.id).single();
     setProfile(data as Profile | null);
   }
   useEffect(() => { refreshProfile(); }, [session?.user.id]);

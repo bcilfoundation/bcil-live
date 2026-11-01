@@ -5,6 +5,8 @@ import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
+import { PAID_GIFTS, PAYMENTS_ENABLED, savedGiver, startPayment, type Giver } from "../lib/pay";
+import GiverCheck from "../components/GiverCheck";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
 
 // Room backgrounds the host can pick (or upload a photo)
@@ -258,10 +260,7 @@ export default function Live() {
         </div>
       )}
       {sheet === "gifts" && (
-        <div className="sheet"><h3>Send a gift to the host</h3>
-          <p className="muted">Gifts show up big for everyone and highlight your comment.</p>
-          <div className="giftgrid">{GIFTS.map((g) => <button key={g.name} onClick={() => { L.sendGift(g); setSheet(""); }}><span>{g.emoji}</span>{g.name}</button>)}</div>
-        </div>
+        <GiftSheet close={() => setSheet("")} />
       )}
       {sheet === "host" && (
         <HostTools waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} close={() => setSheet("")} />
@@ -421,6 +420,45 @@ function PreJoin({ openBg, label }: { openBg: () => void; label: string }) {
       <p className="muted small">{L.previewOn ? "People will see you when you join." : "You can turn your camera on later."} Your microphone stays off until you call in.</p>
       <button className="btn primary prejoin-go" disabled={L.busy} onClick={() => L.join(undefined, { cam: L.previewOn })}>
         {L.busy ? "Joining…" : `${label}${L.previewOn ? " with camera" : ""}`}</button>
+    </div>
+  );
+}
+
+// Gifts: free ones for everyone, and (once giving is on) paid gifts where 100% goes to BCIL Foundation
+function GiftSheet({ close }: { close: () => void }) {
+  const L = useLive();
+  const [tab, setTab] = useState<"free" | "support">(PAYMENTS_ENABLED ? "support" : "free");
+  const [asking, setAsking] = useState<(typeof PAID_GIFTS)[number] | null>(null);
+  const [busy, setBusy] = useState("");
+  const pay = async (g: (typeof PAID_GIFTS)[number], giver: Giver) => {
+    setBusy(g.code); setAsking(null);
+    try {
+      await startPayment({ kind: "live_gift", gift_code: g.code, session_id: L.live!.id, ...giver });
+      L.setNotice("Finish paying on the Paystack page. Your gift appears in the room as soon as it's paid. Thank you!");
+      close();
+    } catch (e) { L.setError((e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const tapPaid = (g: (typeof PAID_GIFTS)[number]) => { const giver = savedGiver(); if (giver) pay(g, giver); else setAsking(g); };
+  if (asking) return <div className="sheet"><GiverCheck onDone={(giver) => pay(asking, giver)} onCancel={() => setAsking(null)} /></div>;
+  return (
+    <div className="sheet"><h3>Send a gift</h3>
+      {PAYMENTS_ENABLED && (
+        <div className="seg" role="tablist">
+          <button role="tab" aria-selected={tab === "support"} onClick={() => setTab("support")}>💛 Support BCIL</button>
+          <button role="tab" aria-selected={tab === "free"} onClick={() => setTab("free")}>Free gifts</button>
+        </div>
+      )}
+      {tab === "free" ? <>
+        <p className="muted">Free gifts show up big for everyone and highlight your comment.</p>
+        <div className="giftgrid">{GIFTS.map((g) => <button key={g.name} onClick={() => { L.sendGift(g); close(); }}><span>{g.emoji}</span>{g.name}</button>)}</div>
+      </> : <>
+        <p className="muted">100% goes to BCIL Foundation's programmes. Pay with Mobile Money or card. Your gift shows in the room for everyone (the amount is never shown).</p>
+        <div className="giftgrid paid">{PAID_GIFTS.map((g) => (
+          <button key={g.code} onClick={() => tapPaid(g)} disabled={!!busy}><span>{g.emoji}</span>{g.name}<em>{busy === g.code ? "…" : `GH₵ ${g.cedis}`}</em></button>
+        ))}</div>
+        <p className="muted small">Want to give a different amount? Use <a href={`${import.meta.env.BASE_URL}give`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>Give</a> in the menu.</p>
+      </>}
     </div>
   );
 }

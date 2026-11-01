@@ -131,6 +131,11 @@ function useLiveEngine() {
         const l = p.new as Line;
         const { data } = await supabase.from("profiles").select("full_name").eq("id", l.user_id).single();
         setChat((cur) => (cur.some((x) => x.id === l.id) ? cur : [...cur.slice(-99), { ...l, profiles: data }]));
+        // a paid gift (written by the server once Paystack confirms): celebrate it for everyone
+        if (l.kind === "gift" && l.body.includes("💛")) {
+          const m = l.body.match(/^sent (\S+) (\S+)/);
+          showGift({ emoji: m?.[1] ?? "🎁", name: m?.[2] ?? "Gift", from: data?.full_name ?? "A supporter" });
+        }
       }).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [live?.id]);

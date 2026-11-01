@@ -25,9 +25,17 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
   if (event.event === "charge.success") {
-    await admin.from("gifts").update({ status: "paid" }).eq("paystack_reference", reference);
+    // only mark paid if the amount and currency match what we asked for
+    const { data: g } = await admin.from("gifts").select("amount_pesewas, status").eq("paystack_reference", reference).maybeSingle();
+    if (!g) return new Response("ok");
+    if (event.data.currency !== "GHS" || Number(event.data.amount) < g.amount_pesewas) {
+      await admin.from("gifts").update({ status: "failed", note: "Amount mismatch" }).eq("paystack_reference", reference);
+      return new Response("ok");
+    }
+    const method = event.data.channel === "card" ? "card" : "mobile_money";
+    if (g.status !== "paid") await admin.from("gifts").update({ status: "paid", method }).eq("paystack_reference", reference);
   } else if (event.event === "charge.failed") {
-    await admin.from("gifts").update({ status: "failed" }).eq("paystack_reference", reference);
+    await admin.from("gifts").update({ status: "failed" }).eq("paystack_reference", reference).neq("status", "paid");
   }
   return new Response("ok");
 });

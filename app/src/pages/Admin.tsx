@@ -199,17 +199,18 @@ function FormsAdmin() {
 }
 
 function GiftsAdmin() {
-  const [rows, setRows] = useState<{ id: number; amount_pesewas: number; purpose: string; method: string; status: string; created_at: string; profiles?: { full_name: string } | null }[]>([]);
-  useEffect(() => { supabase.from("gifts").select("id, amount_pesewas, purpose, method, status, created_at, profiles(full_name)").order("created_at", { ascending: false }).limit(300).then(({ data }) => setRows((data ?? []) as never)); }, []);
+  const [rows, setRows] = useState<{ id: number; amount_pesewas: number; purpose: string; method: string; status: string; created_at: string; kind?: string; under_18?: boolean; profiles?: { full_name: string } | null }[]>([]);
+  useEffect(() => { supabase.from("gifts").select("id, amount_pesewas, purpose, method, status, created_at, kind, under_18, profiles(full_name)").order("created_at", { ascending: false }).limit(300).then(({ data }) => setRows((data ?? []) as never)); }, []);
   const paid = rows.filter((r) => r.status === "paid" || r.status === "recorded");
   const total = paid.reduce((s, r) => s + r.amount_pesewas, 0);
+  const liveGifts = paid.filter((r) => r.kind === "live_gift").reduce((n, r) => n + r.amount_pesewas, 0);
   const byPurpose = Object.entries(paid.reduce<Record<string, number>>((m, r) => ({ ...m, [r.purpose]: (m[r.purpose] ?? 0) + r.amount_pesewas }), {})).sort((a, b) => b[1] - a[1]);
   return (<>
     <div className="grid2">
-      <div className="card"><span className="muted">Received (paid + recorded)</span><b className="big">{cedis(total)}</b><small className="muted">{paid.length} gifts · FCB 2027 goal GH₵ 47,000</small></div>
+      <div className="card"><span className="muted">Received (paid + recorded)</span><b className="big">{cedis(total)}</b><small className="muted">{paid.length} gifts · {cedis(liveGifts)} from live gifts · FCB 2027 goal GH₵ 47,000</small></div>
       <div className="card"><span className="muted">By purpose</span>{byPurpose.map(([p, v]) => <div key={p} className="row"><span className="grow">{p}</span><b>{cedis(v)}</b></div>)}</div>
     </div>
-    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{cedis(r.amount_pesewas)}</b> · {r.purpose}<br /><small className="muted">{r.profiles?.full_name ?? "Member"} · {r.method.replace("_", " ")} · {fmt(r.created_at)}</small></div><span className={`pill ${r.status}`}>{r.status}</span></div>)}</div>
+    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{cedis(r.amount_pesewas)}</b> · {r.purpose}<br /><small className="muted">{r.profiles?.full_name ?? "Member"}{r.under_18 ? " (under 18, guardian confirmed)" : ""} · {r.method.replace("_", " ")} · {fmt(r.created_at)}</small></div><span className={`pill ${r.status}`}>{r.status}</span></div>)}</div>
   </>);
 }
 

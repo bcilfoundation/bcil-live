@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Privacy from "./pages/Privacy";
+import Thanks from "./pages/Thanks";
 import { useAuth } from "./lib/auth";
 import { isNative } from "./lib/native";
 import Icon from "./components/Icon";
@@ -20,8 +21,7 @@ const Live = lazy(() => import("./pages/Live"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Reading = lazy(() => import("./pages/Reading"));
 
-// Turn giving on once Paystack has approved BCIL and the payment functions are deployed
-const GIVING_ENABLED = false;
+import { PAYMENTS_ENABLED as GIVING_ENABLED } from "./lib/pay";
 
 const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
@@ -35,6 +35,7 @@ export default function App() {
   const { pathname } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
+  if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;
 

@@ -471,3 +471,6 @@ main.inroom{display:flex;flex-direction:column}
 .prejoin .muted{color:#c7d3e6}
 .prejoin-go{width:100%}
 .room-takeover{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:rgba(255,213,74,.18);border:1px solid rgba(255,213,74,.5);color:#fff;border-radius:12px;padding:8px 12px;margin:6px 0;font-size:.88rem}
+
+.giftgrid.paid button em{display:block;font-style:normal;font-size:.75rem;font-weight:700;color:#c9a227;margin-top:2px}
+.givercheck{display:flex;flex-direction:column;gap:12px}.givercheck h3{margin:0}
