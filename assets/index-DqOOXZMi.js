@@ -1,0 +1,1 @@
+import{n as u}from"./index-D3hzAwOo.js";var o;(function(i){i[i.Min=1]="Min",i[i.Low=2]="Low",i[i.Default=3]="Default",i[i.High=4]="High",i[i.Max=5]="Max"})(o||(o={}));var n;(function(i){i[i.Location=8]="Location",i[i.Microphone=128]="Microphone"})(n||(n={}));const M=u("ForegroundService");export{M as ForegroundService,o as Importance,n as ServiceType};
