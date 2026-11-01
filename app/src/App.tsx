@@ -8,6 +8,7 @@ import Icon from "./components/Icon";
 import { LiveProvider, useLive } from "./lib/LiveContext";
 import TopBar from "./components/TopBar";
 import UpdateBanner from "./components/UpdateBanner";
+import GetApp, { APK, isAndroid, isIOS } from "./components/GetApp";
 import { startNativePush } from "./lib/push";
 import { useEffect } from "react";
 import SignIn from "./pages/SignIn";
@@ -66,6 +67,7 @@ export default function App() {
           <TopBar />
         </header>
         <UpdateBanner />
+        <GetApp />
         <main className={pathname === "/live" ? "inroom" : ""}>
           <Suspense fallback={<div className="center muted">Loading…</div>}>
           <Routes>
@@ -91,7 +93,9 @@ export default function App() {
               <section className="view"><h1>More</h1>
                 <div className="list morelist">{nav.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}</div>
-                {!isNative && <a className="btn primary" href={`${import.meta.env.BASE_URL}bcil-live.apk`} download>Get the Android app</a>}
+                {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
+                {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Live.</p>}
+                {!isNative && !isAndroid && !isIOS && <p className="muted small">On your phone, open live.bcilfoundation.org to install the app (Android) or add it to your Home Screen (iPhone).</p>}
                 <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

@@ -550,3 +550,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .evback{align-self:flex-start;color:#dbe5f4;font-size:.85rem;margin-bottom:4px}
 .evflyer{width:100%;max-width:520px;border-radius:14px;margin:8px 0 14px;display:block}
 .evdates{display:flex;flex-direction:column;gap:6px;margin:10px 0}.evdates .row.next span{font-weight:800}
+
+.getapp{display:flex;align-items:center;gap:10px;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px}
+.getapp img{width:36px;height:36px;border-radius:9px}
+.getapp .grow{display:flex;flex-direction:column;min-width:0}.getapp b{font-size:.9rem}.getapp small{font-size:.76rem;color:var(--muted)}
+.getapp.signin{width:min(420px,100%);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}

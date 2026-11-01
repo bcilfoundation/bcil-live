@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { signInWithGoogle } from "../lib/google";
+import GetApp from "../components/GetApp";
 
 // Turn on once the Google provider is switched on in Supabase
 const GOOGLE_READY = true;
@@ -97,6 +98,7 @@ export default function SignIn() {
 
   return (
     <div className="center signin-wrap">
+      <GetApp where="signin" />
       <div className="signin-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.15), rgba(10,25,60,.85)), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` }}>
         <span className="eyebrow">Finding Campus Balance 2026</span>
         <b>Join the BCIL community</b>
