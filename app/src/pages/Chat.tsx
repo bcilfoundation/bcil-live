@@ -46,7 +46,8 @@ export default function Chat() {
     setConvs(list);
     setUnread(Object.fromEntries(((un ?? []) as { room_id: string; n: number }[]).map((u) => [u.room_id, u.n])));
     // on a big screen, open the first conversation straight away
-    if (!roomId && list[0] && window.matchMedia("(min-width: 761px)").matches) setParams({ room: list[0].id }, { replace: true });
+    const firstDm = list.find((c) => c.kind === "dm");
+    if (!roomId && firstDm && window.matchMedia("(min-width: 761px)").matches) setParams({ room: firstDm.id }, { replace: true });
   }
   useEffect(() => { loadConvs(); }, []);
 
@@ -114,20 +115,21 @@ export default function Chat() {
           <div className="chanhead"><h1>Chat</h1><Link to="/friends" className="iconbtn sm" aria-label="Start a conversation with a friend"><Icon name="userplus" size={18} /></Link></div>
           <div className="pad"><ChatTabs /></div>
           {convs === null ? <p className="muted pad">Loading…</p> : <>
-            <ChanList title="Groups" items={convs.filter((c) => c.kind !== "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })} />
-            <ChanList title="Direct messages" items={convs.filter((c) => c.kind === "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })}
+            <ChanList title="Messages" items={convs.filter((c) => c.kind === "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })}
               empty={<p className="muted pad small">Add friends, then message them here. <Link to="/friends">Find people</Link></p>} />
-            <p className="pad small"><Link to="/groups">Browse groups</Link> · <Link to="/campus">Campus Sync</Link></p>
+            <p className="pad small muted">Group chats are under <Link to="/groups">Groups</Link> and <Link to="/campus">Campus Sync</Link>.</p>
           </>}
         </div>
         <div className="room">
           {!room ? <div className="center muted">Pick a conversation.</div> : <>
             <div className="roomhead">
-              <button className="iconbtn sm backonly" onClick={() => nav("/chat")} aria-label="Back to conversations"><Icon name="back" size={20} /></button>
-              {room.kind === "dm" ? <button className="plainbtn" onClick={() => room.otherId && setPerson(room.otherId)} aria-label={`See ${room.name}'s profile`}><Avatar name={room.name} url={room.avatar} size={40} /></button> : <ChanIcon c={room} />}
-              <div className="grow"><b>{room.name}</b>
-                <small className="muted">{room.kind === "dm" ? "Direct message" : `${room.members ?? ""} members`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></div>
-              {room.kind !== "dm" && <Link to={`/groups/${room.id}`} className="btn ghost sm">Group page</Link>}
+              <button className={`iconbtn sm${room.kind === "dm" ? " backonly" : ""}`} onClick={() => nav(room.kind === "dm" ? "/chat" : "/groups")} aria-label={room.kind === "dm" ? "Back to messages" : "Back to groups"}><Icon name="back" size={20} /></button>
+              <button className="plainbtn roomhead-who" onClick={() => (room.kind === "dm" ? room.otherId && setPerson(room.otherId) : nav(`/groups/${room.id}`))}
+                aria-label={room.kind === "dm" ? `See ${room.name}'s profile` : `About ${room.name}: description, members, leave group`}>
+                {room.kind === "dm" ? <Avatar name={room.name} url={room.avatar} size={40} /> : <ChanIcon c={room} />}
+                <span className="grow"><b>{room.name}</b>
+                  <small className="muted">{room.kind === "dm" ? "Tap for profile" : `${room.members ?? ""} members · tap for group info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
+              </button>
             </div>
             <div className="msgs">
               <div className="sysmsg">Be kind. Never send money to anyone in chat.</div>

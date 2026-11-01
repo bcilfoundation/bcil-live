@@ -11,7 +11,7 @@ const ROLE_LABEL: Record<string, string> = { admin: "BCIL team", moderator: "Mod
 
 // Tap someone's name or photo in a chat or live room: see who they are, add them as a friend or message them.
 export default function PersonSheet({ userId, close }: { userId: string; close: () => void }) {
-  const { session } = useAuth();
+  const { session, isStaff } = useAuth();
   const me = session!.user.id;
   const nav = useNavigate();
   const [p, setP] = useState<Person | null>(null);
@@ -63,7 +63,8 @@ export default function PersonSheet({ userId, close }: { userId: string; close: 
               {link?.status === "pending" && link.requester === me && <><span className="muted">Friend request sent</span>
                 <button className="btn ghost" disabled={busy} onClick={() => act("Cancel", () => supabase.from("friendships").delete().eq("id", link.id))}>Cancel request</button></>}
               {link?.status === "pending" && link.addressee === me && <button className="btn primary" disabled={busy} onClick={() => act("Accept", () => supabase.from("friendships").update({ status: "accepted" }).eq("id", link.id))}>Accept friend request</button>}
-              {link?.status === "accepted" && <><span className="ok">✓ Friends</span><button className="btn primary" disabled={busy} onClick={message}>Message</button></>}
+              {link?.status === "accepted" && <span className="ok">✓ Friends</span>}
+              {(link?.status === "accepted" || isStaff) && <button className="btn primary" disabled={busy} onClick={message}><Icon name="chat" size={18} />Message</button>}
             </div>
           )}
         </>}

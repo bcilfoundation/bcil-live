@@ -597,3 +597,6 @@ html,body{max-width:100%;overflow-x:hidden}
 .lc-join{background:#fff;color:var(--navy);font-weight:800;margin-top:8px;align-self:flex-start;padding:12px 22px}
 .convertbox{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--navy-soft);border-radius:12px;padding:12px;margin:8px 0}
 .convertbox .grow{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}
+.roomhead-who{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left}
+.roomhead-who .grow{display:flex;flex-direction:column;min-width:0}.roomhead-who b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leavebtn{color:var(--live);margin-top:18px}

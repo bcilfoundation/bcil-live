@@ -7,6 +7,7 @@ import { uploadPhoto } from "../lib/media";
 import Avatar from "../components/Avatar";
 import Icon from "../components/Icon";
 import { timeAgo } from "../components/TopBar";
+import PersonSheet from "../components/PersonSheet";
 
 export type Group = {
   id: string; name: string; kind: string; category: string; description: string | null; school: string | null;
@@ -34,18 +35,20 @@ export default function Groups({ campus = false }: { campus?: boolean }) {
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [unread, setUnread] = useState<Record<string, number>>({});
 
   async function load() {
-    const { data, error } = await supabase.rpc("group_list");
+    const [{ data, error }, { data: un }] = await Promise.all([supabase.rpc("group_list"), supabase.rpc("my_unread")]);
     if (error) setError(error.message);
     setGroups((data ?? []) as Group[]);
+    setUnread(Object.fromEntries(((un ?? []) as { room_id: string; n: number }[]).map((u) => [u.room_id, u.n])));
   }
   useEffect(() => { load(); }, []);
 
   async function join(g: Group) {
     const { error } = await supabase.from("room_members").insert({ room_id: g.id, user_id: session!.user.id });
     if (error && !/duplicate/i.test(error.message)) { setError("Could not join: " + error.message); return; }
-    nav(`/groups/${g.id}`);
+    nav(`/chat?room=${g.id}`);
   }
 
   return (
@@ -54,7 +57,7 @@ export default function Groups({ campus = false }: { campus?: boolean }) {
       <ChatTabs />
       <div className="row"><h2 className="grow">{campus ? "Campus Sync" : "Groups"}</h2>
         {isStaff && <button className="btn primary" onClick={() => setCreating(!creating)}>{creating ? "Close" : "+ New group"}</button>}</div>
-      {creating && <CreateGroup start={campus ? "campus" : "general"} onCreated={(id) => nav(`/groups/${id}`)} />}
+      {creating && <CreateGroup start={campus ? "campus" : "general"} onCreated={(id) => nav(`/chat?room=${id}`)} />}
       {error && <p className="err">{error}</p>}
       {groups !== null && !campus && !groups.some((g) => (g.category ?? "general") !== "campus") && (
         <div className="empty"><b>No groups yet</b><span>{isStaff ? "Tap “+ New group” to create one." : "Groups you can join will appear here."}</span></div>
@@ -70,14 +73,14 @@ export default function Groups({ campus = false }: { campus?: boolean }) {
             ) : (
               <div className="gridcards">{list.map((g) => (
                 <div key={g.id} className="gcard">
-                  <Link to={`/groups/${g.id}`} className="gcard-main">
+                  <Link to={g.is_member ? `/chat?room=${g.id}` : `/groups/${g.id}`} className="gcard-main">
                     <Cover g={g} />
-                    <div className="grow"><b>{g.name}</b>
+                    <div className="grow"><b>{g.name}</b>{(unread[g.id] ?? 0) > 0 && <span className="count inline">{unread[g.id] > 99 ? "99+" : unread[g.id]}</span>}
                       <small className="muted">{[g.school, `${g.member_count} member${g.member_count === 1 ? "" : "s"}`, g.is_private && "Private"].filter(Boolean).join(" · ")}</small>
                       {g.description && <small className="clamp">{g.description}</small>}</div>
                   </Link>
                   {g.is_member
-                    ? <Link className="btn ghost sm" to={`/groups/${g.id}`}>Open</Link>
+                    ? <Link className="btn ghost sm" to={`/chat?room=${g.id}`}>Open chat</Link>
                     : <button className="btn primary sm" onClick={() => join(g)}>Join</button>}
                 </div>
               ))}</div>
@@ -122,7 +125,7 @@ export function JoinWithLink() {
   useEffect(() => {
     supabase.rpc("join_with_code", { code }).then(({ data, error }) => {
       if (error) setErr("This invite link doesn't work any more. Ask the group leader for a new one.");
-      else nav(`/groups/${data}`, { replace: true });
+      else nav(`/chat?room=${data}`, { replace: true });
     });
   }, [code]);
   return <section className="view"><h1>Joining group…</h1>{err && <p className="err">{err}</p>}<Link to="/groups">See all groups</Link></section>;
@@ -139,11 +142,12 @@ export function GroupPage() {
   const me = session!.user.id;
   const nav = useNavigate();
   const [g, setG] = useState<Group | null>(null);
-  const [tab, setTab] = useState<"activities" | "updates" | "members" | "about">("activities");
+  const [tab, setTab] = useState<"about" | "members" | "activities" | "updates">("about");
   const [events, setEvents] = useState<Ev[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [err, setErr] = useState(""); const [note, setNote] = useState("");
+  const [person, setPerson] = useState<string | null>(null);
 
   async function loadGroup() {
     const { data } = await supabase.rpc("group_list");
@@ -168,12 +172,13 @@ export function GroupPage() {
   useEffect(() => { loadGroup(); loadEvents(); loadPosts(); loadMembers(); }, [id]);
 
   if (!g) return <section className="view"><Link to="/groups" className="backlink"><Icon name="back" size={18} />Groups</Link><p className="muted">Loading…</p></section>;
+  const back = g.is_member ? `/chat?room=${g.id}` : g.category === "campus" ? "/campus" : "/groups";
   const leader = isStaff || g.my_role === "leader";
 
   async function join() {
     const { error } = await supabase.from("room_members").insert({ room_id: g!.id, user_id: me });
-    if (error && !/duplicate/i.test(error.message)) setErr("Could not join: " + error.message);
-    loadGroup(); loadMembers();
+    if (error && !/duplicate/i.test(error.message)) { setErr("Could not join: " + error.message); return; }
+    nav(`/chat?room=${g!.id}`);
   }
   async function leave() {
     if (!window.confirm(`Leave ${g!.name}?`)) return;
@@ -197,7 +202,7 @@ export function GroupPage() {
 
   return (
     <section className="view">
-      <Link to="/groups" className="backlink"><Icon name="back" size={18} />Groups</Link>
+      <Link to={back} className="backlink"><Icon name="back" size={18} />{g.is_member ? "Back to chat" : "Groups"}</Link>
       <div className="ghero">
         <Cover g={g} big />
         <div className="grow">
@@ -208,16 +213,15 @@ export function GroupPage() {
       </div>
       <div className="row wrap">
         {g.is_member ? <>
-          <Link className="btn primary" to={`/chat?room=${g.id}`}><Icon name="chat" size={18} />Group chat</Link>
+          <Link className="btn primary" to={`/chat?room=${g.id}`}><Icon name="chat" size={18} />Open chat</Link>
           {g.invite_code && leader && <button className="btn ghost" onClick={copyInvite}><Icon name="link" size={18} />Invite link</button>}
-          {g.my_role !== "leader" && g.kind !== "announcements" && <button className="linkbtn" onClick={leave}>Leave group</button>}
         </> : <button className="btn primary" onClick={join}>Join this group</button>}
       </div>
       {note && <p className="ok">{note}</p>}{err && <p className="err">{err}</p>}
 
       <div className="seg" role="tablist">
-        {(["activities", "updates", "members", "about"] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</button>
+        {(["about", "members", "activities", "updates"] as const).map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t === "members" ? `Members · ${g.member_count}` : t[0].toUpperCase() + t.slice(1)}</button>
         ))}
       </div>
 
@@ -261,8 +265,8 @@ export function GroupPage() {
       {tab === "members" && (
         <div className="list">{members.map((m) => (
           <div key={m.user_id} className="person">
-            <Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={42} />
-            <div className="grow"><b>{m.profiles?.full_name || "Member"}</b>{m.role === "leader" && <span className="pill soon">Leader</span>}
+            <button className="plainbtn" onClick={() => setPerson(m.user_id)} aria-label={`See ${m.profiles?.full_name || "this member"}'s profile`}><Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={42} /></button>
+            <div className="grow"><button className="plainbtn" onClick={() => setPerson(m.user_id)}><b>{m.profiles?.full_name || "Member"}</b></button>{m.role === "leader" && <span className="pill soon">Leader</span>}
               {m.profiles?.bio && <small className="muted clamp">{m.profiles.bio}</small>}</div>
             {isStaff && m.user_id !== me && (m.role === "leader"
               ? <button className="linkbtn" onClick={() => setRole(m, "member")}>Remove leader</button>
@@ -271,7 +275,9 @@ export function GroupPage() {
         ))}</div>
       )}
 
-      {tab === "about" && <About g={g} leader={leader} onSaved={loadGroup} />}
+      {tab === "about" && <About g={g} leader={leader} staff={isStaff} onSaved={loadGroup} />}
+      {g.is_member && g.my_role !== "leader" && g.kind !== "announcements" && <button className="btn ghost leavebtn" onClick={leave}>Leave group</button>}
+      {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
     </section>
   );
 }
@@ -331,35 +337,51 @@ function NewPost({ roomId, onSaved }: { roomId: string; onSaved: () => void }) {
   );
 }
 
-function About({ g, leader, onSaved }: { g: Group; leader: boolean; onSaved: () => void }) {
+function About({ g, leader, staff, onSaved }: { g: Group; leader: boolean; staff: boolean; onSaved: () => void }) {
   const { session } = useAuth();
   const [edit, setEdit] = useState(false);
-  const [description, setDescription] = useState(g.description ?? ""); const [school, setSchool] = useState(g.school ?? "");
-  const [err, setErr] = useState("");
+  const blank = () => ({ name: g.name, description: g.description ?? "", school: g.school ?? "", category: g.category ?? "general", read_only: g.read_only });
+  const [f, setF] = useState(blank);
+  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => { setF(blank()); }, [g.id, g.name, g.description, g.school, g.category, g.read_only]);
   async function cover(f?: File) {
     if (!f) return;
-    try { const url = await uploadPhoto(session!.user.id, f, 1600); await supabase.from("rooms").update({ cover_url: url }).eq("id", g.id); onSaved(); }
+    setBusy(true); setErr("");
+    try { const url = await uploadPhoto(session!.user.id, f, 1600); const { error } = await supabase.from("rooms").update({ cover_url: url }).eq("id", g.id); if (error) throw error; onSaved(); }
     catch (e) { setErr((e as Error).message); }
+    setBusy(false);
   }
   async function save() {
-    const { error } = await supabase.from("rooms").update({ description: description.trim() || null, school: school.trim() || null }).eq("id", g.id);
+    if (!f.name.trim()) { setErr("The group needs a name."); return; }
+    setBusy(true); setErr("");
+    const patch: Record<string, unknown> = { name: f.name.trim(), description: f.description.trim() || null, school: f.school.trim() || null };
+    if (staff && g.kind !== "announcements") { patch.category = f.category; patch.read_only = f.read_only; }
+    const { error } = await supabase.from("rooms").update(patch).eq("id", g.id);
+    setBusy(false);
     if (error) setErr(error.message); else { setEdit(false); onSaved(); }
   }
   if (edit) return (
-    <div className="card">
-      <label className="field">School / campus<input value={school} onChange={(e) => setSchool(e.target.value)} /></label>
-      <label className="field">About<textarea value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+    <div className="card stack">
+      <label className="field">Group name<input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+      <label className="field">About<textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="What this group is for, when you meet…" /></label>
+      <label className="field">School / campus <small className="muted">(optional)</small><input value={f.school} onChange={(e) => setF({ ...f, school: e.target.value })} /></label>
+      {staff && g.kind !== "announcements" && <>
+        <label className="field">Type<select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+          <option value="campus">Campus Sync</option><option value="cohort">Cohort</option><option value="program">Programme</option><option value="general">Community</option></select></label>
+        <label className="check"><input type="checkbox" checked={f.read_only} onChange={(e) => setF({ ...f, read_only: e.target.checked })} /> Only admins can post (members can read)</label>
+      </>}
+      <label className="btn ghost sm" style={{ alignSelf: "flex-start" }}><Icon name="image" size={16} />{busy ? "Uploading…" : g.cover_url ? "Change group photo" : "Add a group photo"}<input type="file" accept="image/*" hidden onChange={(e) => cover(e.target.files?.[0])} /></label>
       {err && <p className="err">{err}</p>}
-      <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="linkbtn" onClick={() => setEdit(false)}>Cancel</button></div>
+      <div className="row"><button className="btn primary" disabled={busy} onClick={save}>Save</button><button className="linkbtn" onClick={() => { setF(blank()); setEdit(false); }}>Cancel</button></div>
     </div>
   );
   return (
     <div className="card">
       <p className="prewrap">{g.description || "No description yet."}</p>
       {g.school && <p className="muted">{g.school}</p>}
+      <p className="muted small">{SECTIONS.find(([c]) => c === g.category)?.[1] ?? "Group"}{g.is_private ? " · Private (join with invite link)" : " · Open to all members"}{g.read_only ? " · Only admins post" : ""}</p>
       {err && <p className="err">{err}</p>}
-      {leader && <div className="row wrap"><button className="btn ghost sm" onClick={() => setEdit(true)}><Icon name="pencil" size={16} />Edit details</button>
-        <label className="btn ghost sm"><Icon name="image" size={16} />Cover photo<input type="file" accept="image/*" hidden onChange={(e) => cover(e.target.files?.[0])} /></label></div>}
+      {leader && <button className="btn ghost sm" onClick={() => setEdit(true)}><Icon name="pencil" size={16} />Edit group</button>}
     </div>
   );
 }

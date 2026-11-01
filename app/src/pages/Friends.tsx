@@ -12,7 +12,7 @@ type Friendship = { id: number; requester: string; addressee: string; status: "p
 const ROLE_LABEL: Record<string, string> = { admin: "BCIL team", moderator: "Moderator", mentor: "Mentor" };
 
 export default function Friends() {
-  const { session } = useAuth();
+  const { session, isStaff } = useAuth();
   const me = session!.user.id;
   const nav = useNavigate();
   const [tab, setTab] = useState<"friends" | "requests" | "find">("friends");
@@ -133,6 +133,7 @@ export default function Friends() {
               return (
                 <Row key={p.id} p={p}>
                   {!f && <button className="btn primary sm" onClick={() => add(p.id)}><Icon name="userplus" size={16} />Add friend</button>}
+                  {isStaff && f?.status !== "accepted" && <button className="btn ghost sm" onClick={() => message(p.id)}>Message</button>}
                   {f?.status === "accepted" && <button className="btn ghost sm" onClick={() => message(p.id)}>Message</button>}
                   {f?.status === "pending" && f.requester === me && <span className="muted small">Request sent</span>}
                   {f?.status === "pending" && f.addressee === me && <button className="btn primary sm" onClick={() => accept(f)}>Accept</button>}
