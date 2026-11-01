@@ -100,8 +100,8 @@ export default function SignIn() {
     <div className="center signin-wrap">
       <GetApp where="signin" />
       <div className="signin-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(10,25,60,.15), rgba(10,25,60,.85)), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` }}>
-        <span className="eyebrow">Finding Campus Balance 2026</span>
-        <b>Join the BCIL community</b>
+        <span className="eyebrow">BCIL Foundation · Grooming generational leaders</span>
+        <b>Live sessions, talks and mentorship, all in one place</b>
       </div>
       <div className="card signin">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
