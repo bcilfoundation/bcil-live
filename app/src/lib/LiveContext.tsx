@@ -183,6 +183,13 @@ function useLiveEngine() {
   }
 
   useEffect(() => { camOnRef.current = camOn; }, [camOn]);
+  // engagement: a minute of attendance for every minute in the room
+  useEffect(() => {
+    if (!joined || !joinedId) return;
+    const beat = () => supabase.rpc("live_heartbeat", { p_session: joinedId }).then(() => {}, () => {});
+    beat(); const t = setInterval(beat, 60000);
+    return () => clearInterval(t);
+  }, [joined, joinedId]);
   // ---------- audio (Agora) ----------
   const mine = requests.find((r) => r.user_id === me);
   useEffect(() => {

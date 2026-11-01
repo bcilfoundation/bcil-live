@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { Link, useSearchParams } from "react-router-dom";
 import AddAudioTalk, { PROGRAMS } from "../components/AddAudioTalk";
 import { clock } from "../lib/recorder";
+import { ListenTracker, logOpen } from "../lib/engagement";
 
 type Talk = { id: string; youtube_id: string | null; title: string; program: string | null; published_on: string | null; kind: string; audio_url: string | null; description: string | null; duration_seconds: number | null; live_session_id: string | null; status: string; trim_start: number | null; trim_end: number | null };
 type Comment = { id: number; user_id: string; body: string; created_at: string; profiles?: { full_name: string } | null };
@@ -15,6 +16,7 @@ export default function Library() {
   const [adding, setAdding] = useState(false);
   const [speed, setSpeed] = useState(1);
   const player = useRef<HTMLAudioElement | null>(null);
+  const tracker = useRef<ListenTracker | null>(null);
   const [talks, setTalks] = useState<Talk[]>([]);
   const [filter, setFilter] = useState("All");
   const [type, setType] = useState<"all" | "video" | "audio" | "live">("all");
@@ -38,6 +40,12 @@ export default function Library() {
     });
   useEffect(() => { loadTalks(); }, []);
 
+  // engagement: count listening time for audio, and an "open" for videos
+  useEffect(() => {
+    if (!open || open.status === "draft") return;
+    if (open.kind === "audio") { tracker.current = new ListenTracker(open.id); return () => { tracker.current?.stop(); tracker.current = null; }; }
+    logOpen(open.id);
+  }, [open?.id]);
   async function loadTalk(t: Talk) {
     setOpen(t); setSpeed(1);
     if (params.get("talk") !== t.id) setParams({ talk: t.id }, { replace: true });
@@ -97,7 +105,9 @@ export default function Library() {
           <audio controls preload="metadata" src={open.audio_url + (open.trim_start || open.trim_end ? `#t=${open.trim_start ?? 0}${open.trim_end ? "," + open.trim_end : ""}` : "")} style={{ width: "100%" }}
             ref={(el) => { player.current = el; if (el) el.playbackRate = speed; }}
             onPlay={(e) => { const a = e.currentTarget; if (open.trim_start && a.currentTime < open.trim_start) a.currentTime = open.trim_start; }}
-            onTimeUpdate={(e) => { const a = e.currentTarget; if (open.trim_end && a.currentTime >= open.trim_end) { a.pause(); a.currentTime = open.trim_start ?? 0; } }} />
+            onTimeUpdate={(e) => { const a = e.currentTarget; tracker.current?.tick(a); if (open.trim_end && a.currentTime >= open.trim_end) { a.pause(); tracker.current?.flush(true); a.currentTime = open.trim_start ?? 0; } }}
+            onPause={() => tracker.current?.pause()}
+            onEnded={() => tracker.current?.flush(true)} />
           <div className="row" style={{ gap: 6 }}><small className="muted">Speed</small>
             {[1, 1.25, 1.5, 2].map((v) => <button key={v} className="chip" aria-pressed={speed === v} onClick={() => setSpeed(v)}>{v}×</button>)}
           </div>

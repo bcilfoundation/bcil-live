@@ -19,6 +19,7 @@ export default function Privacy() {
         <li><b>What you post:</b> chat and direct messages, live-room comments, group updates and photos, activity RSVPs, notes, comments on talks, friend connections, and form responses (for example, programme registrations).</li>
         <li><b>Live audio and video:</b> when you call in to a live session or turn on your camera in a video session, your voice or video is streamed to people in the room in real time. Live sessions are not recorded unless the host announces a recording at the start.</li>
         <li><b>Giving and fees:</b> if you give or pay a fee (for example, a certificate fee) through the app, the amount, purpose and payment status. Payment details (Mobile Money number or card) are handled by our payment provider, Paystack, not stored by us.</li>
+        <li><b>Activity:</b> which talks you listen to and for how long, live sessions you attend, and quotes you read or like. BCIL staff use this to see what helps members most and to recognise active members.</li>
         <li><b>Technical:</b> basic information needed to keep you signed in and deliver notifications. We do not use advertising trackers.</li>
       </ul>
 

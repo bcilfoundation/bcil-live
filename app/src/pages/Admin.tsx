@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 
-const TABS = ["Quotes", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Quotes", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const THEMES = ["Integrity", "Mentorship", "Persistence", "Impact", "Responsibility", "Excellence"];
 const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
@@ -13,11 +13,11 @@ const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric",
 
 export default function Admin() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState<Tab>("Quotes");
+  const [tab, setTab] = useState<Tab>("Engagement");
   if (profile?.role !== "admin" && profile?.role !== "moderator")
     return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
   const isAdmin = profile.role === "admin";
-  const tabs = isAdmin ? TABS : (["Reports"] as const);
+  const tabs = isAdmin ? TABS : (["Engagement", "Reports"] as const);
   return (
     <section className="view">
       <h1>Admin</h1>
@@ -27,7 +27,8 @@ export default function Admin() {
       {tab === "Talks" && isAdmin && <TalksAdmin />}
       {tab === "Form responses" && isAdmin && <FormsAdmin />}
       {tab === "Gifts" && isAdmin && <GiftsAdmin />}
-      {(tab === "Reports" || !isAdmin) && <ReportsAdmin />}
+      {tab === "Engagement" && <EngagementAdmin />}
+      {(tab === "Reports" || (!isAdmin && tab !== "Engagement")) && <ReportsAdmin />}
       {tab === "People" && isAdmin && <PeopleAdmin />}
     </section>
   );
@@ -287,4 +288,78 @@ function FeeEditor({ form, onSaved, paid, total, checkedIn }: { form: FormRow; o
       {msg && <small className="muted">{msg}</small>}
     </div>
   );
+}
+
+// Who is engaging: listening to talks, attending live sessions, reading and liking quotes
+type Lead = { user_id: string; name: string; avatar_url: string | null; listen_minutes: number; talks_finished: number; live_minutes: number; live_sessions: number; quotes_read: number; quote_likes: number; days_active: number; score: number };
+type TalkStat = { talk_id: string; title: string; kind: string; listeners: number; minutes: number; finished: number };
+type QuoteStat = { quote_id: number; show_on: string; body: string; reads: number; likes: number };
+function EngagementAdmin() {
+  const [days, setDays] = useState(30);
+  const [rows, setRows] = useState<Lead[] | null>(null);
+  const [talks, setTalks] = useState<TalkStat[]>([]);
+  const [quotes, setQuotes] = useState<QuoteStat[]>([]);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    setRows(null); setErr("");
+    Promise.all([
+      supabase.rpc("engagement_leaderboard", { p_days: days }),
+      supabase.rpc("talk_stats", { p_days: days }),
+      supabase.rpc("quote_stats", { p_days: Math.min(days, 30) }),
+    ]).then(([l, t, q]) => {
+      if (l.error) setErr(l.error.message);
+      setRows((l.data ?? []) as Lead[]); setTalks((t.data ?? []) as TalkStat[]); setQuotes((q.data ?? []) as QuoteStat[]);
+    });
+  }, [days]);
+  const sum = (k: keyof Lead) => (rows ?? []).reduce((n, r) => n + Number(r[k] || 0), 0);
+  const hours = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+  async function download() {
+    if (!rows) return;
+    const { default: writeXlsxFile } = await import("write-excel-file/browser");
+    const head = ["Rank", "Name", "Score", "Talk listening (min)", "Talks finished", "Live sessions (min)", "Live sessions joined", "Quotes read", "Quote likes", "Active days"]
+      .map((value) => ({ value, fontWeight: "bold" as const, backgroundColor: "#e3ebf6" }));
+    const body = rows.map((r, i) => [i + 1, r.name, r.score, r.listen_minutes, r.talks_finished, r.live_minutes, r.live_sessions, r.quotes_read, r.quote_likes, r.days_active].map((value) => ({ value })));
+    await writeXlsxFile([head, ...body] as never, { sheet: "Engagement", stickyRowsCount: 1, columns: [{ width: 6 }, { width: 28 }, ...Array(8).fill({ width: 14 })] })
+      .toFile(`BCIL Live engagement (last ${days} days).xlsx`);
+  }
+  return (<>
+    <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      <div className="chips">{[7, 30, 90, 365].map((d) => <button key={d} className="chip" aria-pressed={d === days} onClick={() => setDays(d)}>{d === 365 ? "This year" : `Last ${d} days`}</button>)}</div>
+      <button className="btn ghost sm" onClick={download} disabled={!rows?.length}>Download Excel</button>
+    </div>
+    {err && <p className="err">{err}</p>}
+    <div className="statgrid">
+      <div className="card"><span className="muted">People engaging</span><b className="big">{rows?.length ?? "…"}</b></div>
+      <div className="card"><span className="muted">Talk listening</span><b className="big">{hours(sum("listen_minutes"))}</b><small className="muted">{sum("talks_finished")} talks finished</small></div>
+      <div className="card"><span className="muted">Live sessions</span><b className="big">{hours(sum("live_minutes"))}</b><small className="muted">{sum("live_sessions")} attendances</small></div>
+      <div className="card"><span className="muted">Quotes</span><b className="big">{sum("quotes_read")}</b><small className="muted">reads · {sum("quote_likes")} likes</small></div>
+    </div>
+
+    <h2>🏆 Leaderboard</h2>
+    <p className="muted small">Score = minutes listening to talks + minutes in live sessions + 5 per talk finished + 2 per quote read + 1 per quote liked.</p>
+    {rows === null ? <p className="muted">Loading…</p> : rows.length === 0 ? <div className="empty"><b>No activity yet in this period</b>Listening, live sessions and quote reads will show here.</div> : (
+      <div className="leaders">{rows.slice(0, 50).map((r, i) => (
+        <div key={r.user_id} className={`leader${i < 3 ? " top" : ""}`}>
+          <span className="rank">{i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+          <div className="grow"><b>{r.name || "Member"}</b>
+            <small className="muted">🎧 {hours(r.listen_minutes)}{r.talks_finished ? ` · ${r.talks_finished} finished` : ""} · 🔴 {hours(r.live_minutes)} live · 💬 {r.quotes_read} quotes{r.quote_likes ? ` · ❤️ ${r.quote_likes}` : ""} · {r.days_active} active day{r.days_active === 1 ? "" : "s"}</small></div>
+          <span className="score">{r.score}</span>
+        </div>
+      ))}</div>
+    )}
+
+    <div className="grid2" style={{ marginTop: 16 }}>
+      <div><h2>Most listened talks</h2>
+        {talks.length ? <div className="list">{talks.slice(0, 10).map((t) => (
+          <div key={t.talk_id}><div className="grow"><b>{t.title}</b><br /><small className="muted">{t.kind === "audio" ? `${t.listeners} listener${t.listeners === 1 ? "" : "s"} · ${hours(t.minutes)} · ${t.finished} finished` : `${t.listeners} opened (video)`}</small></div></div>
+        ))}</div> : <p className="muted">No listening yet.</p>}
+      </div>
+      <div><h2>Quotes</h2>
+        {quotes.length ? <div className="list">{quotes.slice(0, 10).map((q) => (
+          <div key={q.quote_id}><div className="grow"><small className="muted">{new Date(q.show_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small><br />“{q.body.length > 90 ? q.body.slice(0, 90) + "…" : q.body}”</div>
+            <span className="pill">👁 {q.reads}</span><span className="pill">❤️ {q.likes}</span></div>
+        ))}</div> : <p className="muted">No quotes in this period.</p>}
+      </div>
+    </div>
+  </>);
 }
