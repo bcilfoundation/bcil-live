@@ -1,4 +1,7 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+// Built into the app from build 12: keeps the mic alive when the app is hidden or the screen is off.
+const LiveKeep = registerPlugin<{ start(): Promise<void>; stop(): Promise<void> }>("LiveKeep");
 
 // Inside the downloaded Android app, keep the live room running when the phone sleeps or
 // another app is opened. Android shows a "BCIL Live" notification while this is on.
@@ -24,10 +27,12 @@ export async function startLiveService(title: string, speaking: boolean) {
       silent: true,
     });
   } catch (e) { console.warn("Live background service did not start", e); }
+  try { await LiveKeep.start(); } catch { /* older app build */ }
 }
 
 export async function stopLiveService() {
   if (!isAndroid) return;
+  try { await LiveKeep.stop(); } catch { /* older app build */ }
   try {
     const { ForegroundService } = await import("@capawesome-team/capacitor-android-foreground-service");
     await ForegroundService.stopForegroundService();
