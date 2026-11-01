@@ -51,6 +51,14 @@ export default function Live() {
     }
   }, [live?.id, isStaff]);
   useEffect(() => { if (joined) chatEnd.current?.scrollIntoView({ block: "end" }); }, [chat.length, joined]);
+  // tell the host when someone raises a hand
+  const raised = people.filter((p) => p.hand && p.id !== me);
+  const seenHands = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const amHostNow = live?.host_id === me;
+    for (const p of raised) if (!seenHands.current.has(p.id) && amHostNow) L.setNotice(`✋ ${p.name} raised their hand`);
+    seenHands.current = new Set(raised.map((p) => p.id));
+  }, [raised.map((p) => p.id).join(",")]);
 
   // ---------- nothing live ----------
   if (!live) return (
@@ -98,6 +106,7 @@ export default function Live() {
     .map(([uid, track]) => ({ uid, track, name: people.find((p) => String(agoraUid(p.id)) === uid)?.name ?? "Guest" }));
   const meGuestCam = L.camOn && !amHost && !onStage.some((r) => r.user_id === me);
   const tiles = 1 + onStage.length + guestCams.length + (meGuestCam ? 1 : 0);
+  const hands = people.filter((p) => p.hand && p.id !== me).sort((a, b) => (a.hand ?? 0) - (b.hand ?? 0));
   const listeners = people.filter((p) => !onStage.some((r) => r.user_id === p.id) && p.role !== "host");
   const isTalking = (userId: string) => talking.has(agoraUid(userId));
   const mine = L.mine;
@@ -191,7 +200,9 @@ export default function Live() {
         ) : (
           <button onClick={L.requestCall} disabled={!joined}><span>📞</span>Call in</button>
         )}
-        <button onClick={() => { setAsQuestion(true); document.getElementById("room-input")?.focus(); }}><span>✋</span>Raise hand</button>
+        {amHost
+          ? <button onClick={() => setSheet("people")} className={hands.length ? "on" : ""}><span>✋</span>Hands <em>{hands.length || ""}</em></button>
+          : <button onClick={L.toggleHand} className={L.handUp ? "on" : ""} disabled={!joined}><span>✋</span>{L.handUp ? "Lower hand" : "Raise hand"}</button>}
         <button onClick={() => setSheet("people")}><span>👥</span>People <em>{Math.max(people.length, joined ? 1 : 0)}</em></button>
         <button onClick={() => setSheet("gifts")} disabled={!joined}><span>🎁</span>Gifts</button>
         {joined && live.kind === "video" && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
@@ -237,8 +248,10 @@ export default function Live() {
       {sheet && <div className="sheet-back" onClick={() => setSheet("")} />}
       {sheet === "people" && (
         <div className="sheet"><h3>In the room · {Math.max(people.length, 1)}</h3>
-          <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0)).map((p) => (
-            <div key={p.id} className="row"><div className="ava sm">{initials(p.name)}</div><span className="grow">{p.id === me ? "You" : p.name}</span>{p.role === "host" && <span className="tag">HOST</span>}
+          {hands.length > 0 && <p className="muted small">✋ {hands.length} raised hand{hands.length > 1 ? "s" : ""}, in the order they were raised</p>}
+          <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0) || ((a.hand || 9e15) - (b.hand || 9e15))).map((p) => (
+            <div key={p.id} className="row"><div className="ava sm">{initials(p.name)}</div><span className="grow">{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}</span>{p.role === "host" && <span className="tag">HOST</span>}
+              {amHost && !!p.hand && p.id !== me && <button className="chip" onClick={() => L.lowerHand(p.id)}>Lower</button>}
               {amHost && p.id !== me && p.staff && <button className="chip" onClick={() => { setSheet(""); L.makeHost(p.id); }}>Make host</button>}</div>
           ))}{!listeners.length && people.length <= 1 && <p className="muted">Share the link so others can join.</p>}</div>
           <button className="btn primary" onClick={L.share}>Invite people</button>

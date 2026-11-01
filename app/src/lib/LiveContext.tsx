@@ -10,7 +10,7 @@ import { useAuth } from "./auth";
 export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; profiles?: { full_name: string } | null };
-export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean };
+export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number };
 export type Float = { id: number; emoji: string; left: number };
 export type Gift = { emoji: string; name: string };
 export type GiftShow = Gift & { from: string; id?: number };
@@ -44,6 +44,8 @@ function useLiveEngine() {
   const [muted, setMuted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
+  const [handUp, setHandUp] = useState(0);   // when I raised my hand (0 = down)
+  const handRef = useRef(0); handRef.current = handUp;
   const [talking, setTalking] = useState<Set<number>>(new Set());
   const [remoteVideo, setRemoteVideo] = useState<Record<string, IRemoteVideoTrack>>({});
   const [camOn, setCamOn] = useState(false);
@@ -139,19 +141,25 @@ function useLiveEngine() {
     if (!live || !joined) return;
     const ch = supabase.channel(`room:${live.id}`, { config: { presence: { key: me } } });
     ch.on("presence", { event: "sync" }, () => {
-      const state = ch.presenceState<{ name: string; role: "host" | "listener"; staff?: boolean }>();
-      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener", staff: !!metas[0]?.staff })));
+      const state = ch.presenceState<{ name: string; role: "host" | "listener"; staff?: boolean; hand?: number }>();
+      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener", staff: !!metas[0]?.staff, hand: metas[0]?.hand || 0 })));
     })
       .on("broadcast", { event: "react" }, ({ payload }) => { showFloat(payload.emoji); if (payload.emoji === "❤️") setLikes((n) => n + 1); })
       .on("broadcast", { event: "gift" }, ({ payload }) => showGift(payload as GiftShow))
+      // the host lowers someone's hand
+      .on("broadcast", { event: "lower-hand" }, ({ payload }) => { if (payload.user === me) { setHandUp(0); setNotice("The host lowered your hand."); } })
       .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") await ch.track({ name: myName, role: liveRef.current?.host_id === me ? "host" : "listener", staff: isStaff });
+        if (status === "SUBSCRIBED") await ch.track(presence());
       });
     room.current = ch;
     return () => { supabase.removeChannel(ch); room.current = null; setPeople([]); };
   }, [live?.id, joined]);
   // when the host changes hands, update the "HOST" label in the People list
-  useEffect(() => { room.current?.track({ name: myName, role: live?.host_id === me ? "host" : "listener", staff: isStaff }).catch(() => {}); }, [live?.host_id]);
+  function presence() { return { name: myName, role: liveRef.current?.host_id === me ? "host" as const : "listener" as const, staff: isStaff, hand: handRef.current }; }
+  useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp]);
+  useEffect(() => { setHandUp(0); }, [live?.id]);
+  const toggleHand = () => setHandUp((h) => (h ? 0 : Date.now()));
+  const lowerHand = (user: string) => room.current?.send({ type: "broadcast", event: "lower-hand", payload: { user } });
 
   function showFloat(emoji: string) {
     const f = { id: Date.now() + Math.random(), emoji, left: 10 + Math.random() * 70 };
@@ -611,7 +619,7 @@ function useLiveEngine() {
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
-    makeHost, takeOver, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
+    makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind,
   };
   return value;
