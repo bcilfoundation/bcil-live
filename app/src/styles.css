@@ -773,5 +773,5 @@ html,body{max-width:100%;overflow-x:hidden}
   .teamcard-bio b{font-size:.9rem;color:#ffd54a}
   .teamcard-bio em{margin-top:auto;font-style:normal;font-weight:700;color:#ffd54a;font-size:.78rem}
   .teamcard:hover .teamcard-bio,.teamcard:focus-visible .teamcard-bio{opacity:1}
-  .teamcard-bio{-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent)}
+  .teamcard-bio .tb-text{display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
 }
