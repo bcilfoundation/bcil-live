@@ -22,6 +22,7 @@ export default function Home() {
   const [events, setEvents] = useState<Ev[] | null>(null);
   const [, tick] = useState(0);
   const [fresh, setFresh] = useState<NewItem[]>([]);
+  const [registered, setRegistered] = useState<Set<string>>(new Set());   // form slugs I've filled in
 
   useEffect(() => {
     supabase.from("quotes").select("body, author, show_on").order("show_on", { ascending: false }).limit(1)
@@ -29,6 +30,8 @@ export default function Home() {
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
     supabase.from("event_pages").select(EVENT_COLS).eq("listed", true).then(({ data }) => setEvents((data ?? []) as Ev[]));
+    supabase.from("form_responses").select("forms(slug)").then(({ data }) =>
+      setRegistered(new Set(((data ?? []) as unknown as { forms: { slug: string } | null }[]).map((r) => r.forms?.slug ?? "").filter(Boolean))));
     // new in the Reading room and the Library this week
     const since = new Date(Date.now() - NEW_FOR_DAYS * 864e5);
     Promise.all([
@@ -66,7 +69,7 @@ export default function Home() {
       )}
 
       {/* coming up: the soonest programme big, the rest as small cards */}
-      {first && <ProgrammeCard e={first.e} at={first.at} big />}
+      {first && <ProgrammeCard e={first.e} at={first.at} big registered={!!first.e.form_slug && registered.has(first.e.form_slug)} />}
       {rest.length > 0 && <>
         <h2 className="home-h">Coming up</h2>
         <div className="prog-list">{rest.map(({ e, at }) => <ProgrammeCard key={e.slug} e={e} at={at} />)}</div>
@@ -96,7 +99,7 @@ export default function Home() {
   );
 }
 
-function ProgrammeCard({ e, at, big }: { e: Ev; at: Date; big?: boolean }) {
+function ProgrammeCard({ e, at, big, registered }: { e: Ev; at: Date; big?: boolean; registered?: boolean }) {
   const n = sessions(e).length, idx = sessions(e).findIndex((d) => +d === +at) + 1;
   const now = isOnNow(at);
   const bg = `linear-gradient(180deg, rgba(10,25,60,.78), rgba(10,25,60,.95)), url(${img(e.hero_url, bgFor(e.slug))})`;
@@ -115,8 +118,10 @@ function ProgrammeCard({ e, at, big }: { e: Ev; at: Date; big?: boolean }) {
       {e.summary && <p className="prog-sum">{e.summary}</p>}
       <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         {e.online_url && (now || +at - Date.now() < 30 * 60e3) && <a className="btn primary sm" href={e.online_url} target="_blank" rel="noreferrer">Join now</a>}
-        {e.form_slug && <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register</Link>}
-        <Link className="btn ghost light sm" to={`/events/${e.slug}`}>Details{e.form_slug ? " & ticket" : ""}</Link>
+        {e.form_slug && (registered
+          ? <Link className="btn primary sm" to={`/events/${e.slug}`}>🎟 My ticket</Link>
+          : <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register</Link>)}
+        <Link className="btn ghost light sm" to={`/events/${e.slug}`}>Details</Link>
       </div>
     </div>
   );

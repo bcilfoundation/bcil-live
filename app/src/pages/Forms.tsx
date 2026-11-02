@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { TicketSheet } from "../components/Ticket";
 import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 
 // Question types, matching what BCIL uses in Google Forms
@@ -11,7 +12,7 @@ export type Field = {
   options?: string[];
 };
 type Form = { id: string; slug: string; title: string; subtitle: string | null; description: string | null; fields: Field[]; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
-type Resp = { id: number; form_id: string; status: string; created_at: string; paid_at: string | null };
+type Resp = { id: number; form_id: string; status: string; created_at: string; paid_at: string | null; ticket?: string | null; checked_in_at?: string | null };
 export const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 
 const STATUS: Record<string, string> = { received: "Received", accepted: "Accepted", declined: "Not accepted", waitlist: "Waitlist" };
@@ -29,10 +30,16 @@ export default function Forms() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
+  const [doneId, setDoneId] = useState<number | null>(null);
+  const [ticketFor, setTicketFor] = useState<Resp | null>(null);
+  const [eventForms, setEventForms] = useState<Record<string, string>>({});   // form slug → event title (these forms give a QR ticket)
+  useEffect(() => { supabase.from("event_pages").select("form_slug, title").not("form_slug", "is", null).then(({ data }) =>
+    setEventForms(Object.fromEntries(((data ?? []) as { form_slug: string; title: string }[]).map((e) => [e.form_slug, e.title])))); }, []);
+  const ticketTitle = (r: Resp) => { const f = forms.find((x) => x.id === r.form_id); return f ? eventForms[f.slug] : undefined; };
 
   const load = () => {
     supabase.from("forms").select("id, slug, title, subtitle, description, fields, fee_pesewas, fee_label, fee_required").eq("is_open", true).order("created_at").then(({ data }) => setForms((data ?? []) as Form[]));
-    supabase.from("form_responses").select("id, form_id, status, created_at, paid_at").order("created_at", { ascending: false }).then(({ data }) => setMine((data ?? []) as Resp[]));
+    supabase.from("form_responses").select("id, form_id, status, created_at, paid_at, ticket, checked_in_at").order("created_at", { ascending: false }).then(({ data }) => setMine((data ?? []) as Resp[]));
   };
   useEffect(load, []);
   // open a form straight from a link like /forms?form=fcb27-registration
@@ -80,7 +87,7 @@ export default function Forms() {
     setBusy(false);
     if (error) { setError("Could not send. Check your connection and try again."); return; }
     if (open!.fee_pesewas && sent) setPayFor({ resp: sent.id, form: open! });
-    setDone(open!.title); setOpen(null); setAnswers({}); load();
+    setDone(open!.title); setDoneId(sent?.id ?? null); setOpen(null); setAnswers({}); load();
   }
 
   async function pay(resp: number) {
@@ -141,7 +148,10 @@ export default function Forms() {
   return (
     <section className="view">
       <h1>Forms</h1>
-      {done && <p className="ok" role="status">Thank you! Your response to “{done}” has been received.</p>}
+      {done && (() => { const r = mine.find((x) => x.id === doneId); const t = r && ticketTitle(r);
+        return <div className="card donecard"><p className="ok" role="status" style={{ margin: 0 }}>Thank you! Your response to “{done}” has been received.</p>
+          {r && t && <><small className="muted">Your QR ticket for {t} is ready. You'll show it at the registration desk.</small>
+            <button className="btn primary" onClick={() => setTicketFor(r)}>🎟 Show my ticket</button></>}</div>; })()}
       {payFor && !mine.find((r) => r.id === payFor.resp)?.paid_at && (
         <div className="card paycard">
           <b>💳 {payFor.form.fee_label || "Fee"}: {cedis(payFor.form.fee_pesewas!)}</b>
@@ -174,8 +184,10 @@ export default function Forms() {
             return r.paid_at ? <span className="pill paid">Paid</span>
               : canPay ? <button className="btn primary sm" disabled={payBusy} onClick={() => pay(r.id)}>Pay {cedis(f.fee_pesewas)}</button>
               : <span className="pill">{cedis(f.fee_pesewas)} due</span>; })()}
+          {ticketTitle(r) && r.ticket && <button className="btn ghost sm" onClick={() => setTicketFor(r)}>🎟 Ticket</button>}
           <span className={`pill ${r.status === "accepted" ? "paid" : r.status === "declined" ? "failed" : ""}`}>{STATUS[r.status] ?? r.status}</span></div>
       ))}</div> : <div className="empty"><b>You have not sent any forms yet</b></div>}
+      {ticketFor?.ticket && <TicketSheet ticket={ticketFor.ticket} title={ticketTitle(ticketFor) ?? "BCIL"} checkedIn={!!ticketFor.checked_in_at} close={() => setTicketFor(null)} />}
     </section>
   );
 }

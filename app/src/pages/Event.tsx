@@ -6,6 +6,7 @@ import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pa
 import { cedis } from "./Forms";
 
 import { uploadPhoto } from "../lib/media";
+import Ticket from "../components/Ticket";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 type Mine = { id: number; ticket: string; paid_at: string | null; checked_in_at: string | null; status: string };
 type FormInfo = { id: string; fee_pesewas: number | null; fee_label: string | null; is_open: boolean };
@@ -22,6 +23,7 @@ export default function Event() {
   const [params, setParams] = useSearchParams();
   const [editing, setEditing] = useState(params.get("edit") === "1");
   const [payMsg, setPayMsg] = useState("");
+  const [flyer, setFlyer] = useState(false);
 
   const load = async () => {
     const { data: e } = await supabase.from("event_pages").select(EVENT_COLS).eq("slug", slug).maybeSingle();
@@ -78,7 +80,7 @@ export default function Event() {
             <button className="btn ghost" onClick={pay}>💳 Pay {form.fee_label?.toLowerCase() || "fee"} · {cedis(form.fee_pesewas)}</button>
           </> : <small className="muted">{form.fee_label || "Fee"}: {cedis(form.fee_pesewas)}. Payment in the app opens soon.</small>) : null}
           {payMsg && <small className="muted">{payMsg}</small>}
-          {showTicket && <Ticket ticket={mine.ticket} title={ev.title} />}
+          {showTicket && <Ticket ticket={mine.ticket} title={ev.title} checkedIn={!!mine.checked_in_at} />}
         </div>
       ) : form?.is_open ? (
         <Link className="btn primary evreg" to={`/forms?form=${ev.form_slug}`}>Register for {ev.title}{form.fee_pesewas ? ` · ${form.fee_label || "fee"} ${cedis(form.fee_pesewas)}` : ""}</Link>
@@ -89,7 +91,14 @@ export default function Event() {
         <div key={i} className={`row${at && +d === +at ? " next" : ""}`} style={{ justifyContent: "space-between" }}><span>{i + 1}. {when(d, true)}</span><small className="muted">{+d + 3 * 3600e3 < Date.now() ? "done" : at && +d === +at ? countdown(d) : ""}</small></div>
       ))}</div>}
       {ev.about && <p className="evabout">{ev.about}</p>}
-      {ev.hero_url && ev.slug !== "fcb2027" && <img className="evflyer" src={img(ev.hero_url)} alt={`${ev.title} flyer`} loading="lazy" />}
+      {ev.hero_url && ev.slug !== "fcb2027" && (
+        <button className="card flyercard" onClick={() => setFlyer(true)}>
+          <img src={img(ev.hero_url)} alt="" loading="lazy" />
+          <span className="grow"><b>Flyer</b><small className="muted">Tap to view full size</small></span>
+        </button>
+      )}
+      {flyer && ev.hero_url && <div className="lightbox" role="dialog" aria-label={`${ev.title} flyer`} onClick={() => setFlyer(false)}>
+        <img src={img(ev.hero_url)} alt={`${ev.title} flyer`} /><button className="lightbox-x" aria-label="Close">✕</button></div>}
 
       {ev.schedule.length > 0 && <h2>Programme</h2>}
       <ol className="evsched">{ev.schedule.map((s, i) => (
@@ -104,18 +113,6 @@ export default function Event() {
 
       {isStaff && <Link className="btn ghost" to="/checkin" style={{ marginTop: 16 }}>📷 Check people in (scan tickets)</Link>}
     </section>
-  );
-}
-
-function Ticket({ ticket, title }: { ticket: string; title: string }) {
-  const [src, setSrc] = useState("");
-  useEffect(() => { import("qrcode").then((Q) => Q.toDataURL(ticket, { width: 320, margin: 1 }).then(setSrc)); }, [ticket]);
-  return (
-    <div className="ticket">
-      {src ? <img src={src} alt="Your QR ticket" /> : <p className="muted">Making your ticket…</p>}
-      <b>{title}</b>
-      <small className="muted">Show this at the registration desk. Screenshot it in case there's no internet at the venue.</small>
-    </div>
   );
 }
 

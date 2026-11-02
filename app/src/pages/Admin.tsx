@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
@@ -20,7 +20,8 @@ export default function Admin() {
   const tabs = isAdmin ? TABS : (["Engagement", "Reports"] as const);
   return (
     <section className="view">
-      <h1>Admin</h1>
+      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}><h1>Admin</h1>
+        <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></div>
       <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === tab} onClick={() => setTab(t)}>{t}</button>)}</div>
       {tab === "Quotes" && isAdmin && <QuotesAdmin />}
       {tab === "Live sessions" && isAdmin && <LiveAdmin />}
