@@ -9,7 +9,7 @@ import { uploadPhoto } from "../lib/media";
 import Ticket from "../components/Ticket";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 type Mine = { id: number; ticket: string; paid_at: string | null; checked_in_at: string | null; status: string };
-type FormInfo = { id: string; fee_pesewas: number | null; fee_label: string | null; is_open: boolean };
+type FormInfo = { id: string; fee_pesewas: number | null; fee_label: string | null; is_open: boolean; fee_required?: boolean };
 
 // An event page (FCB 2027): what, when, where, the day's programme, speakers, how many registered, and my QR ticket
 export default function Event() {
@@ -31,7 +31,7 @@ export default function Event() {
     if (!e?.form_slug) return;
     const [{ data: n }, { data: f }] = await Promise.all([
       supabase.rpc("form_count", { p_slug: e.form_slug }),
-      supabase.from("forms").select("id, fee_pesewas, fee_label, is_open").eq("slug", e.form_slug).maybeSingle(),
+      supabase.from("forms").select("id, fee_pesewas, fee_label, is_open, fee_required").eq("slug", e.form_slug).maybeSingle(),
     ]);
     setCount(typeof n === "number" ? n : null); setForm(f as FormInfo | null);
     if (f) {
@@ -78,12 +78,12 @@ export default function Event() {
           {form?.fee_pesewas ? (mine.paid_at ? <span className="pill paid">{form.fee_label || "Fee"} paid</span> : paymentsOn(isStaff) ? <>
             {!PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
             <button className="btn ghost" onClick={pay}>💳 Pay {form.fee_label?.toLowerCase() || "fee"} · {cedis(form.fee_pesewas)}</button>
-          </> : <small className="muted">{form.fee_label || "Fee"}: {cedis(form.fee_pesewas)}. Payment in the app opens soon.</small>) : null}
+          </> : <small className="muted">{form.fee_required ? `${form.fee_label || "Fee"}: ${cedis(form.fee_pesewas)}. Payment in the app opens soon.` : `Certificate (optional): ${cedis(form.fee_pesewas)}. You'll be able to pay for it here soon.`}</small>) : null}
           {payMsg && <small className="muted">{payMsg}</small>}
           {showTicket && <Ticket ticket={mine.ticket} title={ev.title} checkedIn={!!mine.checked_in_at} />}
         </div>
       ) : form?.is_open ? (
-        <Link className="btn primary evreg" to={`/forms?form=${ev.form_slug}`}>Register for {ev.title}{form.fee_pesewas ? ` · ${form.fee_label || "fee"} ${cedis(form.fee_pesewas)}` : ""}</Link>
+        <Link className="btn primary evreg" to={`/forms?form=${ev.form_slug}`}>Register for {ev.title}{form.fee_pesewas && form.fee_required ? ` · ${form.fee_label || "fee"} ${cedis(form.fee_pesewas)}` : " · free"}</Link>
       ) : null}
 
       {ev.online_url && at && <a className="btn primary evreg" href={ev.online_url} target="_blank" rel="noreferrer">{now ? "● Join now" : "Join link"} ({ev.online_url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]})</a>}

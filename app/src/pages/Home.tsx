@@ -23,6 +23,7 @@ export default function Home() {
   const [, tick] = useState(0);
   const [fresh, setFresh] = useState<NewItem[]>([]);
   const [registered, setRegistered] = useState<Set<string>>(new Set());   // form slugs I've filled in
+  const [openForms, setOpenForms] = useState<Set<string>>(new Set());     // registration forms that are open
 
   useEffect(() => {
     supabase.from("quotes").select("body, author, show_on").order("show_on", { ascending: false }).limit(1)
@@ -30,6 +31,7 @@ export default function Home() {
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
     supabase.from("event_pages").select(EVENT_COLS).eq("listed", true).then(({ data }) => setEvents((data ?? []) as Ev[]));
+    supabase.from("forms").select("slug").eq("is_open", true).then(({ data }) => setOpenForms(new Set(((data ?? []) as { slug: string }[]).map((f) => f.slug))));
     supabase.from("form_responses").select("forms(slug)").then(({ data }) =>
       setRegistered(new Set(((data ?? []) as unknown as { forms: { slug: string } | null }[]).map((r) => r.forms?.slug ?? "").filter(Boolean))));
     // new in the Reading room and the Library this week
@@ -70,6 +72,15 @@ export default function Home() {
 
       {/* coming up: the soonest programme big, the rest as small cards */}
       {first && <ProgrammeCard e={first.e} at={first.at} big registered={!!first.e.form_slug && registered.has(first.e.form_slug)} />}
+      {/* registration open: straight to the form */}
+      {upcoming.filter(({ e }) => e.form_slug && openForms.has(e.form_slug) && !registered.has(e.form_slug)).map(({ e, at }) => (
+        <Link key={`reg-${e.slug}`} to={`/forms?form=${e.form_slug}`} className="regcard">
+          <span className="regcard-ico" aria-hidden="true">📝</span>
+          <span className="grow"><small>Registration is open · {countdown(at)}</small><b>Register for {e.title}</b><small>Free to attend. It takes about 2 minutes.</small></span>
+          <span className="regcard-go">Register →</span>
+        </Link>
+      ))}
+
       {rest.length > 0 && <>
         <h2 className="home-h">Coming up</h2>
         <div className="prog-list">{rest.map(({ e, at }) => <ProgrammeCard key={e.slug} e={e} at={at} />)}</div>

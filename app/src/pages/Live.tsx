@@ -536,7 +536,7 @@ function GiftSheet({ close }: { close: () => void }) {
         <div className="giftgrid paid">{PAID_GIFTS.map((g) => (
           <button key={g.code} onClick={() => pay(g)} disabled={!!busy}><span>{g.emoji}</span>{g.name}<em>{busy === g.code ? "…" : `GH₵ ${g.cedis}`}</em></button>
         ))}</div>
-        <p className="muted small">Want to give a different amount? Use <a href={`${import.meta.env.BASE_URL}give`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>Give</a> in the menu.</p>
+        <p className="muted small">Want to donate a different amount? Use <a href={`${import.meta.env.BASE_URL}donate`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>Donate</a> in the menu.</p>
       </>}
     </div>
   );

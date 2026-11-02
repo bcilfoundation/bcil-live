@@ -5,7 +5,7 @@ export default function Thanks() {
     <section className="view" style={{ maxWidth: 520, margin: "40px auto", textAlign: "center" }}>
       <div style={{ fontSize: 56 }}>💛</div>
       <h1>Thank you!</h1>
-      <p>Your gift to BCIL Foundation is being confirmed. {live ? "It will appear in the live room in a moment." : "You'll see it under My giving."}</p>
+      <p>Your gift to BCIL Foundation is being confirmed. {live ? "It will appear in the live room in a moment." : "You'll see it under My donations."}</p>
       <p className="muted">You can close this page and go back to BCIL Live.</p>
       <a className="btn primary" href="/">Open BCIL Live</a>
     </section>

@@ -107,7 +107,9 @@ export default function Forms() {
           <h2>{open.title}</h2>
           {open.subtitle && <p className="muted">{open.subtitle}</p>}
           {open.description && <p>{open.description}</p>}
-          {open.fee_pesewas && <p className="feenote">💳 {open.fee_label || "Fee"}: <b>{cedis(open.fee_pesewas)}</b>{open.fee_required ? "" : " (optional)"}. You can pay right after you submit.</p>}
+          {open.fee_pesewas && (open.fee_required
+            ? <p className="feenote">💳 {open.fee_label || "Fee"}: <b>{cedis(open.fee_pesewas)}</b>. You can pay right after you submit.</p>
+            : <p className="muted">Attendance is free. If you'd like a certificate, it costs {cedis(open.fee_pesewas)}, and you can pay any time after registering (optional).</p>)}
           <small className="muted">* Required</small>
         </div>
         {open.fields.map((f) => f.type === "section" ? (
@@ -154,7 +156,7 @@ export default function Forms() {
             <button className="btn primary" onClick={() => setTicketFor(r)}>🎟 Show my ticket</button></>}</div>; })()}
       {payFor && !mine.find((r) => r.id === payFor.resp)?.paid_at && (
         <div className="card paycard">
-          <b>💳 {payFor.form.fee_label || "Fee"}: {cedis(payFor.form.fee_pesewas!)}</b>
+          <b>{payFor.form.fee_required ? `💳 ${payFor.form.fee_label || "Fee"}: ${cedis(payFor.form.fee_pesewas!)}` : `🎓 Want a certificate? ${cedis(payFor.form.fee_pesewas!)} (optional)`}</b>
           {canPay ? <>
             {!PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
             <p className="muted">Pay now with Mobile Money or card. {payFor.form.fee_required ? "Your registration is complete once it's paid." : "You can also pay later from My responses."}</p>
@@ -170,7 +172,7 @@ export default function Forms() {
           return (
             <button key={f.id} onClick={() => start(f)}>
               <div className="grow"><b>{f.title}</b><br /><small className="muted">{f.subtitle}</small></div>
-              {f.fee_pesewas && !sent && <span className="pill">{cedis(f.fee_pesewas)}</span>}
+              {f.fee_pesewas && f.fee_required && !sent && <span className="pill">{cedis(f.fee_pesewas)}</span>}
               {sent ? <span className="pill sent">Sent</span> : <span className="pill soon">Fill in</span>}
             </button>);
         })}
@@ -183,7 +185,7 @@ export default function Forms() {
           {(() => { const f = forms.find((x) => x.id === r.form_id); if (!f?.fee_pesewas) return null;
             return r.paid_at ? <span className="pill paid">Paid</span>
               : canPay ? <button className="btn primary sm" disabled={payBusy} onClick={() => pay(r.id)}>Pay {cedis(f.fee_pesewas)}</button>
-              : <span className="pill">{cedis(f.fee_pesewas)} due</span>; })()}
+              : f.fee_required ? <span className="pill">{cedis(f.fee_pesewas)} due</span> : null; })()}
           {ticketTitle(r) && r.ticket && <button className="btn ghost sm" onClick={() => setTicketFor(r)}>🎟 Ticket</button>}
           <span className={`pill ${r.status === "accepted" ? "paid" : r.status === "declined" ? "failed" : ""}`}>{STATUS[r.status] ?? r.status}</span></div>
       ))}</div> : <div className="empty"><b>You have not sent any forms yet</b></div>}

@@ -44,12 +44,12 @@ export default function Give() {
 
   return (
     <section className="view">
-      <h1>Give to BCIL Foundation</h1>
+      <h1>Donate to BCIL Foundation</h1>
       <p className="muted">Your gift helps students through Finding Campus Balance, mentorship, Campus Sync and more. 100% goes to BCIL Foundation. GH₵ 20 covers one student's refreshment at FCB, and GH₵ 5,000 buys a laptop for a student.</p>
       {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
       {MOMO && <MomoCard />}
       {!canPay ? (
-        !MOMO && <div className="card"><b>Giving in the app opens soon.</b><p className="muted">We're finishing setup with our payment provider. Thank you for wanting to help!</p></div>
+        !MOMO && <div className="card"><b>Donating in the app opens soon.</b><p className="muted">We're finishing setup with our payment provider. Thank you for wanting to help!</p></div>
       ) : (
         <form className="card stack" onSubmit={submit}>
           <div className="chips">{AMOUNTS.map((a) => <button type="button" key={a} className="chip" aria-pressed={amount === String(a)} onClick={() => setAmount(String(a))}>GH₵ {a}</button>)}</div>
@@ -57,11 +57,11 @@ export default function Give() {
           <label className="field">What is it for?<select value={purpose} onChange={(e) => setPurpose(e.target.value)}>{PURPOSES.map((p) => <option key={p}>{p}</option>)}</select></label>
           {error && <p className="err" role="alert">{error}</p>}
           {msg && <p className="ok" role="status">{msg}</p>}
-          <button className="btn primary" disabled={busy}>{busy ? "Opening Paystack…" : `Give GH₵ ${amount || 0}`}</button>
+          <button className="btn primary" disabled={busy}>{busy ? "Opening Paystack…" : `Donate GH₵ ${amount || 0}`}</button>
           <small className="muted">Mobile Money (MTN, Telecel, AT) or card, on Paystack's secure page.</small>
         </form>
       )}
-      <h2>My giving {total > 0 && <span className="muted">· {cedis(total)} in total, thank you!</span>}</h2>
+      <h2>My donations {total > 0 && <span className="muted">· {cedis(total)} in total, thank you!</span>}</h2>
       {gifts.length ? <div className="list">{gifts.map((g) => (
         <div key={g.id}><div className="grow"><b>{cedis(g.amount_pesewas)}</b> · {g.purpose}<br /><small className="muted">{new Date(g.created_at).toLocaleDateString("en-GB")}</small></div><span className={`pill ${g.status}`}>{STATUS[g.status] ?? g.status}</span></div>
       ))}</div> : <div className="empty"><b>No gifts yet</b></div>}

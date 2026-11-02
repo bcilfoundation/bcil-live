@@ -31,17 +31,17 @@ import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
   ["/", "Home"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
-  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/give", "Give"],
+  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/donate", "Donate"],
 ] as const);
 
-const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/give": "gift", "/admin": "shield" };
+const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
   const go = useNavigate();
   // Android app: notifications (asks once), and taps on a notification open the right page
   useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
-  const nav = NAV.filter(([to]) => to !== "/give" || paymentsOn(isStaff) || !!MOMO);
+  const nav = NAV.filter(([to]) => to !== "/donate" || paymentsOn(isStaff) || !!MOMO);
   const { pathname } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
@@ -79,7 +79,8 @@ export default function App() {
             <Route path="/join/:code" element={<JoinWithLink />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/forms" element={<Forms />} />
-            <Route path="/give" element={<Give />} />
+            <Route path="/donate" element={<Give />} />
+            <Route path="/give" element={<Navigate to="/donate" replace />} />
             <Route path="/library" element={<Library />} />
             <Route path="/reading" element={<Reading />} />
             <Route path="/fcb" element={<Navigate to="/events/fcb2027" replace />} />
