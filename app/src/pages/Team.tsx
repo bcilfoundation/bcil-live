@@ -6,8 +6,8 @@ import Avatar from "../components/Avatar";
 
 type Links = { linkedin?: string; facebook?: string; instagram?: string; website?: string; scholar?: string };
 type Member = { id: string; name: string; role: string; team: string; bio: string | null; photo_url: string | null; sort: number; links?: Links | null };
-// everyone on the team has a LinkedIn profile, so that's the one link shown (kept uniform)
-const LINKS: [keyof Links, string, string][] = [["linkedin", "LinkedIn", "#0a66c2"]];
+// one profile link each: LinkedIn, or Facebook for someone without LinkedIn
+const LINKS: [keyof Links, string, string][] = [["linkedin", "LinkedIn", "#0a66c2"], ["facebook", "Facebook", "#1877f2"]];
 async function openUrl(url: string) {
   const { isNative } = await import("../lib/native");
   if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
@@ -67,7 +67,7 @@ export default function Team() {
             <button className="linkbtn" onClick={() => setOpen(null)} aria-label="Close">✕</button>
           </div>
           {open.bio ? <p className="prewrap">{open.bio}</p> : <p className="muted">More about {open.name.split(" ")[0]} soon.</p>}
-          {open.links && LINKS.some(([k]) => open.links?.[k]) && <div className="teamlinks">{LINKS.filter(([k]) => open.links?.[k]).map(([k, label, color]) => (
+          {open.links && LINKS.some(([k]) => open.links?.[k]) && <div className="teamlinks">{LINKS.filter(([k]) => open.links?.[k]).slice(0, 1).map(([k, label, color]) => (
             <button key={k} className="btn sm" style={{ background: color, color: "#fff", border: 0 }} onClick={() => openUrl(open.links![k]!)}>View {open.name.split(" ")[0]}'s {label} profile</button>))}</div>}
           {isStaff && <button className="btn ghost" onClick={() => { setEditing(open); setOpen(null); }}>✏️ Edit</button>}
         </div>
