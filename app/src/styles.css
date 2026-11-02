@@ -731,3 +731,12 @@ html,body{max-width:100%;overflow-x:hidden}
 .about-values>div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;background:var(--panel);border:1px solid var(--line);text-align:center}
 .about-values span{font-size:1.6rem}.about-values b{font-size:.92rem}
 .about-team{margin:14px 0 8px;font-size:1rem;color:var(--muted)}
+.teamlinks{display:flex;flex-wrap:wrap;gap:8px}
+/* Home: founder welcome + compact programme rows */
+.founder{display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff}
+.founder img{width:46px;height:46px;border-radius:50%;object-fit:cover;object-position:center 15%;flex:none;border:2px solid #ffd54a;background:#fff}
+.founder p{margin:0;font-size:.86rem;line-height:1.4;color:#e6ecf6}.founder small{display:block;margin-top:2px;color:#ffd54a;font-weight:700;font-size:.74rem}
+.prog-row{align-items:flex-start}.prog-row .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.prog-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.prog-acts .btn{padding:5px 12px;min-height:0;font-size:.8rem}
+.home .home-h{margin:14px 0 8px}
+.home .quote-mini{margin-bottom:12px}

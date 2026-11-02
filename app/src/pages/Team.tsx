@@ -4,7 +4,14 @@ import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import Avatar from "../components/Avatar";
 
-type Member = { id: string; name: string; role: string; team: string; bio: string | null; photo_url: string | null; sort: number };
+type Links = { linkedin?: string; facebook?: string; instagram?: string; website?: string; scholar?: string };
+type Member = { id: string; name: string; role: string; team: string; bio: string | null; photo_url: string | null; sort: number; links?: Links | null };
+const LINKS: [keyof Links, string, string][] = [["linkedin", "LinkedIn", "#0a66c2"], ["facebook", "Facebook", "#1877f2"], ["instagram", "Instagram", "#c13584"], ["website", "Website", "var(--navy)"], ["scholar", "Google Scholar", "#4285f4"]];
+async function openUrl(url: string) {
+  const { isNative } = await import("../lib/native");
+  if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
+  window.open(url, "_blank", "noopener");
+}
 const TEAMS = ["Board of Directors", "Executives", "Coordinators", "Advisors"];
 const VALUES: [string, string][] = [["🛡️", "Integrity"], ["🤝", "Mentorship"], ["🔥", "Persistence"], ["🧭", "Responsibility"], ["⭐", "Excellence"], ["🌍", "Impact"]];
 
@@ -32,7 +39,6 @@ export default function Team() {
       </div>
       <h2>Our core values</h2>
       <div className="about-values">{VALUES.map(([i, v]) => <div key={v}><span aria-hidden="true">{i}</span><b>{v}</b></div>)}</div>
-      <p className="muted small">The six corners of the hexagon in our logo stand for these six values, and the hammer stands for the impact we make on young people and the impact they go on to make.</p>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 18 }}>
         <h2 style={{ margin: 0 }}>Our directors and team</h2>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setEditing("new")}>+ Add person</button>}
@@ -59,7 +65,9 @@ export default function Team() {
             <div className="grow"><h3 style={{ margin: 0 }}>{open.name}</h3><span className="muted">{open.role} · {open.team}</span></div>
             <button className="linkbtn" onClick={() => setOpen(null)} aria-label="Close">✕</button>
           </div>
-          {open.bio ? <p className="prewrap">{open.bio}</p> : <p className="muted">No bio yet.</p>}
+          {open.bio ? <p className="prewrap">{open.bio}</p> : <p className="muted">More about {open.name.split(" ")[0]} soon.</p>}
+          {open.links && LINKS.some(([k]) => open.links?.[k]) && <div className="teamlinks">{LINKS.filter(([k]) => open.links?.[k]).map(([k, label, color]) => (
+            <button key={k} className="btn sm" style={{ background: color, color: "#fff", border: 0 }} onClick={() => openUrl(open.links![k]!)}>{label}</button>))}</div>}
           {isStaff && <button className="btn ghost" onClick={() => { setEditing(open); setOpen(null); }}>✏️ Edit</button>}
         </div>
       </>}
@@ -71,6 +79,7 @@ export default function Team() {
 function Editor({ m, close, saved }: { m: Member | null; close: () => void; saved: () => void }) {
   const { session } = useAuth();
   const [f, setF] = useState({ name: m?.name ?? "", role: m?.role ?? "", team: m?.team ?? "Executives", bio: m?.bio ?? "", photo_url: m?.photo_url ?? "", sort: m?.sort ?? 100 });
+  const [links, setLinks] = useState<Links>(m?.links ?? {});
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   async function photo(file?: File) {
     if (!file) return; setBusy(true); setErr("");
@@ -80,7 +89,9 @@ function Editor({ m, close, saved }: { m: Member | null; close: () => void; save
   async function save() {
     if (!f.name.trim() || !f.role.trim()) { setErr("Add the name and the role."); return; }
     setBusy(true); setErr("");
-    const row = { name: f.name.trim(), role: f.role.trim(), team: f.team.trim() || "Executives", bio: f.bio.trim() || null, photo_url: f.photo_url || null, sort: Number(f.sort) || 100 };
+    const clean: Links = {};
+    for (const [k] of LINKS) { let v = (links[k] ?? "").trim(); if (!v) continue; if (!/^https?:\/\//.test(v)) v = "https://" + v; clean[k] = v; }
+    const row = { name: f.name.trim(), role: f.role.trim(), team: f.team.trim() || "Executives", bio: f.bio.trim() || null, photo_url: f.photo_url || null, sort: Number(f.sort) || 100, links: clean };
     const { error } = m ? await supabase.from("team_members").update(row).eq("id", m.id) : await supabase.from("team_members").insert(row);
     setBusy(false);
     if (error) setErr(error.message); else saved();
@@ -104,6 +115,7 @@ function Editor({ m, close, saved }: { m: Member | null; close: () => void; save
         <label className="field">Group <small className="muted">(pick or type)</small><input list="team-groups" value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} />
           <datalist id="team-groups">{TEAMS.map((t) => <option key={t} value={t} />)}</datalist></label>
         <label className="field">Short bio <small className="muted">(optional)</small><textarea value={f.bio} onChange={(e) => setF({ ...f, bio: e.target.value })} /></label>
+        {LINKS.map(([k, label]) => <label key={k} className="field">{label} link <small className="muted">(optional)</small><input value={links[k] ?? ""} onChange={(e) => setLinks({ ...links, [k]: e.target.value })} inputMode="url" placeholder="https://…" /></label>)}
         <label className="field">Order <small className="muted">(smaller numbers show first)</small><input value={f.sort} onChange={(e) => setF({ ...f, sort: Number(e.target.value.replace(/\D/g, "")) || 0 })} inputMode="numeric" /></label>
         {err && <p className="err" role="alert">{err}</p>}
         <div className="row" style={{ gap: 8 }}>

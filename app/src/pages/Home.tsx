@@ -53,11 +53,16 @@ export default function Home() {
   // upcoming programmes, soonest first
   const upcoming = (events ?? []).map((e) => ({ e, at: nextSession(e) })).filter((x): x is { e: Ev; at: Date } => !!x.at)
     .sort((a, b) => +a.at - +b.at);
-  const [first, ...rest] = upcoming;
 
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+
+      {/* a short welcome from the founder */}
+      <div className="founder">
+        <img src="https://bcilfoundation.org/wp-content/uploads/2026/02/solomonA-423x573-1.png" alt="" loading="lazy" />
+        <p>“Welcome to BCIL Live. Learn, grow and connect here. We want you to do better than us, and to help those after you do better still.”<small>Solomon Agbesi, Founder</small></p>
+      </div>
 
       {/* today's Daily Bite: first thing on Home; like and share right here */}
       {quote && <BiteCard q={quote} />}
@@ -80,20 +85,12 @@ export default function Home() {
         </Link>
       )}
 
-      {/* coming up: the soonest programme big, the rest as small cards */}
-      {first && <ProgrammeCard e={first.e} at={first.at} big registered={!!first.e.form_slug && registered.has(first.e.form_slug)} />}
-      {/* registration open: straight to the form */}
-      {upcoming.filter(({ e }) => e.form_slug && openForms.has(e.form_slug) && !registered.has(e.form_slug)).map(({ e, at }) => (
-        <Link key={`reg-${e.slug}`} to={`/forms?form=${e.form_slug}`} className="regcard">
-          <span className="regcard-ico" aria-hidden="true">📝</span>
-          <span className="grow"><small>Registration is open · {countdown(at)}</small><b>Register for {e.title}</b><small>Free to attend. It takes about 2 minutes.</small></span>
-          <span className="regcard-go">Register →</span>
-        </Link>
-      ))}
-
-      {rest.length > 0 && <>
+      {/* coming up: every programme as a compact row with its buttons (fits on one screen) */}
+      {upcoming.length > 0 && <>
         <h2 className="home-h">Coming up</h2>
-        <div className="prog-list">{rest.map(({ e, at }) => <ProgrammeCard key={e.slug} e={e} at={at} />)}</div>
+        <div className="prog-list">{upcoming.map(({ e, at }) => (
+          <ProgrammeRow key={e.slug} e={e} at={at} registered={!!e.form_slug && registered.has(e.form_slug)} canRegister={!!e.form_slug && openForms.has(e.form_slug)} />
+        ))}</div>
       </>}
       {events && !upcoming.length && <Link to="/events" className="card"><b>Programmes</b><br /><small className="muted">See past and upcoming BCIL programmes</small></Link>}
 
@@ -108,41 +105,8 @@ export default function Home() {
         ))}</div>
       </>}
 
-      {/* bookshop and team */}
-      <div className="homelinks">
-        <Link to="/shop" className="homelink"><span aria-hidden="true">📖</span><span className="grow"><b>Bookshop</b><small className="muted">PENCILS of Success and books by BCIL members</small></span></Link>
-        <Link to="/about" className="homelink"><span aria-hidden="true">⭐</span><span className="grow"><b>About us</b><small className="muted">Our vision, values and directors</small></span></Link>
-      </div>
 
     </section>
-  );
-}
-
-function ProgrammeCard({ e, at, big, registered }: { e: Ev; at: Date; big?: boolean; registered?: boolean }) {
-  const n = sessions(e).length, idx = sessions(e).findIndex((d) => +d === +at) + 1;
-  const now = isOnNow(at);
-  const bg = `linear-gradient(180deg, rgba(10,25,60,.78), rgba(10,25,60,.95)), url(${img(e.hero_url, bgFor(e.slug))})`;
-  if (!big) return (
-    <Link to={`/events/${e.slug}`} className="prog-row">
-      <span className="prog-thumb" style={{ backgroundImage: `url(${img(e.hero_url, bgFor(e.slug))})` }} />
-      <div className="grow"><b>{e.title}</b><small className="muted">{when(at)}{n > 1 ? ` · session ${idx} of ${n}` : ""}</small></div>
-      <span className={`prog-count${now ? " now" : ""}`}>{countdown(at)}</span>
-    </Link>
-  );
-  return (
-    <div className="banner hero photo compact prog-big" style={{ backgroundImage: bg }}>
-      <span className={`prog-count big${now ? " now" : ""}`}>{now ? "● On now" : countdown(at)}</span>
-      <span className="eyebrow">{when(at, true)}{n > 1 ? ` · session ${idx} of ${n}` : ""}{e.venue ? ` · ${e.venue}` : ""}</span>
-      <h1>{e.title}</h1>
-      {e.summary && <p className="prog-sum">{e.summary}</p>}
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-        {e.online_url && (now || +at - Date.now() < 30 * 60e3) && <a className="btn primary sm" href={e.online_url} target="_blank" rel="noreferrer">Join now</a>}
-        {e.form_slug && (registered
-          ? <Link className="btn primary sm" to={`/events/${e.slug}`}>🎟 My ticket</Link>
-          : <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register</Link>)}
-        <Link className="btn ghost light sm" to={`/events/${e.slug}`}>Details</Link>
-      </div>
-    </div>
   );
 }
 
@@ -172,6 +136,28 @@ function BiteCard({ q }: { q: Quote }) {
         <button className="btn ghost sm light" onClick={() => shareBite(q)}>Share</button>
         <Link to="/quotes" className="bite-past">Past bites</Link>
       </div>
+    </div>
+  );
+}
+
+function ProgrammeRow({ e, at, registered, canRegister }: { e: Ev; at: Date; registered: boolean; canRegister: boolean }) {
+  const n = sessions(e).length, idx = sessions(e).findIndex((d) => +d === +at) + 1;
+  const now = isOnNow(at);
+  const soon = now || +at - Date.now() < 30 * 60e3;
+  return (
+    <div className="prog-row">
+      <span className="prog-thumb" style={{ backgroundImage: `url(${img(e.hero_url, bgFor(e.slug))})` }} />
+      <div className="grow">
+        <b>{e.title}</b>
+        <small className="muted">{when(at)}{n > 1 ? ` · session ${idx} of ${n}` : ""}</small>
+        <div className="prog-acts">
+          <Link className="btn ghost sm" to={`/events/${e.slug}`}>Details</Link>
+          {e.online_url && soon && <a className="btn primary sm" href={e.online_url} target="_blank" rel="noreferrer">Join now</a>}
+          {registered ? <Link className="btn primary sm" to={`/events/${e.slug}`}>🎟 My ticket</Link>
+            : canRegister && <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register · free</Link>}
+        </div>
+      </div>
+      <span className={`prog-count${now ? " now" : ""}`}>{now ? "● On now" : countdown(at)}</span>
     </div>
   );
 }
