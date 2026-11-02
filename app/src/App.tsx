@@ -107,7 +107,6 @@ export default function App() {
                 <div className="list morelist">
                   <NavLink to="/reading"><Icon name="book" size={22} />Reading room</NavLink>
                   <NavLink to="/shop"><Icon name="cart" size={22} />Bookshop</NavLink>
-                  <NavLink to="/forms"><Icon name="form" size={22} />All forms</NavLink>
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}
                 </div>
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
