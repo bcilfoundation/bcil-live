@@ -94,6 +94,7 @@ export default function TopBar() {
 
   return (
     <div className="topacts" ref={wrap}>
+      <button className="iconbtn" onClick={() => { setOpen(""); nav("/search"); }} aria-label="Search"><Icon name="search" size={21} /></button>
       <button className={`iconbtn${open === "bell" ? " on" : ""}`} onClick={openBell} aria-label={`Notifications${unread ? `, ${unread} new` : ""}`}>
         <Icon name="bell" />{unread > 0 && <span className="count">{unread > 9 ? "9+" : unread}</span>}
       </button>

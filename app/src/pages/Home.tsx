@@ -109,6 +109,12 @@ export default function Home() {
         ))}</div>
       </>}
 
+      {/* bookshop and team */}
+      <div className="homelinks">
+        <Link to="/shop" className="homelink"><span aria-hidden="true">📖</span><span className="grow"><b>Bookshop</b><small className="muted">PENCILS of Success and books by BCIL members</small></span></Link>
+        <Link to="/team" className="homelink"><span aria-hidden="true">⭐</span><span className="grow"><b>Our team</b><small className="muted">Meet the directors and executives</small></span></Link>
+      </div>
+
       {/* today's quote */}
       {quote && (
         <Link to="/quotes" className="quote-mini">

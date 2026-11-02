@@ -26,15 +26,18 @@ const Reading = lazy(() => import("./pages/Reading"));
 const Event = lazy(() => import("./pages/Event"));
 const Events = lazy(() => import("./pages/Events"));
 const CheckIn = lazy(() => import("./pages/CheckIn"));
+const Shop = lazy(() => import("./pages/Shop"));
+const Team = lazy(() => import("./pages/Team"));
+const Search = lazy(() => import("./pages/Search"));
 
 import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
   ["/", "Home"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
-  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/donate", "Donate"],
+  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/shop", "Bookshop"], ["/team", "Our team"], ["/donate", "Donate"],
 ] as const);
 
-const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield" };
+const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/team": "star" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
@@ -87,6 +90,9 @@ export default function App() {
             <Route path="/events" element={<Events />} />
             <Route path="/events/:slug" element={<Event />} />
             <Route path="/checkin" element={<CheckIn />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
