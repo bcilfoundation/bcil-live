@@ -51,7 +51,7 @@ const sideActive = (to: string, path: string, search: string) =>
 const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/about": "star" };
 
 export default function App() {
-  const { session, loading, isStaff } = useAuth();
+  const { session, loading, isStaff, viewAsMember, setViewAsMember } = useAuth();
   const go = useNavigate();
   // Android app: notifications (asks once), and taps on a notification open the right page
   useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
@@ -76,6 +76,8 @@ export default function App() {
         </nav>
       </aside>
       <div className="app">
+        {viewAsMember && <div className="viewasbar" role="status">👁 You're viewing BCIL Live as a member. Staff buttons are hidden.
+          <button onClick={() => setViewAsMember(false)}>Back to admin view</button></div>}
         <header className="top">
           <span className="org"><img className="toplogo" src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" />BCIL Foundation</span>
           <span className="sp" />

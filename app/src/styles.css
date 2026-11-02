@@ -746,3 +746,11 @@ html,body{max-width:100%;overflow-x:hidden}
 .teamcard img{object-position:center 20%}
 @media (max-width:760px){.tabbar a{font-size:.72rem;min-width:0}.tabbar a svg{width:24px;height:24px}}
 .menusep{border:0;border-top:1px solid var(--line);margin:8px 12px;opacity:.6}
+.viewasbar{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 12px;background:#ffd54a;color:#1b1203;font-weight:700;font-size:.85rem;padding:calc(6px + var(--sat,0px)) 12px 6px;text-align:center}
+.viewasbar button{border:0;background:#1b1203;color:#ffd54a;border-radius:999px;padding:5px 12px;font-weight:800;cursor:pointer}
+/* form builder */
+.formbuilder{display:flex;flex-direction:column;gap:10px}
+.fb-q{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.fb-q.section{border-left:4px solid #ffd54a}
+.fb-q select{width:auto;max-width:230px}
+.fb-n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--navy-soft);font-size:.8rem}

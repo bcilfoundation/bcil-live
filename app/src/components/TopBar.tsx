@@ -133,7 +133,7 @@ function MeButton({ active, onClick }: { active: boolean; onClick: () => void })
 }
 
 function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; startEditing?: boolean }) {
-  const { session, profile } = useAuth();
+  const { session, profile, realStaff, viewAsMember, setViewAsMember } = useAuth();
   const [editing, setEditing] = useState(startEditing);
   const [theme, setT] = useState<Theme>(getTheme());
   const [alerts, setAlerts] = useState(alertsOn());
@@ -166,6 +166,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
       </div>
       <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />Edit name and photo</button>
       <button className="menubtn" onClick={() => { onClose(); nav("/friends"); }}><Icon name="users" size={18} />Friends</button>
+      {realStaff && <button className="menubtn" onClick={() => { setViewAsMember(!viewAsMember); onClose(); nav("/"); }}><Icon name="star" size={18} />{viewAsMember ? "Back to admin view" : "View as member"}</button>}
       <div className="menurow"><span>Appearance</span>
         <button className="chipbtn" onClick={cycleTheme} aria-label={`Appearance: ${theme}. Tap to change`}><Icon name="sun" size={16} />{theme.toUpperCase()}</button>
       </div>

@@ -1,17 +1,20 @@
+import type { Field } from "./Forms";
+import FormBuilder from "../components/FormBuilder";
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 
-const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export default function Admin() {
-  const { profile } = useAuth();
+  const { profile, setViewAsMember } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("Engagement");
   if (profile?.role !== "admin" && profile?.role !== "moderator")
     return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
@@ -20,12 +23,13 @@ export default function Admin() {
   return (
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}><h1>Admin</h1>
-        <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></div>
+        <span className="row" style={{ gap: 8 }}><button className="btn ghost" onClick={() => { setViewAsMember(true); navigate("/"); }}>👁 View as member</button>
+        <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></span></div>
       <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === tab} onClick={() => setTab(t)}>{t}</button>)}</div>
       {tab === "Daily Bite" && isAdmin && <QuotesAdmin />}
       {tab === "Live sessions" && isAdmin && <LiveAdmin />}
       {tab === "Talks" && isAdmin && <TalksAdmin />}
-      {tab === "Form responses" && isAdmin && <FormsAdmin />}
+      {tab === "Forms" && isAdmin && <FormsAdmin />}
       {tab === "Gifts" && isAdmin && <GiftsAdmin />}
       {tab === "Engagement" && <EngagementAdmin />}
       {(tab === "Reports" || (!isAdmin && tab !== "Engagement")) && <ReportsAdmin />}
@@ -135,8 +139,7 @@ function TalksAdmin() {
   </>);
 }
 
-type Field = { key: string; label: string; type?: string };
-type FormRow = { id: string; title: string; fields: Field[]; is_open: boolean; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
+type FormRow = { id: string; slug: string; title: string; subtitle: string | null; description: string | null; sensitive?: boolean; fields: Field[]; is_open: boolean; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
 type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; paid_at: string | null; checked_in_at: string | null; profiles: { full_name: string } | null };
 
 function FormsAdmin() {
@@ -144,7 +147,9 @@ function FormsAdmin() {
   const [formId, setFormId] = useState("");
   const [rows, setRows] = useState<RespRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const loadForms = () => supabase.from("forms").select("id, title, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
+  const [building, setBuilding] = useState<"new" | "edit" | null>(null);
+  const [copied, setCopied] = useState(false);
+  const loadForms = () => supabase.from("forms").select("id, slug, title, subtitle, description, sensitive, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
     .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
   useEffect(() => { loadForms(); }, []);
   const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, paid_at, checked_in_at, profiles(full_name)")
@@ -182,7 +187,19 @@ function FormsAdmin() {
     loadForms();
   }
   const setStatus = async (id: number, status: string) => { await supabase.from("form_responses").update({ status }).eq("id", id); load(); };
+  if (building) return <FormBuilder form={building === "edit" && found ? found : null} close={() => setBuilding(null)}
+    saved={(id) => { setBuilding(null); setFormId(id); loadForms(); }} />;
+  const copyLink = async () => {
+    if (!found) return;
+    await navigator.clipboard?.writeText(`${location.origin}${import.meta.env.BASE_URL}forms?form=${found.slug}`).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
   return (<>
+    <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+      <button className="btn primary" onClick={() => setBuilding("new")}>+ New form</button>
+      {found && <button className="btn ghost" onClick={() => setBuilding("edit")}>✏️ Edit this form</button>}
+      {found && <button className="btn ghost" onClick={copyLink}>{copied ? "Link copied ✓" : "🔗 Copy form link"}</button>}
+    </div>
     <div className="row" style={{ flexWrap: "wrap" }}>
       <select value={formId} onChange={(e) => setFormId(e.target.value)} aria-label="Form" style={{ maxWidth: 360 }}>
         {forms.map((f) => <option key={f.id} value={f.id}>{f.title}{f.is_open ? "" : " (closed)"}</option>)}</select>
