@@ -67,7 +67,7 @@ export default function App() {
     <LiveProvider>
     <div className="shell">
       <aside className="side">
-        <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
+        <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /></div>
         <nav className="menu">
           {nav.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
           <hr className="menusep" />
