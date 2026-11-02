@@ -754,3 +754,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .fb-q.section{border-left:4px solid #ffd54a}
 .fb-q select{width:auto;max-width:230px}
 .fb-n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--navy-soft);font-size:.8rem}
+/* About us: smaller heading, values as a card like vision and mission */
+.about-hero h1{font-size:1.45rem;margin:0}
+.about-hero p{line-height:1.55}
+.about-hero .about-mantra{font:inherit;font-weight:800}
+.about-valuescard{grid-column:1 / -1}
+.about-valuescard .about-values{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.about-valuescard .about-values span{padding:6px 14px;border-radius:999px;background:var(--navy-soft);font-weight:700;font-size:.9rem}
