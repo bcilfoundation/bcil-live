@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
   webpush.setVapidDetails(c.vapid_subject, c.vapid_public, c.vapid_private);
   let sa: ServiceAccount | null = null;
   try { const raw = Deno.env.get("FCM_SERVICE_ACCOUNT"); if (raw) sa = JSON.parse(raw); } catch { sa = null; }
-  const titles: Record<string, string> = { live: "BCIL is live now", message: "New message", friend_request: "Friend request", friend_accepted: "Friend request accepted", activity: "New group activity", post: "Group update", quote: "Today's quote · BCIL", programme: "Starting soon" };
+  const titles: Record<string, string> = { live: "BCIL is live now", message: "New message", friend_request: "Friend request", friend_accepted: "Friend request accepted", activity: "New group activity", post: "Group update", quote: "Daily Bite · BCIL", programme: "Starting soon" };
   const payload = JSON.stringify({ title: titles[n.kind] ?? "BCIL Live", body: n.body, url: n.link ?? "/", tag: n.kind === "message" ? `msg-${n.link}` : n.kind === "quote" ? "quote" : undefined });
 
   let sent = 0;

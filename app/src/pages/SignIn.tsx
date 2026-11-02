@@ -128,7 +128,7 @@ export default function SignIn() {
       <div className="card signin welcome-card">
         <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => { go("signin"); setWithEmail(false); }}>← Back</button>
         <h1>{step === "signup" || step === "confirm" ? "Create your account" : step === "forgot" || step === "reset" ? "Reset your password" : "Welcome back"}</h1>
-        <p className="muted">Live sessions, talks, daily quotes and mentorship from BCIL Foundation.</p>
+        <p className="muted">Live sessions, talks, the Daily Bite and mentorship from BCIL Foundation.</p>
 
         {(step === "signin" || step === "signup") && (
           <div className="seg" role="tablist">

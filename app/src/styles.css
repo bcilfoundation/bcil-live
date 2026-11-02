@@ -712,3 +712,22 @@ html,body{max-width:100%;overflow-x:hidden}
 .homelink{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);text-decoration:none;color:inherit}
 .homelink>span:first-child{font-size:1.5rem}.homelink .grow{display:flex;flex-direction:column;min-width:0}.homelink small{font-size:.75rem}
 @media (max-width:420px){.homelinks{grid-template-columns:1fr}}
+/* Daily Bite on Home: full text, like and share */
+.quote-mini{margin:0 0 14px;border-left:4px solid #ffd54a}
+.quote-mini p{-webkit-line-clamp:unset;display:block;font-size:1.02rem;margin:2px 0}
+.bite-acts{display:flex;align-items:center;gap:8px;margin-top:6px}
+.bite-acts .btn.light{color:var(--navy);border-color:var(--line)}
+.bite-past{margin-left:auto;font-size:.82rem;color:var(--muted);text-decoration:underline}
+.bitecard{display:flex;flex-direction:column;gap:6px}
+.bitefind{align-items:flex-end;gap:10px;margin-top:14px}
+.libtabs{grid-template-columns:repeat(3,1fr);margin-bottom:12px}
+/* About us */
+.about-hero{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px;border-radius:18px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;margin-bottom:14px}
+.about-hero img{height:34px;filter:brightness(0) invert(1)}.about-hero h1{color:#fff;margin:6px 0 0}.about-hero p{margin:0;color:#d4dcea}
+.about-mantra{font:800 1.05rem var(--display);color:#ffd54a!important}
+.about-vm{display:grid;grid-template-columns:1fr 1fr;gap:12px}.about-vm p{margin:6px 0 0;line-height:1.55}
+@media (max-width:640px){.about-vm{grid-template-columns:1fr}}
+.about-values{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.about-values>div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;background:var(--panel);border:1px solid var(--line);text-align:center}
+.about-values span{font-size:1.6rem}.about-values b{font-size:.92rem}
+.about-team{margin:14px 0 8px;font-size:1rem;color:var(--muted)}

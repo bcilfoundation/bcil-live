@@ -151,7 +151,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
       if (alerts) { await disablePush(); localStorage.setItem(ALERTS_KEY, "off"); setAlerts(false); return; }
       await enablePush(session!.user.id);
       localStorage.setItem(ALERTS_KEY, "push"); setAlerts(true);
-      setMsg("Done. You'll get a notification on this device for the daily quote, when BCIL goes live, programme reminders and messages.");
+      setMsg("Done. You'll get a notification on this device for the Daily Bite, when BCIL goes live, programme reminders and messages.");
     } catch (e) { setMsg((e as Error).message); }
   }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import LibraryTabs from "../components/LibraryTabs";
 import { useSearchParams } from "react-router-dom";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { supabase } from "../lib/supabase";
@@ -47,6 +48,7 @@ export default function Reading() {
 
   return (
     <section className="view reading">
+      <LibraryTabs />
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div><h1>Reading room</h1><p className="muted">Books and guides for mentorship. Read them right here in the app.</p></div>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setAdding(true)}>+ Add book</button>}

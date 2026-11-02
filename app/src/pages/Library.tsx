@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import LibraryTabs from "../components/LibraryTabs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { Link, useSearchParams } from "react-router-dom";
@@ -142,6 +143,7 @@ export default function Library() {
   const shown = talks.filter((t) => t.status !== "draft" && ofType(t) && (filter === "All" || t.program === filter) && (t.title + " " + (t.program ?? "") + " " + (t.description ?? "")).toLowerCase().includes(q.toLowerCase()));
   return (
     <section className="view">
+      <LibraryTabs />
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <h1>Library</h1>
         {isStaff && <button className="btn primary" onClick={() => setAdding((a) => !a)}>{adding ? "Close" : "🎙 Record or upload audio"}</button>}

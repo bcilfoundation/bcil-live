@@ -33,11 +33,13 @@ const Search = lazy(() => import("./pages/Search"));
 import { paymentsOn } from "./lib/pay";
 
 const NAV = ([
-  ["/", "Home"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/quotes", "Daily Quotes"],
-  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/shop", "Bookshop"], ["/team", "Our team"], ["/donate", "Donate"],
+  ["/", "Home"], ["/quotes", "Daily Bite"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/shop", "Bookshop"],
+  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/about", "About us"], ["/donate", "Donate"],
 ] as const);
 
-const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/team": "star" };
+// already in the bottom tabs on phones (Groups covers chat, groups, Campus Sync and friends), so not repeated in More
+const IN_TABS = new Set<string>(["/", "/live", "/library", "/chat", "/groups", "/campus", "/friends"]);
+const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/about": "star" };
 
 export default function App() {
   const { session, loading, isStaff } = useAuth();
@@ -91,13 +93,14 @@ export default function App() {
             <Route path="/events/:slug" element={<Event />} />
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/shop" element={<Shop />} />
-            <Route path="/team" element={<Team />} />
+            <Route path="/about" element={<Team />} />
+            <Route path="/team" element={<Navigate to="/about" replace />} />
             <Route path="/search" element={<Search />} />
             <Route path="/quotes" element={<Quotes />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
               <section className="view"><h1>More</h1>
-                <div className="list morelist">{nav.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
+                <div className="list morelist">{nav.filter(([to]) => !IN_TABS.has(to)).map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}</div>
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
                 {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Live.</p>}
@@ -110,9 +113,9 @@ export default function App() {
       </div>
       <MiniPlayer />
       <nav className="tabbar">
-        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/chat", "Chat", "chat"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
+        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/groups", "Groups", "users"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}
-            className={({ isActive }) => (isActive || (to === "/chat" && /^\/(groups|campus|friends|join)/.test(pathname)) || (to === "/library" && pathname === "/reading") ? "active" : "")}>
+            className={({ isActive }) => (isActive || (to === "/groups" && /^\/(chat|campus|friends|join)/.test(pathname)) || (to === "/library" && /^\/(reading|shop)/.test(pathname)) ? "active" : "")}>
             <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}
       </nav>
     </div>

@@ -4,9 +4,8 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 
-const TABS = ["Engagement", "Quotes", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Form responses", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
-const THEMES = ["Integrity", "Mentorship", "Persistence", "Impact", "Responsibility", "Excellence"];
 const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -23,7 +22,7 @@ export default function Admin() {
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}><h1>Admin</h1>
         <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></div>
       <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === tab} onClick={() => setTab(t)}>{t}</button>)}</div>
-      {tab === "Quotes" && isAdmin && <QuotesAdmin />}
+      {tab === "Daily Bite" && isAdmin && <QuotesAdmin />}
       {tab === "Live sessions" && isAdmin && <LiveAdmin />}
       {tab === "Talks" && isAdmin && <TalksAdmin />}
       {tab === "Form responses" && isAdmin && <FormsAdmin />}
@@ -36,32 +35,31 @@ export default function Admin() {
 }
 
 function QuotesAdmin() {
-  const [rows, setRows] = useState<{ id: number; show_on: string; theme: string; body: string; author: string }[]>([]);
-  const [f, setF] = useState({ show_on: new Date().toISOString().slice(0, 10), theme: THEMES[0], body: "", author: "BCIL Foundation", reflection: "" });
+  const [rows, setRows] = useState<{ id: number; show_on: string; body: string; author: string }[]>([]);
+  const [f, setF] = useState({ show_on: new Date().toISOString().slice(0, 10), body: "", author: "BCIL Foundation", reflection: "" });
   const [msg, setMsg] = useState("");
   // admins see future quotes too (the read rule hides them from members)
-  const load = () => supabase.from("quotes").select("id, show_on, theme, body, author").order("show_on", { ascending: false }).limit(60).then(({ data }) => setRows(data ?? []));
+  const load = () => supabase.from("quotes").select("id, show_on, body, author").order("show_on", { ascending: false }).limit(60).then(({ data }) => setRows(data ?? []));
   useEffect(() => { load(); }, []);
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.body.trim()) { setMsg("Write the quote first."); return; }
-    const { error } = await supabase.from("quotes").upsert({ ...f, reflection: f.reflection || null }, { onConflict: "show_on" });
+    if (!f.body.trim()) { setMsg("Write the bite first."); return; }
+    let { error } = await supabase.from("quotes").upsert({ ...f, body: f.body.trim(), reflection: f.reflection || null }, { onConflict: "show_on" });
+    // older database (before categories were removed) still needs a theme
+    if (error && /theme/i.test(error.message)) ({ error } = await supabase.from("quotes").upsert({ ...f, body: f.body.trim(), theme: "Impact", reflection: f.reflection || null }, { onConflict: "show_on" }));
     setMsg(error ? error.message : "Saved."); if (!error) { setF({ ...f, body: "", reflection: "" }); load(); }
   }
   return (<>
     <form className="card" onSubmit={save}>
-      <h3>Add a daily quote</h3>
-      <div className="grid2">
-        <label className="field">Show on<input type="date" value={f.show_on} onChange={(e) => setF({ ...f, show_on: e.target.value })} /></label>
-        <label className="field">Theme<select value={f.theme} onChange={(e) => setF({ ...f, theme: e.target.value })}>{THEMES.map((t) => <option key={t}>{t}</option>)}</select></label>
-      </div>
-      <label className="field">Quote<textarea value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
+      <h3>Add a Daily Bite</h3>
+      <label className="field">Show on<input type="date" value={f.show_on} onChange={(e) => setF({ ...f, show_on: e.target.value })} /></label>
+      <label className="field">Bite<textarea value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
       <label className="field">Author<input value={f.author} onChange={(e) => setF({ ...f, author: e.target.value })} /></label>
       <label className="field">Reflection (optional)<input value={f.reflection} onChange={(e) => setF({ ...f, reflection: e.target.value })} placeholder="A short action for today" /></label>
       <p className="muted">{msg}</p>
-      <button className="btn primary">Save quote</button>
+      <button className="btn primary">Save bite</button>
     </form>
-    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.show_on}</b> · {r.theme}<br /><small className="muted">“{r.body}” — {r.author}</small></div>
+    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.show_on}</b><br /><small className="muted">“{r.body}” — {r.author}</small></div>
       <button className="linkbtn" onClick={async () => { await supabase.from("quotes").delete().eq("id", r.id); load(); }}>Delete</button></div>)}</div>
   </>);
 }

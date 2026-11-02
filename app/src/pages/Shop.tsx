@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import LibraryTabs from "../components/LibraryTabs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
@@ -26,6 +27,7 @@ export default function Shop() {
 
   return (
     <section className="view">
+      <LibraryTabs />
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div><h1>Bookshop</h1><p className="muted">Books by BCIL Foundation and our members. Order on Amazon, or get a copy from a contact near you.</p></div>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setEditing("new")}>+ Add book</button>}

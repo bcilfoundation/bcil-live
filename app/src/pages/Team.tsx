@@ -6,8 +6,9 @@ import Avatar from "../components/Avatar";
 
 type Member = { id: string; name: string; role: string; team: string; bio: string | null; photo_url: string | null; sort: number };
 const TEAMS = ["Board of Directors", "Executives", "Coordinators", "Advisors"];
+const VALUES: [string, string][] = [["🛡️", "Integrity"], ["🤝", "Mentorship"], ["🔥", "Persistence"], ["🧭", "Responsibility"], ["⭐", "Excellence"], ["🌍", "Impact"]];
 
-// The people behind BCIL Foundation: directors, executives and coordinators. Staff add and edit them here.
+// About us: who BCIL Foundation is (vision, mission, core values) and the people leading it. Staff add and edit people here.
 export default function Team() {
   const { isStaff } = useAuth();
   const [people, setPeople] = useState<Member[] | null>(null);
@@ -19,15 +20,28 @@ export default function Team() {
 
   return (
     <section className="view">
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div><h1>Our team</h1><p className="muted">The people leading BCIL Foundation. Grooming Generational Leaders.</p></div>
+      <div className="about-hero">
+        <img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" />
+        <h1>About us</h1>
+        <p className="about-mantra">Grooming Generational Leaders</p>
+        <p>BCIL Foundation is a youth-focused non-profit organisation in Ghana (a Company Limited by Guarantee). Our work centres on youth empowerment, mentorship, leadership development, personal growth and positive social impact.</p>
+      </div>
+      <div className="about-vm">
+        <div className="card"><span className="eyebrow">Our vision</span><p>To become a globally recognized leader in youth empowerment by enabling the next generation to discover and fulfill their purpose, realize their full potential and make a meaningful and positive impact in society.</p></div>
+        <div className="card"><span className="eyebrow">Our mission</span><p>To empower young people, particularly students, through conferences, mentorship, and guidance, enabling them to fulfil their purpose and nurture future leaders who make positive contributions to society.</p></div>
+      </div>
+      <h2>Our core values</h2>
+      <div className="about-values">{VALUES.map(([i, v]) => <div key={v}><span aria-hidden="true">{i}</span><b>{v}</b></div>)}</div>
+      <p className="muted small">The six corners of the hexagon in our logo stand for these six values, and the hammer stands for the impact we make on young people and the impact they go on to make.</p>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 18 }}>
+        <h2 style={{ margin: 0 }}>Our directors and team</h2>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setEditing("new")}>+ Add person</button>}
       </div>
       {people === null ? <p className="muted">Loading…</p> : people.length === 0 ? (
         <div className="empty"><b>Team profiles are coming soon</b>{isStaff ? "Tap “+ Add person” to add the directors and executives." : ""}</div>
       ) : teams.map((t) => (
         <div key={t}>
-          <h2>{t}</h2>
+          <h3 className="about-team">{t}</h3>
           <div className="teamgrid">{people.filter((p) => p.team === t).map((p) => (
             <button key={p.id} className="teamcard" onClick={() => setOpen(p)}>
               {p.photo_url ? <img src={p.photo_url} alt="" loading="lazy" /> : <Avatar name={p.name} size={84} />}

@@ -2,18 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
-type Quote = { body: string; author: string; show_on: string };
+type Quote = { id: number; body: string; author: string; show_on: string };
 type Session = { id: string; title: string; starts_at: string; status: string };
 type NewItem = { id: string; title: string; sub: string; cover: string | null; to: string; at: string; icon: string };
 const NEW_FOR_DAYS = 7;   // new books and talks stay on Home this long
 
-const shared = (d: string) => {
-  const day = new Date(d + "T12:00:00"); const today = new Date();
-  const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime()) / 864e5);
-  return diff <= 0 ? "Shared today" : diff === 1 ? "Shared yesterday" : `Shared ${day.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
-};
 
 export default function Home() {
   const { profile } = useAuth();
@@ -27,7 +23,7 @@ export default function Home() {
   const [openForms, setOpenForms] = useState<Set<string>>(new Set());     // registration forms that are open
 
   useEffect(() => {
-    supabase.from("quotes").select("body, author, show_on").order("show_on", { ascending: false }).limit(1)
+    supabase.from("quotes").select("id, body, author, show_on").order("show_on", { ascending: false }).limit(1)
       .maybeSingle().then(({ data }) => setQuote(data as Quote | null));
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
@@ -62,6 +58,9 @@ export default function Home() {
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+
+      {/* today's Daily Bite: first thing on Home; like and share right here */}
+      {quote && <BiteCard q={quote} />}
 
       {/* nudge: add a profile photo so chats and live rooms feel personal */}
       {profile && !profile.avatar_url && !photoLater && (
@@ -112,17 +111,9 @@ export default function Home() {
       {/* bookshop and team */}
       <div className="homelinks">
         <Link to="/shop" className="homelink"><span aria-hidden="true">📖</span><span className="grow"><b>Bookshop</b><small className="muted">PENCILS of Success and books by BCIL members</small></span></Link>
-        <Link to="/team" className="homelink"><span aria-hidden="true">⭐</span><span className="grow"><b>Our team</b><small className="muted">Meet the directors and executives</small></span></Link>
+        <Link to="/about" className="homelink"><span aria-hidden="true">⭐</span><span className="grow"><b>About us</b><small className="muted">Our vision, values and directors</small></span></Link>
       </div>
 
-      {/* today's quote */}
-      {quote && (
-        <Link to="/quotes" className="quote-mini">
-          <span className="eyebrow">Daily quote · {shared(quote.show_on)}</span>
-          <p>“{quote.body}”</p>
-          <small>— {quote.author}</small>
-        </Link>
-      )}
     </section>
   );
 }
@@ -150,6 +141,36 @@ function ProgrammeCard({ e, at, big, registered }: { e: Ev; at: Date; big?: bool
           ? <Link className="btn primary sm" to={`/events/${e.slug}`}>🎟 My ticket</Link>
           : <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register</Link>)}
         <Link className="btn ghost light sm" to={`/events/${e.slug}`}>Details</Link>
+      </div>
+    </div>
+  );
+}
+
+function BiteCard({ q }: { q: Quote }) {
+  const { session } = useAuth();
+  const me = session!.user.id;
+  const [l, setL] = useState({ n: 0, mine: false });
+  useEffect(() => {
+    supabase.from("quote_likes").select("user_id").eq("quote_id", q.id).then(({ data }) => {
+      const list = (data ?? []) as { user_id: string }[]; setL({ n: list.length, mine: list.some((r) => r.user_id === me) });
+    });
+    supabase.from("quote_reads").insert({ user_id: me, quote_id: q.id }).then(() => {}, () => {});
+  }, [q.id]);
+  async function like() {
+    const cur = l; setL({ n: cur.n + (cur.mine ? -1 : 1), mine: !cur.mine });
+    const r = cur.mine ? await supabase.from("quote_likes").delete().eq("quote_id", q.id).eq("user_id", me)
+      : await supabase.from("quote_likes").insert({ quote_id: q.id, user_id: me });
+    if (r.error) setL(cur);
+  }
+  return (
+    <div className="quote-mini">
+      <span className="eyebrow">Daily Bite</span>
+      <p>“{q.body}”</p>
+      <small>— {q.author}</small>
+      <div className="bite-acts">
+        <button className={`likebtn${l.mine ? " on" : ""}`} onClick={like} aria-pressed={l.mine} aria-label={l.mine ? "Unlike" : "Like"}>{l.mine ? "❤️" : "🤍"} {l.n || ""}</button>
+        <button className="btn ghost sm light" onClick={() => shareBite(q)}>Share</button>
+        <Link to="/quotes" className="bite-past">Past bites</Link>
       </div>
     </div>
   );
