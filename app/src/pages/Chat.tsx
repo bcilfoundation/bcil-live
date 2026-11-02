@@ -31,6 +31,16 @@ export default function Chat() {
   const [preview, setPreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [viewImg, setViewImg] = useState<string | null>(null);
+  const [reacts, setReacts] = useState<Record<number, { emoji: string; user_id: string }[]>>({});
+  const [pickFor, setPickFor] = useState<number | null>(null);
+  async function react(m: Msg, emoji: string) {
+    setPickFor(null);
+    const mine = (reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === emoji);
+    setReacts((cur) => ({ ...cur, [m.id]: mine ? (cur[m.id] ?? []).filter((r) => !(r.user_id === me && r.emoji === emoji)) : [...(cur[m.id] ?? []), { emoji, user_id: me }] }));
+    const r = mine ? await supabase.from("message_reactions").delete().eq("message_id", m.id).eq("user_id", me).eq("emoji", emoji)
+      : await supabase.from("message_reactions").insert({ message_id: m.id, room_id: roomId, user_id: me, emoji });
+    if (r.error && !/duplicate/i.test(r.error.message)) setError("Could not add the reaction. Try again.");
+  }
   const pickFile = (f?: File | null) => {
     setError("");
     if (!f) return;
@@ -83,7 +93,21 @@ export default function Chat() {
       .eq("room_id", roomId).order("created_at", { ascending: false }).limit(200)
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
     markRead(roomId);
+    setReacts({}); setPickFor(null);
+    supabase.from("message_reactions").select("message_id, emoji, user_id").eq("room_id", roomId).then(({ data }) => {
+      const m: Record<number, { emoji: string; user_id: string }[]> = {};
+      for (const r of (data ?? []) as { message_id: number; emoji: string; user_id: string }[]) (m[r.message_id] ??= []).push({ emoji: r.emoji, user_id: r.user_id });
+      setReacts(m);
+    });
     const ch = supabase.channel(`room:${roomId}`, { config: { presence: { key: me } } })
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions", filter: `room_id=eq.${roomId}` }, (p) => {
+        const n = (p.eventType === "DELETE" ? p.old : p.new) as { message_id: number; emoji: string; user_id: string };
+        if (!n?.message_id || n.user_id === me) return;
+        setReacts((cur) => {
+          const list = (cur[n.message_id] ?? []).filter((r) => !(r.user_id === n.user_id && r.emoji === n.emoji));
+          return { ...cur, [n.message_id]: p.eventType === "DELETE" ? list : [...list, { emoji: n.emoji, user_id: n.user_id }] };
+        });
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` },
         async (p) => {
           const m = p.new as Msg;
@@ -193,6 +217,10 @@ export default function Chat() {
                         {m.body && <p className="prewrap">{m.body}</p>}
                         <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}</small>
                         {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
+                        <button className="linkbtn" onClick={() => setPickFor(pickFor === m.id ? null : m.id)} aria-label="React">☺︎+</button>
+                        {pickFor === m.id && <span className="reactpick">{EMOJIS.map((e) => <button key={e} onClick={() => react(m, e)} aria-label={`React ${e}`}>{e}</button>)}</span>}
+                        {(reacts[m.id]?.length ?? 0) > 0 && <span className="reactrow">{Object.entries((reacts[m.id] ?? []).reduce<Record<string, number>>((a, r) => ((a[r.emoji] = (a[r.emoji] ?? 0) + 1), a), {})).map(([e, n]) => (
+                          <button key={e} className={`reactchip${(reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === e) ? " mine" : ""}`} onClick={() => react(m, e)}>{e}{n > 1 ? ` ${n}` : ""}</button>))}</span>}
                         {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
                       </div>
                     </div>
@@ -229,6 +257,7 @@ export default function Chat() {
   );
 }
 
+const EMOJIS = ["👍", "❤️", "🙏", "😂", "🔥", "👏"];
 const fileSize = (n?: number | null) => (!n ? "" : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const fileIcon = (name?: string | null) => {
   const ext = (name ?? "").split(".").pop()?.toLowerCase() ?? "";

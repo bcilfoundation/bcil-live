@@ -97,16 +97,17 @@ export default function SignIn() {
   );
   const codeField = <label className="field">6-digit code<input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="123456" /></label>;
 
-  const bg = { backgroundImage: `linear-gradient(180deg, rgba(5,12,30,.35) 0%, rgba(5,12,30,.15) 35%, rgba(5,12,30,.85) 70%, rgba(5,12,30,.97) 100%), url(${import.meta.env.BASE_URL}fcb/signin.jpg)` };
-  const logo = <div className="welcome-logo"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><span>Live</span></div>;
+  const photo = <div className="welcome-photo" aria-hidden="true" style={{ backgroundImage: `url(${import.meta.env.BASE_URL}fcb/hero.jpg)` }} />;
+  const logo = <div className="welcome-logo"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /></div>;
 
   // ---------- first screen ----------
   if (!withEmail && step === "signin") return (
-    <div className="welcome" style={bg}>
+    <div className="welcome">
+      {photo}
       <div className="welcome-top"><GetApp where="signin" />{logo}</div>
       <div className="welcome-bottom">
         <h1>Grooming Generational Leaders</h1>
-        <p>Live sessions, talks and mentorship from BCIL Foundation. Sign in to continue.</p>
+        <p>Sign in to continue</p>
         {info && <p className="ok" role="status">{info}</p>}
         <button type="button" className="welcome-btn" onClick={() => setWithEmail(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
@@ -121,7 +122,8 @@ export default function SignIn() {
 
   // ---------- email sign in / create account ----------
   return (
-    <div className="welcome email" style={bg}>
+    <div className="welcome email">
+      {photo}
       <div className="welcome-top">{logo}</div>
       <div className="card signin welcome-card">
         <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => { go("signin"); setWithEmail(false); }}>← Back</button>

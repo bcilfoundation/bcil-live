@@ -22,6 +22,7 @@ export default function Home() {
   const [events, setEvents] = useState<Ev[] | null>(null);
   const [, tick] = useState(0);
   const [fresh, setFresh] = useState<NewItem[]>([]);
+  const [photoLater, setPhotoLater] = useState(() => { try { return Date.now() - Number(localStorage.getItem("bcil.photo.later") || 0) < 7 * 864e5; } catch { return false; } });
   const [registered, setRegistered] = useState<Set<string>>(new Set());   // form slugs I've filled in
   const [openForms, setOpenForms] = useState<Set<string>>(new Set());     // registration forms that are open
 
@@ -61,6 +62,16 @@ export default function Home() {
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+
+      {/* nudge: add a profile photo so chats and live rooms feel personal */}
+      {profile && !profile.avatar_url && !photoLater && (
+        <div className="nudge">
+          <span className="nudge-ava" aria-hidden="true">📷</span>
+          <span className="grow"><b>Add a profile photo</b><small className="muted">So friends recognise you in chats and live sessions.</small></span>
+          <button className="btn primary sm" onClick={() => window.dispatchEvent(new Event("bcil-edit-profile"))}>Add</button>
+          <button className="linkbtn" aria-label="Not now" onClick={() => { try { localStorage.setItem("bcil.photo.later", String(Date.now())); } catch { /* ignore */ } setPhotoLater(true); }}>✕</button>
+        </div>
+      )}
 
       {/* live now / next live session */}
       {next && (

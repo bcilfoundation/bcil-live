@@ -37,6 +37,9 @@ export default function TopBar() {
   const me = session!.user.id;
   const nav = useNavigate();
   const [open, setOpen] = useState<"" | "bell" | "me">("");
+  const [editNow, setEditNow] = useState(false);
+  // other pages can open "Edit name and photo" (e.g. the Home nudge to add a photo)
+  useEffect(() => { const f = () => { setEditNow(true); setOpen("me"); }; window.addEventListener("bcil-edit-profile", f); return () => window.removeEventListener("bcil-edit-profile", f); }, []);
   const [notes, setNotes] = useState<Note[]>([]);
   const [unreadChats, setUnreadChats] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
@@ -114,7 +117,7 @@ export default function TopBar() {
           )}
         </div>
       )}
-      {open === "me" && <ProfileMenu onClose={() => setOpen("")} />}
+      {open === "me" && <ProfileMenu startEditing={editNow} onClose={() => { setOpen(""); setEditNow(false); }} />}
     </div>
   );
 }
@@ -128,9 +131,9 @@ function MeButton({ active, onClick }: { active: boolean; onClick: () => void })
   );
 }
 
-function ProfileMenu({ onClose }: { onClose: () => void }) {
+function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; startEditing?: boolean }) {
   const { session, profile } = useAuth();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [theme, setT] = useState<Theme>(getTheme());
   const [alerts, setAlerts] = useState(alertsOn());
   const [msg, setMsg] = useState("");

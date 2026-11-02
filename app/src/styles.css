@@ -670,3 +670,20 @@ html,body{max-width:100%;overflow-x:hidden}
 .regcard .grow{display:flex;flex-direction:column;gap:1px;min-width:0}.regcard b{font:800 1.02rem var(--display)}.regcard small{font-size:.78rem;opacity:.85}
 .regcard-ico{font-size:1.6rem}.regcard-go{font-weight:800;white-space:nowrap;background:#1b1203;color:#ffd54a;border-radius:999px;padding:8px 12px;font-size:.85rem}
 @media (max-width:420px){.regcard-go{display:none}}
+/* welcome: a crowd photo across the top, fading into navy where the buttons sit */
+.welcome{background:#06102a}
+.welcome-photo{position:absolute;left:0;right:0;top:0;height:66%;background-size:cover;background-position:center 35%;z-index:-1}
+.welcome-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,16,42,.55) 0%,rgba(6,16,42,.1) 30%,rgba(6,16,42,.55) 70%,#06102a 100%)}
+.welcome{isolation:isolate}
+@media (min-width:761px){.welcome-photo{height:100%}.welcome-photo::after{background:linear-gradient(180deg,rgba(6,16,42,.5),rgba(6,16,42,.3) 40%,rgba(6,16,42,.9))}}
+.nudge{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);margin:0 0 14px}
+.nudge .grow{display:flex;flex-direction:column;min-width:0}.nudge-ava{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--navy-soft);font-size:1.1rem;flex:none}
+/* reactions */
+.reactpick{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 6px;margin-top:4px;width:max-content;box-shadow:0 4px 14px rgba(10,25,50,.15)}
+.reactpick button{background:none;border:0;font-size:1.3rem;cursor:pointer;padding:2px 4px;border-radius:8px}
+.reactrow{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.reactchip{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:1px 8px;font-size:.85rem;cursor:pointer}
+.reactchip.mine{border-color:var(--navy);background:var(--navy-soft)}
+.msg.mine .reactchip{color:var(--text)}
+.welcome-bottom h1{font-size:clamp(1.05rem,5.5vw,2.4rem);white-space:nowrap;letter-spacing:-.01em}
+.welcome-logo img{height:34px}
