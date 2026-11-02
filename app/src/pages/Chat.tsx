@@ -7,9 +7,12 @@ import Avatar from "../components/Avatar";
 import Icon from "../components/Icon";
 import type { Group } from "./Groups";
 import PersonSheet from "../components/PersonSheet";
+import { shrink } from "../lib/media";
+import { isNative } from "../lib/native";
 
 type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string };
-type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
+type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
+  attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
 export default function Chat() {
   const { session, profile, isStaff } = useAuth();
@@ -24,6 +27,18 @@ export default function Chat() {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [viewImg, setViewImg] = useState<string | null>(null);
+  const pickFile = (f?: File | null) => {
+    setError("");
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { setError("That file is over 20 MB. Please send a smaller one."); return; }
+    setFile(f);
+    setPreview(f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
+  };
+  const clearFile = () => { if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(null); };
   const [person, setPerson] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -63,7 +78,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (!roomId) return;
-    setMsgs([]); setError(""); setReplyTo(null);
+    setMsgs([]); setError(""); setReplyTo(null); setFile(null); setPreview(null);
     supabase.from("messages").select("*, profiles(full_name, avatar_url)")
       .eq("room_id", roomId).order("created_at", { ascending: false }).limit(200)
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
@@ -91,10 +106,26 @@ export default function Chat() {
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (!room || !text.trim()) return;
-    const body = text.trim(); setText("");
-    const reply = replyTo; setReplyTo(null);
-    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body, ...(reply ? { reply_to: reply.id } : {}) });
+    if (!room || (!text.trim() && !file) || sending) return;
+    const body = text.trim();
+    const reply = replyTo;
+    let att: Record<string, unknown> = {};
+    if (file) {
+      setSending(true); setError("");
+      try {
+        const isImg = file.type.startsWith("image/") && !/gif|svg/.test(file.type);
+        const blob: Blob = isImg ? await shrink(file, 1600) : file;
+        const clean = file.name.replace(/[^\w.\- ]+/g, "").replace(/\s+/g, "-").slice(-80) || "file";
+        const path = `${me}/${Date.now()}-${isImg ? clean.replace(/\.[^.]+$/, "") + ".jpg" : clean}`;
+        const up = await supabase.storage.from("chat-files").upload(path, blob, { contentType: isImg ? "image/jpeg" : file.type || "application/octet-stream" });
+        if (up.error) throw up.error;
+        att = { attachment_url: supabase.storage.from("chat-files").getPublicUrl(path).data.publicUrl, attachment_name: file.name.slice(0, 120),
+          attachment_type: isImg || file.type.startsWith("image/") ? "image" : "file", attachment_size: blob.size };
+      } catch (e) { setSending(false); setError("Could not send the file: " + ((e as Error).message || "try again")); return; }
+    }
+    setText(""); setReplyTo(null); clearFile();
+    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body, ...att, ...(reply ? { reply_to: reply.id } : {}) });
+    setSending(false);
     if (error) { setError("Message not sent. Check your connection and try again."); setText(body); setReplyTo(reply); }
   }
   async function report(m: Msg) {
@@ -152,7 +183,14 @@ export default function Chat() {
                         {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}</button>}
                         {m.reply_to && <button className="quote-in" onClick={() => m.reply_to && jumpTo(m.reply_to)}>
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
-                        <p className="prewrap">{m.body}</p>
+                        {m.attachment_url && m.attachment_type === "image" && (
+                          <button className="plainbtn msgimg" onClick={() => setViewImg(m.attachment_url!)}><img src={m.attachment_url} alt={m.attachment_name ?? "Photo"} loading="lazy" /></button>)}
+                        {m.attachment_url && m.attachment_type !== "image" && (
+                          <button className="plainbtn msgfile" onClick={() => openFile(m)}>
+                            <span className="msgfile-ico" aria-hidden="true">{fileIcon(m.attachment_name)}</span>
+                            <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
+                          </button>)}
+                        {m.body && <p className="prewrap">{m.body}</p>}
                         <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}</small>
                         {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
                         {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
@@ -167,18 +205,40 @@ export default function Chat() {
               <div className="replybar"><div className="grow"><b>Replying to {nameOf(replyTo)}</b><span>{replyTo.body}</span></div>
                 <button className="linkbtn" onClick={() => setReplyTo(null)} aria-label="Cancel reply">✕</button></div>
             )}
+            {file && (
+              <div className="attachbar">{preview ? <img src={preview} alt="" /> : <span className="msgfile-ico" aria-hidden="true">{fileIcon(file.name)}</span>}
+                <span className="grow"><b>{file.name}</b><small className="muted">{fileSize(file.size)}{sending ? " · sending…" : " · add a message or tap Send"}</small></span>
+                {!sending && <button className="linkbtn" onClick={clearFile} aria-label="Remove file">✕</button>}</div>
+            )}
             <form className="composer" onSubmit={send}>
+              {canPost && <label className="attachbtn" aria-label="Add a photo or document" title="Add a photo or document">📎
+                <input type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} /></label>}
               <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} disabled={!canPost}
                 placeholder={canPost ? "Write a message" : "Only admins can post here"} aria-label="Message" />
-              <button className="btn primary" disabled={!canPost || !text.trim()}>Send</button>
+              <button className="btn primary" disabled={!canPost || sending || (!text.trim() && !file)}>{sending ? "…" : "Send"}</button>
             </form>
             {error && <p className="err pad" role="alert">{error}</p>}
           </>}
           {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
+          {viewImg && <div className="lightbox" role="dialog" aria-label="Photo" onClick={() => setViewImg(null)}>
+            <img src={viewImg} alt="" /><button className="lightbox-x" aria-label="Close">✕</button>
+            <a className="lightbox-dl" href={`${viewImg}?download=`} onClick={(e) => e.stopPropagation()}>⬇ Save</a></div>}
         </div>
       </div>
     </section>
   );
+}
+
+const fileSize = (n?: number | null) => (!n ? "" : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const fileIcon = (name?: string | null) => {
+  const ext = (name ?? "").split(".").pop()?.toLowerCase() ?? "";
+  return ext === "pdf" ? "📕" : /docx?/.test(ext) ? "📘" : /xlsx?|csv/.test(ext) ? "📗" : /pptx?/.test(ext) ? "📙" : ext === "zip" ? "🗜" : "📄";
+};
+async function openFile(m: Msg) {
+  if (!m.attachment_url) return;
+  const url = `${m.attachment_url}?download=${encodeURIComponent(m.attachment_name || "file")}`;
+  if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url: m.attachment_url }); return; }
+  window.open(/\.pdf$/i.test(m.attachment_name ?? "") ? m.attachment_url : url, "_blank", "noopener");
 }
 
 function ChanIcon({ c }: { c: Conv }) {

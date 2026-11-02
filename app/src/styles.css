@@ -615,3 +615,24 @@ html,body{max-width:100%;overflow-x:hidden}
 .lightbox img{max-width:100%;max-height:100%;border-radius:10px}
 .lightbox-x{position:absolute;top:calc(14px + var(--sat,0px));right:14px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.15);color:#fff;font-size:1.2rem;cursor:pointer}
 .donecard{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+/* phones: an open chat fills the screen (like WhatsApp), so the bottom tabs never cover the typing box */
+@media (max-width:760px){
+  .chatwrap.has-room .room{position:fixed;inset:0;z-index:50;background:var(--bg)}
+  .chatwrap.has-room .roomhead{padding-top:calc(10px + var(--sat))}
+  .chatwrap.has-room .composer{padding-bottom:calc(10px + var(--sab));background:var(--panel)}
+  .chatwrap.has-room .replybar{margin:0}
+  .chatwrap.has-room ~ .tabbar{display:none}
+}
+.mp-bubble{z-index:56}
+/* photos and files in chat */
+.attachbtn{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;background:var(--navy-soft);cursor:pointer;font-size:1.25rem}
+.attachbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.attachbar img{width:48px;height:48px;object-fit:cover;border-radius:8px}
+.attachbar .grow{display:flex;flex-direction:column;min-width:0}.attachbar b{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msgimg{display:block;margin:2px 0 4px}.msgimg img{display:block;max-width:min(260px,62vw);max-height:320px;border-radius:10px;object-fit:cover}
+.msgfile{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.06);border-radius:10px;padding:8px 10px;margin:2px 0 4px;text-align:left;max-width:280px}
+.msg.mine .msgfile{background:rgba(255,255,255,.16)}
+.msgfile .grow{display:flex;flex-direction:column;min-width:0}.msgfile b{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit!important}
+.msgfile small{font-size:.72rem;opacity:.8;margin:0!important;color:inherit!important}
+.msgfile-ico{font-size:1.7rem;line-height:1}
+.lightbox-dl{position:absolute;bottom:calc(18px + var(--sab,0px));left:50%;transform:translateX(-50%);background:#fff;color:var(--navy);font-weight:800;padding:10px 18px;border-radius:999px;text-decoration:none}
