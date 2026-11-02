@@ -10,7 +10,6 @@ export type ShopBook = { id: string; title: string; author: string; description:
 
 const img = (u: string | null) => (!u ? "" : u.startsWith("/") ? `${import.meta.env.BASE_URL}${u.slice(1)}` : u);
 const digits = (p: string) => p.replace(/[^\d]/g, "");
-const pretty = (p: string) => { const d = digits(p); return d.startsWith("233") ? `+233 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8)}` : d.startsWith("1") ? `+1 ${d.slice(1, 4)}-${d.slice(4, 7)}-${d.slice(7)}` : p; };
 async function openLink(url: string) {
   if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
   window.open(url, "_blank", "noopener");
@@ -67,7 +66,7 @@ function BookSheet({ b, isStaff, close, edit }: { b: ShopBook; isStaff: boolean;
           <h3 style={{ margin: "6px 0 0" }}>Get a copy near you</h3>
           <div className="sellers">{b.sellers.map((s, i) => (
             <div key={i} className="seller">
-              <div className="grow"><b>{s.area}</b><small className="muted">{s.name} · {pretty(s.phone)}</small></div>
+              <div className="grow"><b>{s.area}</b><small className="muted">{s.name}</small></div>
               <button className="btn sm wa" onClick={() => openLink(wa(s))} aria-label={`WhatsApp ${s.name}`}>WhatsApp</button>
               <a className="btn ghost sm" href={`tel:+${digits(s.phone)}`} aria-label={`Call ${s.name}`}>Call</a>
             </div>
