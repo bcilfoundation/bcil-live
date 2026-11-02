@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 // Public page (no sign-in needed). Linked from the app stores and the sign-in screen.
 export default function Privacy() {
@@ -41,7 +43,8 @@ export default function Privacy() {
       <p>We keep your information while your account is open. When you delete your account, your profile, messages, posts, friendships and other content are deleted. Records of gifts are kept for the foundation's financial accounts, but are no longer linked to you.</p>
 
       <h2 id="delete">Deleting your account</h2>
-      <p>In the app, tap your name (top right) → <b>Delete my account</b>. This is immediate and permanent. If you cannot sign in, email <a href="mailto:info@bcilfoundation.org?subject=Delete%20my%20BCIL%20Live%20account">info@bcilfoundation.org</a> from the email address on your account and we will delete it within 7 days.</p>
+      <DeleteAccount />
+      <p>You can delete your account with the button above while signed in. This is immediate and permanent. If you cannot sign in, email <a href="mailto:info@bcilfoundation.org?subject=Delete%20my%20BCIL%20Live%20account">info@bcilfoundation.org</a> from the email address on your account and we will delete it within 7 days.</p>
 
       <h2>Your rights</h2>
       <p>Under Ghana's Data Protection Act, 2012 (Act 843) and other laws that may apply to you, you can ask to see, correct or delete your information. Email us and we will respond within 30 days.</p>
@@ -51,4 +54,22 @@ export default function Privacy() {
       <p><Link to="/">← Back to BCIL Live</Link></p>
     </section>
   );
+}
+
+// Account deletion lives here (not in the everyday menu). App stores require apps to offer it.
+function DeleteAccount() {
+  const [signedIn, setSignedIn] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session)); }, []);
+  if (!signedIn) return null;
+  async function del() {
+    const typed = window.prompt("This permanently deletes your BCIL Live account, your messages, posts and friends. It cannot be undone.\n\nType DELETE to confirm.");
+    if (typed?.trim().toUpperCase() !== "DELETE") return;
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) { setMsg("Could not delete your account: " + error.message); return; }
+    await supabase.auth.signOut();
+    alert("Your account has been deleted.");
+    location.href = import.meta.env.BASE_URL;
+  }
+  return <p><button className="linkbtn" style={{ color: "var(--live)", textDecoration: "underline" }} onClick={del}>Delete my account</button>{msg && <span className="err"> {msg}</span>}</p>;
 }
