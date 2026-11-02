@@ -636,3 +636,15 @@ html,body{max-width:100%;overflow-x:hidden}
 .msgfile small{font-size:.72rem;opacity:.8;margin:0!important;color:inherit!important}
 .msgfile-ico{font-size:1.7rem;line-height:1}
 .lightbox-dl{position:absolute;bottom:calc(18px + var(--sab,0px));left:50%;transform:translateX(-50%);background:#fff;color:var(--navy);font-weight:800;padding:10px 18px;border-radius:999px;text-decoration:none}
+/* live room: bigger Share / Leave */
+.room-pillbtn{min-height:40px;padding:0 14px;border-radius:999px;border:0;background:rgba(255,255,255,.16);color:#fff;font-weight:800;font-size:.9rem;cursor:pointer;white-space:nowrap}
+.room-pillbtn.leave{background:#e5484d;color:#fff}
+@media (max-width:480px){.room-meta>span:not(.pill){display:none}.room-title b{max-width:34vw}}
+/* go-live review */
+.golive-lab{font-weight:700;font-size:.88rem;margin-bottom:-6px}.golive-lab .req{font-weight:600;font-size:.72rem;color:#e5484d;margin-left:4px}
+.golive-review .gl-rows{display:flex;flex-direction:column;gap:8px}
+.golive-review .gl-rows>div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--navy-soft)}
+.golive-review .gl-rows span{font-size:.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.golive-review .gl-rows .rec{background:#fde8e8;color:#7a1414}.golive-review .gl-rows .rec span{color:#a42020}
+[data-theme="dark"] .golive-review .gl-rows .rec{background:#4a1a1d;color:#ffd6d6}
+.gl-warn{margin:0;font-size:.85rem;color:var(--muted)}

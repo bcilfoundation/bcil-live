@@ -40,6 +40,8 @@ export default function Live() {
   const [record, setRecord] = useState(true);
   const [startCam, setStartCam] = useState(true);
   const [priv, setPriv] = useState(false);
+  const [review, setReview] = useState(false);
+  const [formErr, setFormErr] = useState("");
   const [text, setText] = useState("");
   const [asQuestion, setAsQuestion] = useState(false);
   const [sheet, setSheet] = useState<"" | "people" | "gifts" | "host" | "bg" | "cambg">("");
@@ -80,9 +82,10 @@ export default function Live() {
     <section className="view">
       <h1>Live</h1>
       {isStaff ? (
-        <form className="pod-golive" onSubmit={async (e) => { e.preventDefault(); if (await L.goLiveNow({ title, topic, kind, record, cam: startCam, private: priv })) { setTitle(""); setTopic(""); setPriv(false); } }}>
+        <form className="pod-golive" onSubmit={(e) => { e.preventDefault(); if (title.trim().length < 3) { setFormErr("Add a title so people know what the session is about."); document.getElementById("golive-title")?.focus(); return; } setFormErr(""); setReview(true); }}>
           <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. Mentorship hour: planning your semester" aria-label="Session title" />
+          <label className="golive-lab" htmlFor="golive-title">Title <span className="req">required</span></label>
+          <input id="golive-title" value={title} onChange={(e) => { setTitle(e.target.value); setFormErr(""); }} placeholder="e.g. Mentorship hour: planning your semester" aria-label="Session title" aria-required="true" maxLength={90} />
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
           <div className="kindpick" role="radiogroup" aria-label="Session type">
             <button type="button" role="radio" aria-checked={kind === "audio"} className={kind === "audio" ? "on" : ""} onClick={() => setKind("audio")}>🎙 Audio<small>Like a podcast</small></button>
@@ -95,7 +98,8 @@ export default function Live() {
           {priv && <p className="muted small" style={{ margin: 0 }}>No notification goes out and it won't show on Home. After you go live, tap ⤴ Invite to send the private link.</p>}
           {kind === "video" && <label className="pod-recopt"><input type="checkbox" checked={startCam} onChange={(e) => setStartCam(e.target.checked)} /> Start with my camera on</label>}
           <label className="pod-recopt"><input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} /> Record this session (saved as a draft in the Library{kind === "video" ? "; audio only" : ""})</label>
-          <button className="btn pod-golive-btn" disabled={busy}>{busy ? "Starting…" : "● Go live now"}</button>
+          {formErr && <p className="err" role="alert" style={{ margin: 0 }}>{formErr}</p>}
+          <button className="btn pod-golive-btn" disabled={busy}>Review and go live →</button>
         </form>
       ) : (
         <div className="pod-empty">
@@ -108,11 +112,32 @@ export default function Live() {
       <div className="list">
         {L.upcoming.length ? L.upcoming.map((s) => (
           <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
-            {isStaff ? <button className="btn primary" onClick={() => L.startScheduled(s)}>● Go live</button>
+            {isStaff ? <button className="btn primary" onClick={() => { if (window.confirm(`Go live now with “${s.title}”?\n\nEveryone with the app will be notified.`)) L.startScheduled(s); }}>● Go live</button>
               : <button className="btn primary" onClick={() => L.remind(s)}>Remind me</button>}</div>
         )) : <div className="muted">No sessions scheduled yet.</div>}
       </div>
       {notice && <p className="ok">{notice}</p>}
+      {review && <>
+        <div className="sheet-back" onClick={() => setReview(false)} />
+        <div className="sheet golive-review" role="dialog" aria-label="Check before going live">
+          <h3 style={{ margin: 0 }}>Ready to go live?</h3>
+          <div className="gl-rows">
+            <div><span>Title</span><b>{title.trim()}</b></div>
+            {topic.trim() && <div><span>Topic</span><b>{topic.trim()}</b></div>}
+            <div><span>Type</span><b>{kind === "video" ? `🎥 Video${startCam ? " · your camera starts on" : " · camera off at first"}` : "🎙 Audio"}</b></div>
+            <div><span>Who can join</span><b>{priv ? "🔒 Private: only people you send the link to. No notification." : "🌍 Public: everyone with the app is notified now."}</b></div>
+            <div className={record ? "rec" : ""}><span>Recording</span><b>{record ? "● ON: the session will be recorded and saved as a draft in the Library. Everyone in the room sees a REC badge." : "Off: nothing will be recorded."}</b></div>
+          </div>
+          {record && <p className="gl-warn">Make sure speakers are happy to be recorded. You can stop the recording any time from ⚙ Host tools.</p>}
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <button className="btn primary" disabled={busy} onClick={async () => {
+              if (await L.goLiveNow({ title, topic, kind, record, cam: startCam, private: priv })) { setTitle(""); setTopic(""); setPriv(false); }
+              setReview(false);
+            }}>{busy ? "Starting…" : "● Go live now"}</button>
+            <button className="btn ghost" disabled={busy} onClick={() => setReview(false)}>← Go back and edit</button>
+          </div>
+        </div>
+      </>}
     </section>
   );
 
@@ -179,8 +204,9 @@ export default function Live() {
           {live.kind === "video" && <span className="pill soon">🎥</span>}
           {(L.recording || live.recording) && <span className="pill rec" title="Being recorded">● REC</span>}
           <span>{L.elapsed}</span>
-          <button className="room-icon" onClick={L.share} aria-label={live.is_private ? "Copy the private invite link" : "Share"}>⤴</button>
-          {amHost && joined && <button className="room-icon" onClick={() => setSheet("host")} aria-label="Host tools">⚙</button>}
+          <button className="room-pillbtn" onClick={L.share} aria-label={live.is_private ? "Copy the private invite link" : "Share"}>{live.is_private ? "🔒 Invite" : "⤴ Share"}</button>
+          {amHost && joined && <button className="room-pillbtn" onClick={() => setSheet("host")} aria-label="Host tools">⚙</button>}
+          {joined && <button className="room-pillbtn leave" onClick={L.leaveRoom}>Leave</button>}
         </div>
       </div>
       {live.topic && <p className="room-topic">{live.topic} · Hosted by {L.hostName}</p>}
@@ -289,7 +315,6 @@ export default function Live() {
             placeholder={live.chat_locked && !isStaff ? "The host has locked the chat" : asQuestion ? "Ask the host a question…" : "Chat…"} aria-label="Comment" />
           <button className="send" disabled={!text.trim()}>Send</button>
         </div>
-        {joined && <button type="button" className="room-leave" onClick={L.leaveRoom}>Leave</button>}
       </form>
 
       {/* sheets */}

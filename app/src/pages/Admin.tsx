@@ -80,6 +80,7 @@ function LiveAdmin() {
     setF({ title: "", topic: "", starts_at: "" }); load();
   }
   const set = async (id: string, status: string) => {
+    if (status === "live" && !window.confirm("Go live now?\n\nEveryone with the app will be notified and the room opens straight away.")) return;
     const patch = status === "live" ? { status, starts_at: new Date().toISOString(), host_id: session!.user.id } : { status };
     const { error } = await supabase.from("live_sessions").update(patch).eq("id", id);
     if (error) { alert("Could not update the session: " + error.message); return; }
