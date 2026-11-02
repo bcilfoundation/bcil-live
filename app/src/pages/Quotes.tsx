@@ -6,7 +6,10 @@ import { isNative } from "../lib/native";
 
 type Quote = { id: number; show_on: string; theme: string | null; body: string; author: string; reflection: string | null };
 const dayName = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 10); };
+// Bites change at midnight Ghana time (GMT), the same moment members see the new one. Admins can read scheduled
+// bites too, so every query stops at today: admins see exactly what members see, and plan ahead in Admin → Daily Bite.
+export const biteDay = () => new Date().toISOString().slice(0, 10);
+const today = biteDay;
 
 // Daily Bite: today's bite, the last 7 days, and any day by date. Like and share; no categories.
 export default function Quotes() {
@@ -19,7 +22,7 @@ export default function Quotes() {
 
   useEffect(() => {
     // the database only returns bites up to today, newest first
-    supabase.from("quotes").select("*").order("show_on", { ascending: false }).limit(8)
+    supabase.from("quotes").select("*").lte("show_on", biteDay()).order("show_on", { ascending: false }).limit(8)
       .then(({ data }) => setQuotes((data ?? []) as Quote[]));
   }, []);
   const ids = [...quotes.map((x) => x.id), ...(found ? [found.id] : [])];
@@ -43,7 +46,7 @@ export default function Quotes() {
   async function findDay(d: string) {
     setPick(d); setFound(undefined);
     if (!d) return;
-    const { data } = await supabase.from("quotes").select("*").eq("show_on", d).maybeSingle();
+    const { data } = d > biteDay() ? { data: null } : await supabase.from("quotes").select("*").eq("show_on", d).maybeSingle();
     setFound((data as Quote | null) ?? null);
   }
   const Bite = ({ x, big }: { x: Quote; big?: boolean }) => {

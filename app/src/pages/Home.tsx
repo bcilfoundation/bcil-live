@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import { shareBite } from "./Quotes";
+import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
 type Quote = { id: number; body: string; author: string; show_on: string };
@@ -23,7 +23,7 @@ export default function Home() {
   const [openForms, setOpenForms] = useState<Set<string>>(new Set());     // registration forms that are open
 
   useEffect(() => {
-    supabase.from("quotes").select("id, body, author, show_on").order("show_on", { ascending: false }).limit(1)
+    supabase.from("quotes").select("id, body, author, show_on").lte("show_on", biteDay()).order("show_on", { ascending: false }).limit(1)
       .maybeSingle().then(({ data }) => setQuote(data as Quote | null));
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
