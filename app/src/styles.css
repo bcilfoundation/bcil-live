@@ -745,3 +745,4 @@ html,body{max-width:100%;overflow-x:hidden}
 .founder img{object-position:center 20%}
 .teamcard img{object-position:center 20%}
 @media (max-width:760px){.tabbar a{font-size:.72rem;min-width:0}.tabbar a svg{width:24px;height:24px}}
+.menusep{border:0;border-top:1px solid var(--line);margin:8px 12px;opacity:.6}

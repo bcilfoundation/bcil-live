@@ -32,10 +32,21 @@ const Search = lazy(() => import("./pages/Search"));
 
 import { paymentsOn } from "./lib/pay";
 
+// The laptop sidebar mirrors the phone: the bottom tabs first, then what's in More.
+// Library covers the Reading room and Bookshop; Groups covers Messages, Campus Sync and Friends.
 const NAV = ([
-  ["/", "Home"], ["/quotes", "Daily Bite"], ["/events", "Programmes"], ["/live", "Live"], ["/library", "Library"], ["/reading", "Reading room"], ["/shop", "Bookshop"],
-  ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/about", "About us"], ["/donate", "Donate"],
+  ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/groups", "Groups"], ["/donate", "Donate"],
 ] as const);
+const NAV_MORE = ([
+  ["/about", "About us"], ["/events", "Programmes"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
+] as const);
+const MORE_ICONS: Record<string, string> = { "/about": "star", "/events": "calendar", "/forms?form=join-campus-sync": "userplus", "/forms?form=fcb27-volunteer": "users" };
+const sideActive = (to: string, path: string, search: string) =>
+  to === "/" ? path === "/"
+  : to === "/library" ? /^\/(library|reading|shop)/.test(path)
+  : to === "/groups" ? /^\/(groups|chat|campus|friends|join)/.test(path)
+  : to.startsWith("/forms?") ? path === "/forms" && search === to.slice(6)
+  : path.startsWith(to);
 
 const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/about": "star" };
 
@@ -45,7 +56,7 @@ export default function App() {
   // Android app: notifications (asks once), and taps on a notification open the right page
   useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
   const nav = NAV.filter(([to]) => to !== "/donate" || paymentsOn(isStaff) || !!MOMO);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
   if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
@@ -58,7 +69,9 @@ export default function App() {
       <aside className="side">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /><b>Live</b></div>
         <nav className="menu">
-          {nav.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
+          {nav.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={ICONS[to]} size={20} />{label}</NavLink>)}
+          <hr className="menusep" />
+          {NAV_MORE.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={MORE_ICONS[to]} size={20} />{label}</NavLink>)}
           {isStaff && <NavLink to="/admin"><Icon name="shield" size={20} />Admin</NavLink>}
         </nav>
       </aside>
