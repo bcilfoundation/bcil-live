@@ -13,7 +13,7 @@ async function openUrl(url: string) {
   window.open(url, "_blank", "noopener");
 }
 const TEAMS = ["Board of Directors", "Executives", "Coordinators", "Advisors"];
-const VALUES: [string, string][] = [["🛡️", "Integrity"], ["🤝", "Mentorship"], ["🔥", "Persistence"], ["🧭", "Responsibility"], ["⭐", "Excellence"], ["🌍", "Impact"]];
+const VALUES = ["Integrity", "Mentorship", "Persistence", "Responsibility", "Excellence", "Impact"];
 
 // About us: who BCIL Foundation is (vision, mission, core values) and the people leading it. Staff add and edit people here.
 export default function Team() {
@@ -38,9 +38,9 @@ export default function Team() {
         <div className="card"><span className="eyebrow">Our mission</span><p>To empower young people, particularly students, through conferences, mentorship, and guidance, enabling them to fulfil their purpose and nurture future leaders who make positive contributions to society.</p></div>
       </div>
       <h2>Our core values</h2>
-      <div className="about-values">{VALUES.map(([i, v]) => <div key={v}><span aria-hidden="true">{i}</span><b>{v}</b></div>)}</div>
+      <div className="about-values">{VALUES.map((v) => <div key={v}><b>{v}</b></div>)}</div>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 18 }}>
-        <h2 style={{ margin: 0 }}>Our directors and team</h2>
+        <h2 style={{ margin: 0 }}>Our team</h2>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setEditing("new")}>+ Add person</button>}
       </div>
       {people === null ? <p className="muted">Loading…</p> : people.length === 0 ? (

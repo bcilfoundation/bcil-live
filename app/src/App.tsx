@@ -37,8 +37,6 @@ const NAV = ([
   ["/chat", "Chat"], ["/groups", "Groups"], ["/campus", "Campus Sync"], ["/friends", "Friends"], ["/forms", "Forms"], ["/about", "About us"], ["/donate", "Donate"],
 ] as const);
 
-// already in the bottom tabs on phones (Groups covers chat, groups, Campus Sync and friends), so not repeated in More
-const IN_TABS = new Set<string>(["/", "/live", "/library", "/chat", "/groups", "/campus", "/friends"]);
 const ICONS: Record<string, string> = { "/events": "calendar", "/": "home", "/live": "live", "/library": "library", "/reading": "book", "/quotes": "quote", "/chat": "chat", "/groups": "users", "/campus": "pin", "/friends": "userplus", "/forms": "form", "/donate": "gift", "/admin": "shield", "/shop": "cart", "/about": "star" };
 
 export default function App() {
@@ -100,8 +98,18 @@ export default function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/more" element={
               <section className="view"><h1>More</h1>
-                <div className="list morelist">{nav.filter(([to]) => !IN_TABS.has(to)).map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}><Icon name={ICONS[to]} size={22} />{label}</NavLink>)}
-                  {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}</div>
+                <div className="list morelist">
+                  <NavLink to="/about"><Icon name="star" size={22} />About us</NavLink>
+                  <NavLink to="/events"><Icon name="calendar" size={22} />Programmes</NavLink>
+                  <NavLink to="/forms?form=join-campus-sync"><Icon name="userplus" size={22} /><span className="grow">Join us<small className="muted">Become a member through Campus Sync</small></span></NavLink>
+                  <NavLink to="/forms?form=fcb27-volunteer"><Icon name="users" size={22} /><span className="grow">Volunteer for FCB 27<small className="muted">Serve at Finding Campus Balance 2027</small></span></NavLink>
+                </div>
+                <div className="list morelist">
+                  <NavLink to="/reading"><Icon name="book" size={22} />Reading room</NavLink>
+                  <NavLink to="/shop"><Icon name="cart" size={22} />Bookshop</NavLink>
+                  <NavLink to="/forms"><Icon name="form" size={22} />All forms</NavLink>
+                  {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}
+                </div>
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
                 {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Live.</p>}
                 {!isNative && !isAndroid && !isIOS && <p className="muted small">On your phone, open live.bcilfoundation.org to install the app (Android) or add it to your Home Screen (iPhone).</p>}
@@ -113,7 +121,7 @@ export default function App() {
       </div>
       <MiniPlayer />
       <nav className="tabbar">
-        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/groups", "Groups", "users"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
+        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/groups", "Groups", "users"], ["/donate", "Donate", "gift"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}
             className={({ isActive }) => (isActive || (to === "/groups" && /^\/(chat|campus|friends|join)/.test(pathname)) || (to === "/library" && /^\/(reading|shop)/.test(pathname)) ? "active" : "")}>
             <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}

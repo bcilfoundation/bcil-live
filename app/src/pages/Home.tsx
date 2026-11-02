@@ -60,8 +60,8 @@ export default function Home() {
 
       {/* a short welcome from the founder */}
       <div className="founder">
-        <img src="https://bcilfoundation.org/wp-content/uploads/2026/02/solomonA-423x573-1.png" alt="" loading="lazy" />
-        <p>“Welcome to BCIL Live. Learn, grow and connect here. We want you to do better than us, and to help those after you do better still.”<small>Solomon Agbesi, Founder</small></p>
+        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
+        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
       </div>
 
       {/* today's Daily Bite: first thing on Home; like and share right here */}

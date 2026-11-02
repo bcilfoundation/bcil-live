@@ -740,3 +740,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .prog-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.prog-acts .btn{padding:5px 12px;min-height:0;font-size:.8rem}
 .home .home-h{margin:14px 0 8px}
 .home .quote-mini{margin-bottom:12px}
+.morelist{margin-bottom:14px}.morelist a .grow{display:flex;flex-direction:column}.morelist a small{font-size:.76rem;font-weight:500}
+.about-values>div{padding:14px 6px}.about-values b{font-size:.95rem}
+.founder img{object-position:center 20%}
+.teamcard img{object-position:center 20%}
+@media (max-width:760px){.tabbar a{font-size:.72rem;min-width:0}.tabbar a svg{width:24px;height:24px}}
