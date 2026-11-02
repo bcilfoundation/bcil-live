@@ -13,7 +13,10 @@ async function openUrl(url: string) {
   if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
   window.open(url, "_blank", "noopener");
 }
-const TEAMS = ["Board of Directors", "Executives", "Coordinators", "Advisors"];
+// in the order they show on About us. The Advisory Council (constitution 4.6): people of experience and influence
+// who give advice, guidance and mentorship, without running the Foundation.
+const TEAMS = ["Board of Directors", "Executives", "Advisory Council", "Coordinators"];
+const TEAM_NOTE: Record<string, string> = { "Advisory Council": "People of experience and influence who guide and support BCIL Foundation's work." };
 const VALUES = ["Integrity", "Mentorship", "Persistence", "Responsibility", "Excellence", "Impact"];
 
 // About us: who BCIL Foundation is (vision, mission, core values) and the people leading it. Staff add and edit people here.
@@ -49,6 +52,7 @@ export default function Team() {
       ) : teams.map((t) => (
         <div key={t}>
           <h3 className="about-team">{t}</h3>
+          {TEAM_NOTE[t] && <p className="muted small" style={{ margin: "-4px 0 8px" }}>{TEAM_NOTE[t]}</p>}
           <div className="teamgrid">{people.filter((p) => p.team === t).map((p) => (
             <button key={p.id} className="teamcard" onClick={() => setOpen(p)}>
               {p.photo_url ? <img src={p.photo_url} alt="" loading="lazy" /> : <Avatar name={p.name} size={84} />}
