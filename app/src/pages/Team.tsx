@@ -55,7 +55,6 @@ export default function Team() {
               {p.photo_url ? <img src={p.photo_url} alt="" loading="lazy" /> : <Avatar name={p.name} size={84} />}
               <b>{p.name}</b><small className="muted">{p.role}</small>
               <span className="teamcard-more">View profile ›</span>
-              {p.bio && <span className="teamcard-bio" aria-hidden="true"><b>{p.name}</b><span className="tb-text">{p.bio}</span><em>Tap for full profile ›</em></span>}
             </button>
           ))}</div>
         </div>
