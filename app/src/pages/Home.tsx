@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import HomePosts from "../components/HomePosts";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
@@ -63,6 +64,9 @@ export default function Home() {
         <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
         <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
       </div>
+
+      {/* announcements with flyers (staff add and edit them here) */}
+      <HomePosts />
 
       {/* today's Daily Bite: first thing on Home; like and share right here */}
       {quote && <BiteCard q={quote} />}

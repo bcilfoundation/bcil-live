@@ -29,6 +29,8 @@ const CheckIn = lazy(() => import("./pages/CheckIn"));
 const Shop = lazy(() => import("./pages/Shop"));
 const Team = lazy(() => import("./pages/Team"));
 const Search = lazy(() => import("./pages/Search"));
+const Register = lazy(() => import("./pages/Register"));
+const TicketPage = lazy(() => import("./pages/Register").then((m) => ({ default: m.TicketPage })));
 
 import { paymentsOn } from "./lib/pay";
 
@@ -59,6 +61,10 @@ export default function App() {
   const { pathname, search } = useLocation();
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
+  // registration and tickets are public: people register for programmes with or without an account
+  const reg = pathname.match(/^\/register\/([\w-]+)\/?$/), tk = pathname.match(/^\/t\/([0-9a-f-]{36})\/?$/i);
+  if (reg) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><Register slug={reg[1]} /></Suspense></main>;
+  if (tk) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><TicketPage ticket={tk[1]} /></Suspense></main>;
   if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;

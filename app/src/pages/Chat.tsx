@@ -10,7 +10,7 @@ import PersonSheet from "../components/PersonSheet";
 import { shrink } from "../lib/media";
 import { isNative } from "../lib/native";
 
-type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string };
+type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string; leader?: boolean };
 type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
   attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
@@ -65,7 +65,7 @@ export default function Chat() {
       groups = groups.map((g) => (autoJoin.includes(g) ? { ...g, is_member: true } : g));
     }
     const list: Conv[] = [
-      ...groups.filter((g) => g.is_member).map((g) => ({ id: g.id, name: g.name, sub: g.kind === "announcements" ? "Announcements" : `${g.member_count} members`, kind: g.kind as Conv["kind"], read_only: g.read_only, cover: g.cover_url, members: g.member_count })),
+      ...groups.filter((g) => g.is_member).map((g) => ({ id: g.id, name: g.name, sub: g.kind === "announcements" ? "Announcements" : `${g.member_count} members`, kind: g.kind as Conv["kind"], read_only: g.read_only, cover: g.cover_url, members: g.member_count, leader: isStaff || g.my_role === "leader" })),
       ...((dms ?? []) as { room_id: string; other_id: string; other_name: string; other_avatar: string | null }[]).map((d) => ({ id: d.room_id, name: d.other_name || "Member", sub: "Direct message", avatar: d.other_avatar, kind: "dm" as const, read_only: false, otherId: d.other_id })),
     ];
     setConvs(list);
@@ -185,6 +185,7 @@ export default function Chat() {
                 <span className="grow"><b>{room.name}</b>
                   <small className="muted">{room.kind === "dm" ? "Tap for profile" : `${room.members ?? ""} members · tap for group info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
               </button>
+              {room.kind === "group" && room.leader && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name } } })} aria-label={`Go live with ${room.name}`}>● Live</button>}
             </div>
             <div className="msgs">
               <div className="sysmsg">Be kind. Never send money to anyone in chat.</div>

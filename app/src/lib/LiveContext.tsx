@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
-export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null };
+export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number };
@@ -592,12 +592,13 @@ function useLiveEngine() {
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
-  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean }) {
+  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string }) {
+    if (opts.roomId) opts.private = true;   // a group session: only that group sees it and is notified
     const title = opts.title.trim() || `${opts.private ? "Private meeting" : "BCIL Live"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
     const { data, error } = await supabase.from("live_sessions")
       .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind,
-        ...(opts.private ? { is_private: true, invite_code: code } : {}) })
+        ...(opts.private ? { is_private: true, invite_code: code } : {}), ...(opts.roomId ? { room_id: opts.roomId } : {}) })
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return false; }
     setLive(data as Session);
@@ -605,7 +606,8 @@ function useLiveEngine() {
     left.current.delete(data.id);
     const ok = await join(data as Session, { cam: opts.kind === "video" && opts.cam !== false });
     if (ok && opts.record) await startRecording();
-    if (ok && opts.private) setNotice("🔒 Private session. Only people with the link can join. Tap ⤴ at the top to copy and send the link.");
+    if (ok && opts.roomId) setNotice("👥 Group session. Only members of the group can see it and have been notified.");
+    else if (ok && opts.private) setNotice("🔒 Private session. Only people with the link can join. Tap ⤴ at the top to copy and send the link.");
     return ok;
   }
   async function startScheduled(s: Session) {

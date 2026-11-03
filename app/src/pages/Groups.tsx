@@ -214,6 +214,7 @@ export function GroupPage() {
       <div className="row wrap">
         {g.is_member ? <>
           <Link className="btn primary" to={`/chat?room=${g.id}`}><Icon name="chat" size={18} />Open chat</Link>
+          {leader && g.kind !== "announcements" && <button className="btn ghost" onClick={() => nav("/live", { state: { group: { id: g.id, name: g.name } } })}>● Go live with this group</button>}
           {g.invite_code && leader && <button className="btn ghost" onClick={copyInvite}><Icon name="link" size={18} />Invite link</button>}
         </> : <button className="btn primary" onClick={join}>Join this group</button>}
       </div>

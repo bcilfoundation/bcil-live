@@ -149,6 +149,7 @@ function FormsAdmin() {
   const [busy, setBusy] = useState(false);
   const [building, setBuilding] = useState<"new" | "edit" | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const loadForms = () => supabase.from("forms").select("id, slug, title, subtitle, description, sensitive, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
     .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
   useEffect(() => { loadForms(); }, []);
@@ -187,6 +188,7 @@ function FormsAdmin() {
     loadForms();
   }
   const setStatus = async (id: number, status: string) => { await supabase.from("form_responses").update({ status }).eq("id", id); load(); };
+  if (showQr && found) return <FormQr form={found} close={() => setShowQr(false)} />;
   if (building) return <FormBuilder form={building === "edit" && found ? found : null} close={() => setBuilding(null)}
     saved={(id) => { setBuilding(null); setFormId(id); loadForms(); }} />;
   const copyLink = async () => {
@@ -199,6 +201,7 @@ function FormsAdmin() {
       <button className="btn primary" onClick={() => setBuilding("new")}>+ New form</button>
       {found && <button className="btn ghost" onClick={() => setBuilding("edit")}>✏️ Edit this form</button>}
       {found && <button className="btn ghost" onClick={copyLink}>{copied ? "Link copied ✓" : "🔗 Copy form link"}</button>}
+      {found && <button className="btn ghost" onClick={() => setShowQr(true)}>📱 QR codes</button>}
     </div>
     <div className="row" style={{ flexWrap: "wrap" }}>
       <select value={formId} onChange={(e) => setFormId(e.target.value)} aria-label="Form" style={{ maxWidth: 360 }}>
@@ -377,6 +380,39 @@ function EngagementAdmin() {
             <span className="pill">👁 {q.reads}</span><span className="pill">❤️ {q.likes}</span></div>
         ))}</div> : <p className="muted">No quotes in this period.</p>}
       </div>
+    </div>
+  </>);
+}
+
+// QR codes for a form: one to share (people register with or without an account) and one for the venue
+// (people who register there are checked in straight away)
+function FormQr({ form, close }: { form: { id: string; slug: string; title: string }; close: () => void }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [imgs, setImgs] = useState<{ share?: string; walk?: string }>({});
+  const share = `${location.origin}${import.meta.env.BASE_URL}register/${form.slug}`;
+  const walk = code ? `${share}?w=${code}` : "";
+  useEffect(() => { supabase.rpc("form_onsite_code", { p_form: form.id }).then(({ data }) => setCode((data as string) ?? null)); }, [form.id]);
+  useEffect(() => {
+    import("qrcode").then(async (Q) => setImgs({ share: await Q.toDataURL(share, { width: 720, margin: 2 }), walk: walk ? await Q.toDataURL(walk, { width: 720, margin: 2 }) : undefined }));
+  }, [share, walk]);
+  const Card = ({ title, note, url, img, file }: { title: string; note: string; url: string; img?: string; file: string }) => (
+    <div className="card qrcard">
+      <b>{title}</b><small className="muted">{note}</small>
+      {img ? <img src={img} alt={`QR code: ${title}`} /> : <p className="muted">Making the QR code…</p>}
+      <code className="qrurl">{url}</code>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+        {img && <a className="btn primary sm" href={img} download={file}>⬇ Download QR</a>}
+        <button className="btn ghost sm" onClick={() => navigator.clipboard?.writeText(url)}>Copy link</button>
+      </div>
+    </div>
+  );
+  const safe = form.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  return (<>
+    <div className="row" style={{ justifyContent: "space-between" }}><h3 style={{ margin: 0 }}>QR codes · {form.title}</h3><button className="linkbtn" onClick={close}>Close</button></div>
+    <div className="grid2">
+      <Card title="Registration (share this)" note="For flyers, WhatsApp and posters. People register with or without a BCIL Live account, and get a QR ticket." url={share} img={imgs.share} file={`${safe}-registration-QR.png`} />
+      {code ? <Card title="Walk-in at the venue" note="Print for the registration desk on the day. People who register with this are checked in straight away. Don't share it before the day." url={walk} img={imgs.walk} file={`${safe}-walk-in-QR.png`} />
+        : <div className="card"><p className="muted">Making the walk-in code…</p></div>}
     </div>
   </>);
 }

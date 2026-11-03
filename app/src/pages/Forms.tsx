@@ -73,19 +73,13 @@ export default function Forms() {
     e.preventDefault();
     const missing = open!.fields.find((f) => f.required && !answers[f.key]?.trim());
     if (missing) { setError(`Please answer “${missing.label}”.`); document.getElementById(`q-${missing.key}`)?.scrollIntoView({ block: "center" }); return; }
-    // fold "Other: ..." text into the answer, like Google Forms does
-    const final: Record<string, string> = {};
-    for (const f of open!.fields) {
-      if (f.type === "section") continue;
-      let v = answers[f.key] ?? "";
-      const other = answers[`${f.key}__other`]?.trim();
-      if (other && v.split(", ").includes("Other")) v = v.split(", ").map((x) => (x === "Other" ? `Other: ${other}` : x)).join(", ");
-      if (v) final[f.key] = v;
-    }
+    const final = finalAnswers(open!.fields, answers);
     setBusy(true);
-    const { data: sent, error } = await supabase.from("form_responses").insert({ form_id: open!.id, user_id: session!.user.id, answers: final }).select("id").single();
+    const { data: sent, error } = await supabase.from("form_responses").insert({ form_id: open!.id, user_id: session!.user.id, answers: final }).select("id, ticket").single();
     setBusy(false);
     if (error) { setError("Could not send. Check your connection and try again."); return; }
+    // email the QR ticket too (does nothing until the email service is connected, or if this form has no programme)
+    if (sent?.ticket) supabase.functions.invoke("send-ticket", { body: { ticket: sent.ticket } }).catch(() => {});
     if (open!.fee_pesewas && sent) setPayFor({ resp: sent.id, form: open! });
     setDone(open!.title); setDoneId(sent?.id ?? null); setOpen(null); setAnswers({}); load();
   }
@@ -112,35 +106,7 @@ export default function Forms() {
             : <p className="muted">Attendance is free. If you'd like a certificate, it costs {cedis(open.fee_pesewas)}, and you can pay any time after registering (optional).</p>)}
           <small className="muted">* Required</small>
         </div>
-        {open.fields.map((f) => f.type === "section" ? (
-          <div className="qsection" key={f.key}><h3>{f.label}</h3>{f.help && <p className="muted">{f.help}</p>}</div>
-        ) : (
-          <fieldset className="q" key={f.key} id={`q-${f.key}`}>
-            <legend>{f.label}{f.required && <span className="req"> *</span>}</legend>
-            {f.help && <small className="muted">{f.help}</small>}
-            {f.type === "textarea" ? <textarea value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label} />
-              : f.type === "select" ? (
-                <select value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}>
-                  <option value="">Choose…</option>{f.options?.map((o) => <option key={o}>{o}</option>)}
-                </select>)
-              : f.type === "radio" ? (
-                <div className="choices">{f.options?.map((o) => (
-                  <label key={o} className={`choice${answers[f.key] === o ? " on" : ""}`}>
-                    <input type="radio" name={f.key} checked={answers[f.key] === o} onChange={() => set(f.key, o)} />{o}
-                  </label>))}</div>)
-              : f.type === "checkbox" ? (
-                <div className="choices">{f.options?.map((o) => {
-                  const on = (answers[f.key] ?? "").split(", ").includes(o);
-                  return (<label key={o} className={`choice${on ? " on" : ""}`}>
-                    <input type="checkbox" checked={on} onChange={() => toggle(f.key, o)} />{o}
-                  </label>);
-                })}</div>)
-              : <input type={f.type} value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}
-                  inputMode={f.type === "tel" ? "tel" : f.type === "number" ? "numeric" : undefined} />}
-            {(f.type === "radio" || f.type === "checkbox") && (answers[f.key] ?? "").split(", ").includes("Other") &&
-              <input placeholder="Please specify" aria-label={`${f.label}: other`} value={answers[`${f.key}__other`] ?? ""} onChange={(e) => set(`${f.key}__other`, e.target.value)} />}
-          </fieldset>
-        ))}
+        <QuestionList fields={open.fields} answers={answers} set={set} toggle={toggle} />
         <p className="err" role="alert">{error}</p>
         <button className="btn primary" disabled={busy}>{busy ? "Sending…" : "Submit"}</button>
       </form>
@@ -192,4 +158,52 @@ export default function Forms() {
       {ticketFor?.ticket && <TicketSheet ticket={ticketFor.ticket} title={ticketTitle(ticketFor) ?? "BCIL"} checkedIn={!!ticketFor.checked_in_at} close={() => setTicketFor(null)} />}
     </section>
   );
+}
+
+/** The questions of a form (shared by the in-app form and the public registration page) */
+export function QuestionList({ fields, answers, set, toggle }: { fields: Field[]; answers: Record<string, string>; set: (k: string, v: string) => void; toggle: (k: string, opt: string) => void }) {
+  return (<>
+      {fields.map((f) => f.type === "section" ? (
+        <div className="qsection" key={f.key}><h3>{f.label}</h3>{f.help && <p className="muted">{f.help}</p>}</div>
+      ) : (
+        <fieldset className="q" key={f.key} id={`q-${f.key}`}>
+          <legend>{f.label}{f.required && <span className="req"> *</span>}</legend>
+          {f.help && <small className="muted">{f.help}</small>}
+          {f.type === "textarea" ? <textarea value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label} />
+            : f.type === "select" ? (
+              <select value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}>
+                <option value="">Choose…</option>{f.options?.map((o) => <option key={o}>{o}</option>)}
+              </select>)
+            : f.type === "radio" ? (
+              <div className="choices">{f.options?.map((o) => (
+                <label key={o} className={`choice${answers[f.key] === o ? " on" : ""}`}>
+                  <input type="radio" name={f.key} checked={answers[f.key] === o} onChange={() => set(f.key, o)} />{o}
+                </label>))}</div>)
+            : f.type === "checkbox" ? (
+              <div className="choices">{f.options?.map((o) => {
+                const on = (answers[f.key] ?? "").split(", ").includes(o);
+                return (<label key={o} className={`choice${on ? " on" : ""}`}>
+                  <input type="checkbox" checked={on} onChange={() => toggle(f.key, o)} />{o}
+                </label>);
+              })}</div>)
+            : <input type={f.type} value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}
+                inputMode={f.type === "tel" ? "tel" : f.type === "number" ? "numeric" : undefined} />}
+          {(f.type === "radio" || f.type === "checkbox") && (answers[f.key] ?? "").split(", ").includes("Other") &&
+            <input placeholder="Please specify" aria-label={`${f.label}: other`} value={answers[`${f.key}__other`] ?? ""} onChange={(e) => set(`${f.key}__other`, e.target.value)} />}
+        </fieldset>
+      ))}
+  </>);
+}
+
+/** Answers ready to save: "Other" text folded in like Google Forms, sections skipped */
+export function finalAnswers(fields: Field[], answers: Record<string, string>) {
+  const final: Record<string, string> = {};
+  for (const f of fields) {
+    if (f.type === "section") continue;
+    let v = answers[f.key] ?? "";
+    const other = answers[`${f.key}__other`]?.trim();
+    if (other && v.split(", ").includes("Other")) v = v.split(", ").map((x) => (x === "Other" ? `Other: ${other}` : x)).join(", ");
+    if (v) final[f.key] = v;
+  }
+  return final;
 }
