@@ -89,7 +89,7 @@ export default function Chat() {
   useEffect(() => {
     if (!roomId) return;
     setMsgs([]); setError(""); setReplyTo(null); setFile(null); setPreview(null);
-    supabase.from("messages").select("*, profiles(full_name, avatar_url)")
+    supabase.from("messages").select("*, profiles!messages_user_id_fkey(full_name, avatar_url)")
       .eq("room_id", roomId).order("created_at", { ascending: false }).limit(200)
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
     markRead(roomId);
