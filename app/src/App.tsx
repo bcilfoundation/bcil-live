@@ -31,6 +31,7 @@ const Team = lazy(() => import("./pages/Team"));
 const Search = lazy(() => import("./pages/Search"));
 const Register = lazy(() => import("./pages/Register"));
 const TicketPage = lazy(() => import("./pages/Register").then((m) => ({ default: m.TicketPage })));
+const CertificateCheck = lazy(() => import("./pages/Register").then((m) => ({ default: m.CertificateCheck })));
 
 import { paymentsOn } from "./lib/pay";
 
@@ -65,6 +66,8 @@ export default function App() {
   const reg = pathname.match(/^\/register\/([\w-]+)\/?$/), tk = pathname.match(/^\/t\/([0-9a-f-]{36})\/?$/i);
   if (reg) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><Register slug={reg[1]} /></Suspense></main>;
   if (tk) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><TicketPage ticket={tk[1]} /></Suspense></main>;
+  const cert = pathname.match(/^\/c\/([0-9a-f-]{36})\/?$/i);
+  if (cert) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><CertificateCheck ticket={cert[1]} /></Suspense></main>;
   if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
   if (!session) return <SignIn />;

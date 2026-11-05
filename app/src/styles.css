@@ -791,3 +791,6 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .about-follow{margin-top:12px}
 .about-socials{display:flex;flex-wrap:wrap;gap:8px}
+.certbox{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#fff8e1,#fdf3d0);border:1px solid #e9d48a;margin:8px 0}
+.certbox .btn{align-self:flex-start}
+.certadmin{margin:10px 0;display:flex;flex-direction:column;gap:6px}

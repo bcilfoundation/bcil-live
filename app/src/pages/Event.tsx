@@ -7,6 +7,7 @@ import { cedis } from "./Forms";
 
 import { uploadPhoto } from "../lib/media";
 import Ticket from "../components/Ticket";
+import { CertificateBox } from "./Register";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 type Mine = { id: number; ticket: string; paid_at: string | null; checked_in_at: string | null; status: string };
 type FormInfo = { id: string; fee_pesewas: number | null; fee_label: string | null; is_open: boolean; fee_required?: boolean };
@@ -80,6 +81,7 @@ export default function Event() {
             <button className="btn ghost" onClick={pay}>💳 Pay {form.fee_label?.toLowerCase() || "fee"} · {cedis(form.fee_pesewas)}</button>
           </> : <small className="muted">{form.fee_required ? `${form.fee_label || "Fee"}: ${cedis(form.fee_pesewas)}. Payment in the app opens soon.` : `Certificate (optional): ${cedis(form.fee_pesewas)}. You'll be able to pay for it here soon.`}</small>) : null}
           {payMsg && <small className="muted">{payMsg}</small>}
+          {mine.ticket && <CertificateBox ticket={mine.ticket} />}
           {showTicket && <Ticket ticket={mine.ticket} title={ev.title} checkedIn={!!mine.checked_in_at} />}
         </div>
       ) : form?.is_open ? (

@@ -158,6 +158,22 @@ function FormsAdmin() {
   useEffect(() => { load(); }, [formId]);
   const found = forms.find((f) => f.id === formId);
   const form = found && { ...found, fields: found.fields.filter((f) => f.type !== "section") };
+  // the programme this form registers people for (certificates are released per programme)
+  const [ev, setEv] = useState<{ slug: string; title: string; certificates_open: boolean } | null>(null);
+  const loadEv = () => found && supabase.from("event_pages").select("slug, title, certificates_open").eq("form_slug", found.slug).maybeSingle().then(({ data }) => setEv(data as never));
+  useEffect(() => { setEv(null); loadEv(); }, [found?.slug]);
+  const wantsCert = (r: RespRow) => (r.answers.certificate ?? "Yes") === "Yes";
+  const certReady = (r: RespRow) => !!r.checked_in_at && wantsCert(r) && (!form?.fee_pesewas || !!r.paid_at);
+  async function toggleCerts() {
+    if (!ev) return;
+    if (!ev.certificates_open && !window.confirm(`Release certificates for ${ev.title}? ${rows.filter(certReady).length} people can then download theirs from the app or their ticket link.`)) return;
+    await supabase.from("event_pages").update({ certificates_open: !ev.certificates_open }).eq("slug", ev.slug);
+    loadEv();
+  }
+  const markPaid = async (r: RespRow) => {
+    if (!r.paid_at && !window.confirm(`Mark the ${form?.fee_label?.toLowerCase() || "fee"} as paid for ${r.answers.full_name || r.profiles?.full_name || "this person"}? Only do this once you've seen the Mobile Money payment.`)) return;
+    await supabase.from("form_responses").update({ paid_at: r.paid_at ? null : new Date().toISOString() }).eq("id", r.id); load();
+  };
 
   // Download every response as an Excel file, like Google Forms' "Download responses"
   async function downloadExcel() {
@@ -211,12 +227,21 @@ function FormsAdmin() {
       {form && <button className="btn ghost" onClick={toggleOpen}>{form.is_open ? "Close form" : "Reopen form"}</button>}
     </div>
     {form && !form.is_open && <p className="muted">This form is closed. Members can no longer see or fill it in.</p>}
+    {ev && <div className="card certadmin">
+      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <span><b>🎓 Certificates</b> · {rows.filter(certReady).length} ready{form?.fee_pesewas ? ` · ${rows.filter((r) => r.checked_in_at && wantsCert(r) && !r.paid_at).length} checked in but fee not paid` : ""}</span>
+        <button className={`btn ${ev.certificates_open ? "ghost" : "primary"} sm`} onClick={toggleCerts}>{ev.certificates_open ? "Hide certificates" : "Release certificates"}</button>
+      </div>
+      <small className="muted">{ev.certificates_open ? "Released: people who were checked in (and paid, if they asked for a certificate) can download theirs now." : "Release them after the programme. Only people checked in at the venue get one."}</small>
+    </div>}
     {form && <FeeEditor form={form} onSaved={loadForms} paid={rows.filter((r) => r.paid_at).length} total={rows.length} checkedIn={rows.filter((r) => r.checked_in_at).length} />}
     <div className="list">{rows.map((r) => (
       <div key={r.id}><div className="grow">
         <b>{r.answers.full_name || r.answers.name || r.profiles?.full_name || "Member"}</b> <small className="muted">· {fmt(r.created_at)}</small>
         {form?.fee_pesewas ? (r.paid_at ? <span className="pill paid" style={{ marginLeft: 6 }}>Paid</span> : <span className="pill" style={{ marginLeft: 6 }}>Not paid</span>) : null}
         {r.checked_in_at && <span className="pill sent" style={{ marginLeft: 6 }}>Checked in</span>}
+        {ev && certReady(r) && <span className="pill paid" style={{ marginLeft: 6 }}>🎓 Certificate</span>}
+        {form?.fee_pesewas && wantsCert(r) ? <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => markPaid(r)}>{r.paid_at ? "Undo paid" : "Mark paid"}</button> : null}
         {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {r.answers[f.key]}</div> : null)}
       </div>
         <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} aria-label="Status" style={{ width: 130 }}>{["received", "accepted", "waitlist", "declined"].map((s) => <option key={s}>{s}</option>)}</select></div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { certificateInfo, certReason, downloadCertificate, type CertInfo } from "../lib/certificate";
 import { supabase } from "../lib/supabase";
 import { QuestionList, finalAnswers, type Field } from "./Forms";
 import Ticket from "../components/Ticket";
@@ -111,9 +112,44 @@ export function TicketPage({ ticket }: { ticket: string }) {
         <div className="card regdone">
           <h2>{info.name}</h2>
           <p className="muted">{info.event_title ?? info.form_title}{info.event_starts ? ` · ${new Date(info.event_starts + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}` : ""}{info.venue ? ` · ${info.venue}` : ""}</p>
+          <CertificateBox ticket={ticket} />
           <Ticket ticket={ticket} title={info.event_title ?? info.form_title} checkedIn={info.checked_in} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** "Download your certificate" once staff release certificates and this ticket qualifies; nothing before the programme. */
+export function CertificateBox({ ticket }: { ticket: string }) {
+  const [c, setC] = useState<CertInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { certificateInfo(ticket).then(setC); }, [ticket]);
+  if (!c || c.reason === "not_found" || c.reason === "not_released") return null;
+  if (!c.ok) return <p className="muted small">🎓 {certReason(c)}</p>;
+  return (
+    <div className="certbox">
+      <b>🎓 Your certificate is ready</b>
+      <span className="muted small">For {c.name}. Check the spelling before you print it.</span>
+      <button className="btn primary" disabled={busy} onClick={async () => { setBusy(true); try { await downloadCertificate(c); } finally { setBusy(false); } }}>{busy ? "Preparing…" : "Download certificate (PDF)"}</button>
+    </div>
+  );
+}
+
+/** live.bcilfoundation.org/c/<ticket>: anyone can check that a BCIL certificate is genuine */
+export function CertificateCheck({ ticket }: { ticket: string }) {
+  const [c, setC] = useState<CertInfo | null | undefined>(undefined);
+  useEffect(() => { if (!/^[0-9a-f-]{36}$/i.test(ticket)) { setC(null); return; } certificateInfo(ticket).then(setC); }, [ticket]);
+  return (
+    <div className="regpage">
+      <header className="reghead"><img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
+      {c === undefined ? <p className="muted">Checking…</p> : c?.ok ? (
+        <div className="card regdone">
+          <h2>✅ Genuine certificate</h2>
+          <p><b>{c.name}</b> took part in <b>{c.event_title}</b>{c.event_subtitle ? ` (${c.event_subtitle})` : ""}{c.starts_on ? `, ${new Date(c.starts_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}{c.venue ? `, at ${c.venue}` : ""}.</p>
+          <p className="muted small">Certificate no. {c.ticket.slice(0, 8).toUpperCase()} · issued by BCIL Foundation</p>
+        </div>
+      ) : <div className="card"><b>❌ We couldn't confirm this certificate.</b><p className="muted">If you think this is a mistake, contact info@bcilfoundation.org.</p></div>}
     </div>
   );
 }
