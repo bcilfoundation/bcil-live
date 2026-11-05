@@ -51,6 +51,14 @@ export default function Team() {
         <div className="card about-valuescard"><span className="eyebrow">Our core values</span>
           <div className="about-values">{VALUES.map((v) => <span key={v}>{v}</span>)}</div></div>
       </div>
+      <div className="card about-follow">
+        <span className="eyebrow">Follow us</span>
+        <p className="muted" style={{ margin: "4px 0 10px" }}>@bcilfoundation on all our pages. Programme videos, flyers and updates go here first.</p>
+        <div className="about-socials">{SOCIALS.map(([name, url, color]) => (
+          <button key={name} className="btn sm" style={{ background: color, color: "#fff", border: 0 }} onClick={() => openUrl(url)}>{name}</button>))}</div>
+        <p style={{ margin: "12px 0 0" }}>✉️ <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · 🌐 <a href="#" onClick={(e) => { e.preventDefault(); openUrl("https://bcilfoundation.org"); }}>bcilfoundation.org</a></p>
+      </div>
+
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 18 }}>
         <h2 style={{ margin: 0 }}>Our team</h2>
         {isStaff && <button className="btn primary sm" style={{ whiteSpace: "nowrap" }} onClick={() => setEditing("new")}>+ Add person</button>}
@@ -69,14 +77,6 @@ export default function Team() {
           ))}</div>
         </div>
       ))}
-
-      <div className="card about-follow">
-        <span className="eyebrow">Follow us</span>
-        <p className="muted" style={{ margin: "4px 0 10px" }}>@bcilfoundation on all our pages. Programme videos, flyers and updates go here first.</p>
-        <div className="about-socials">{SOCIALS.map(([name, url, color]) => (
-          <button key={name} className="btn sm" style={{ background: color, color: "#fff", border: 0 }} onClick={() => openUrl(url)}>{name}</button>))}</div>
-        <p style={{ margin: "12px 0 0" }}>✉️ <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · 🌐 <a href="#" onClick={(e) => { e.preventDefault(); openUrl("https://bcilfoundation.org"); }}>bcilfoundation.org</a></p>
-      </div>
 
       {open && <>
         <div className="sheet-back" onClick={() => setOpen(null)} />

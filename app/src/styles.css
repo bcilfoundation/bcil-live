@@ -789,5 +789,5 @@ html,body{max-width:100%;overflow-x:hidden}
 .golivebtn{color:var(--live);font-weight:800;white-space:nowrap}
 .addpeople{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 
-.about-follow{margin-top:22px}
+.about-follow{margin-top:12px}
 .about-socials{display:flex;flex-wrap:wrap;gap:8px}
