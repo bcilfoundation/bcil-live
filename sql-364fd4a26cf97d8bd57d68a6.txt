@@ -1,0 +1,289 @@
+-- 035: certificates for programmes (FCB 2027 first).
+-- Who gets one: registered for the programme, checked in at the venue, asked for a certificate on the form
+-- (if the form asks), and paid the certificate fee (if the form has one). Staff release certificates when the
+-- programme is over; until then nobody can download. Safe to run more than once.
+
+alter table public.event_pages add column if not exists certificates_open boolean not null default false;
+
+-- certificate_info(ticket): the ticket number is the key, so it works for guests without an account
+-- (from their ticket page) and for the public check page /c/<ticket> that confirms a certificate is genuine.
+create or replace function public.certificate_info(p_ticket uuid)
+returns table (ok boolean, reason text, name text, event_title text, event_subtitle text, starts_on date, venue text, ticket uuid)
+language plpgsql stable security definer set search_path = public as $$
+declare r record; wants text;
+begin
+  select fr.ticket, fr.answers, fr.checked_in_at, fr.paid_at, fr.guest_name, f.fee_pesewas,
+         e.title, e.subtitle, e.starts_on, e.venue, e.certificates_open, p.full_name
+    into r
+    from form_responses fr
+    join forms f on f.id = fr.form_id
+    join event_pages e on e.form_slug = f.slug
+    left join profiles p on p.id = fr.user_id
+   where fr.ticket = p_ticket
+   limit 1;
+  if not found then
+    return query select false, 'not_found', null::text, null::text, null::text, null::date, null::text, p_ticket; return;
+  end if;
+  wants := r.answers->>'certificate';
+  return query select
+    (r.certificates_open and r.checked_in_at is not null and coalesce(wants, 'Yes') = 'Yes'
+       and (r.fee_pesewas is null or wants is distinct from 'Yes' or r.paid_at is not null)),
+    case
+      when not r.certificates_open then 'not_released'
+      when r.checked_in_at is null then 'not_checked_in'
+      when coalesce(wants, 'Yes') <> 'Yes' then 'not_requested'
+      when r.fee_pesewas is not null and r.paid_at is null then 'not_paid'
+      else 'ok' end,
+    coalesce(nullif(trim(r.answers->>'full_name'), ''), nullif(trim(r.answers->>'name'), ''), r.guest_name, r.full_name),
+    r.title, r.subtitle, r.starts_on, r.venue, r.ticket;
+end $$;
+revoke all on function public.certificate_info(uuid) from public;
+grant execute on function public.certificate_info(uuid) to anon, authenticated;
+
+-- staff mark a certificate fee as paid (Mobile Money sent to the BCIL number, checked by the team)
+drop policy if exists "staff update responses" on public.form_responses;
+create policy "staff update responses" on public.form_responses for update to authenticated using (is_staff()) with check (is_staff());
+
+select 'ok' as certificates_setup;
+-- 036: mentorship. Students ask for a mentor and mentors offer to help through two forms; staff pair them in
+-- Admin → Mentorship. Each pair gets a private chat and session reminders an hour before. Safe to run more than once.
+
+create table if not exists public.mentorships (
+  id bigint generated always as identity primary key,
+  mentor_id uuid not null references profiles(id) on delete cascade,
+  mentee_id uuid not null references profiles(id) on delete cascade,
+  room_id uuid references rooms(id) on delete set null,
+  status text not null default 'active' check (status in ('active', 'ended')),
+  next_session timestamptz,
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists mentorships_pair on public.mentorships (mentor_id, mentee_id) where status = 'active';
+alter table public.mentorships enable row level security;
+drop policy if exists "pairs see their mentorship" on public.mentorships;
+create policy "pairs see their mentorship" on public.mentorships for select to authenticated
+  using (mentor_id = auth.uid() or mentee_id = auth.uid() or is_staff());
+drop policy if exists "staff manage mentorships" on public.mentorships;
+create policy "staff manage mentorships" on public.mentorships for all to authenticated using (is_staff()) with check (is_staff());
+
+-- the pair set their next session (mentor or mentee)
+create or replace function public.set_mentorship_session(p_id bigint, p_at timestamptz) returns void
+language plpgsql security definer set search_path = public as $$
+declare m mentorships;
+begin
+  select * into m from mentorships where id = p_id and status = 'active';
+  if not found or not (auth.uid() in (m.mentor_id, m.mentee_id) or is_staff()) then raise exception 'Not your mentorship'; end if;
+  update mentorships set next_session = p_at where id = p_id;
+  insert into notifications (user_id, kind, actor_id, link, body)
+    select u, 'mentorship', auth.uid(), '/mentorship',
+      case when p_at is null then 'Your next mentorship session was cleared'
+           else 'Next mentorship session: ' || to_char(p_at at time zone 'Africa/Accra', 'Dy DD Mon, HH12:MI AM') || ' (Ghana time)' end
+    from unnest(array[m.mentor_id, m.mentee_id]) u where u <> auth.uid();
+end $$;
+grant execute on function public.set_mentorship_session(bigint, timestamptz) to authenticated;
+
+-- staff pair a mentor with a mentee: a private chat for the two of them, and both are told
+create or replace function public.pair_mentorship(p_mentor uuid, p_mentee uuid) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare r uuid; id bigint; mname text; ename text;
+begin
+  if not is_staff() then raise exception 'Only BCIL staff can pair mentors'; end if;
+  if p_mentor = p_mentee then raise exception 'Pick two different people'; end if;
+  select full_name into mname from profiles where profiles.id = p_mentor;
+  select full_name into ename from profiles where profiles.id = p_mentee;
+  -- reuse their direct-message room if they already have one
+  select m1.room_id into r from room_members m1 join room_members m2 on m2.room_id = m1.room_id
+    join rooms x on x.id = m1.room_id
+    where x.kind = 'dm' and m1.user_id = p_mentor and m2.user_id = p_mentee limit 1;
+  if r is null then
+    insert into rooms (name, kind) values ('Mentorship', 'dm') returning rooms.id into r;
+    insert into room_members (room_id, user_id) values (r, p_mentor), (r, p_mentee);
+  end if;
+  insert into mentorships (mentor_id, mentee_id, room_id, created_by) values (p_mentor, p_mentee, r, auth.uid())
+    on conflict (mentor_id, mentee_id) where status = 'active' do update set room_id = excluded.room_id
+    returning mentorships.id into id;
+  insert into notifications (user_id, kind, actor_id, link, body) values
+    (p_mentee, 'mentorship', auth.uid(), '/chat?room=' || r, '🤝 ' || coalesce(mname, 'A mentor') || ' is your BCIL mentor. Say hello!'),
+    (p_mentor, 'mentorship', auth.uid(), '/chat?room=' || r, '🤝 You are now mentoring ' || coalesce(ename, 'a student') || '. Say hello!');
+  return id;
+end $$;
+grant execute on function public.pair_mentorship(uuid, uuid) to authenticated;
+
+-- reminders an hour before a session, to both (checked every 5 minutes)
+create or replace function public.send_mentorship_reminders() returns int
+language plpgsql security definer set search_path = public, private as $$
+declare m record; total int := 0;
+begin
+  for m in select * from mentorships where status = 'active' and next_session > now() + interval '50 minutes' and next_session <= now() + interval '65 minutes' loop
+    insert into private.sent_reminders (key) values ('mentor:' || m.id || ':' || m.next_session) on conflict do nothing;
+    if found then
+      insert into notifications (user_id, kind, link, body)
+        select u, 'mentorship', '/chat?room=' || m.room_id, '⏰ Your mentorship session starts in an hour'
+        from unnest(array[m.mentor_id, m.mentee_id]) u;
+      total := total + 2;
+    end if;
+  end loop;
+  return total;
+end $$;
+revoke all on function public.send_mentorship_reminders() from public, anon, authenticated;
+select cron.unschedule(jobid) from cron.job where jobname = 'bcil-mentorship-reminders';
+select cron.schedule('bcil-mentorship-reminders', '*/5 * * * *', 'select public.send_mentorship_reminders()');
+
+-- the two sign-up forms (members fill them in the app, so staff can pair their accounts)
+insert into public.forms (slug, title, subtitle, description, sensitive, fields) values
+('mentorship-mentee', 'Find a mentor', 'BCIL Academic Mentorship',
+ 'Tell us about yourself and what you would like help with. We will pair you with a mentor and let you know in the app.', false,
+ $j$[{"key":"full_name","label":"Full name","type":"text","required":true},
+     {"key":"phone","label":"Phone / WhatsApp number","type":"tel","required":true},
+     {"key":"school","label":"School or university","type":"text","required":true},
+     {"key":"level","label":"Level or year","type":"text","required":true},
+     {"key":"programme","label":"Programme of study","type":"text"},
+     {"key":"areas","label":"What would you like help with?","type":"checkbox","required":true,"options":["Studies and exams","Career and CV","Leadership","Faith and purpose","Personal growth","Money and planning","Other"]},
+     {"key":"goal","label":"One goal for the next three months","type":"textarea","required":true},
+     {"key":"frequency","label":"How often would you like to meet?","type":"radio","required":true,"options":["Every week","Every two weeks","Once a month"]}]$j$::jsonb),
+('mentorship-mentor', 'Become a mentor', 'BCIL Academic Mentorship',
+ 'Share your time and experience with a student. We will pair you with a mentee and let you know in the app.', false,
+ $j$[{"key":"full_name","label":"Full name","type":"text","required":true},
+     {"key":"phone","label":"Phone / WhatsApp number","type":"tel","required":true},
+     {"key":"work","label":"What do you do? (job, studies or ministry)","type":"text","required":true},
+     {"key":"areas","label":"What can you help with?","type":"checkbox","required":true,"options":["Studies and exams","Career and CV","Leadership","Faith and purpose","Personal growth","Money and planning","Other"]},
+     {"key":"capacity","label":"How many mentees can you take?","type":"radio","required":true,"options":["1","2","3 or more"]},
+     {"key":"why","label":"Why do you want to mentor?","type":"textarea"}]$j$::jsonb)
+on conflict (slug) do nothing;
+
+select 'ok' as mentorship_setup;
+-- 037: file uploads in forms + the Student Support Initiative application (laptops), with committee scoring.
+-- The form starts CLOSED: open it in Admin → Forms when the application window starts. Safe to run more than once.
+
+-- private storage for documents people upload in forms (transcripts, letters). Anyone filling a form can upload;
+-- only BCIL staff can open the files.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('form-files', 'form-files', false, 10485760,
+  array['application/pdf','image/jpeg','image/png','image/webp','image/heic','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "anyone uploads form files" on storage.objects;
+create policy "anyone uploads form files" on storage.objects for insert to anon, authenticated with check (bucket_id = 'form-files');
+drop policy if exists "staff read form files" on storage.objects;
+create policy "staff read form files" on storage.objects for select to authenticated using (bucket_id = 'form-files' and public.is_staff());
+
+-- the selection committee's score and notes
+alter table public.form_responses add column if not exists review_score int check (review_score between 0 and 100);
+alter table public.form_responses add column if not exists review_note text;
+
+insert into public.forms (slug, title, subtitle, description, sensitive, is_open, fields) values (
+'student-support', 'Student Support Initiative: laptop application', 'BCIL Foundation · for undergraduate students of the University of Cape Coast',
+'We support deserving undergraduate students of the University of Cape Coast who show academic potential, leadership or community involvement, a genuine need for learning support and strong future potential. This cycle supports access to a laptop, subject to available funding. Applicants need a CGPA of at least 2.5 and at least one semester left at UCC. The first cycle supports up to five students; applications need a score of 60/100 to be considered, and shortlisted applicants may be interviewed.',
+true, false,
+$j$[
+{"key":"s1","label":"Your details","type":"section"},
+{"key":"full_name","label":"Full name (first, middle, surname)","type":"text","required":true},
+{"key":"dob","label":"Date of birth","type":"date","required":true},
+{"key":"gender","label":"Gender","type":"radio","required":true,"options":["Male","Female","Prefer not to say"]},
+{"key":"ghana_card","label":"Ghana Card number","type":"text","required":true},
+{"key":"nationality","label":"Nationality","type":"text","required":true},
+{"key":"region","label":"Region of residence","type":"text","required":true},
+{"key":"address","label":"Permanent residential address","type":"textarea","required":true},
+{"key":"phone","label":"Telephone number","type":"tel","required":true},
+{"key":"email","label":"Email address","type":"email","required":true},
+{"key":"s2","label":"University of Cape Coast","type":"section"},
+{"key":"student_id","label":"Student ID number","type":"text","required":true},
+{"key":"programme","label":"Programme of study","type":"text","required":true},
+{"key":"faculty","label":"Faculty / School / College","type":"text","required":true},
+{"key":"department","label":"Department","type":"text","required":true},
+{"key":"level","label":"Current level","type":"radio","required":true,"options":["Level 100","Level 200","Level 300","Level 400","Other"]},
+{"key":"cgpa","label":"Current CGPA","type":"text","required":true,"help":"You need a CGPA of at least 2.5."},
+{"key":"semesters","label":"How many semesters have you completed at UCC?","type":"number","required":true},
+{"key":"semester_left","label":"Do you have at least one semester remaining at UCC?","type":"radio","required":true,"options":["Yes","No"]},
+{"key":"completion","label":"Expected year of completion","type":"text","required":true},
+{"key":"transcript","label":"Most recent transcript or results","type":"file","required":true,"help":"Official or unofficial, PDF or photo."},
+{"key":"s3","label":"Laptop access and need","type":"section"},
+{"key":"own_laptop","label":"Do you currently own a working personal laptop?","type":"radio","required":true,"options":["Yes","No"],"help":"Students who own a working laptop may not qualify."},
+{"key":"access","label":"Which best describes your access to a laptop or computer?","type":"radio","required":true,"options":["I do not have access to a laptop or computer","I occasionally borrow a laptop","I share a laptop with family members or others","I rely mainly on computer labs or public facilities","I have a laptop, but it is unreliable or not adequate","Other"]},
+{"key":"challenges","label":"What academic challenges do you face without adequate access to a laptop?","type":"textarea","required":true},
+{"key":"impact","label":"How would a laptop help your academic work and development?","type":"textarea","required":true,"help":"Coursework, research, online learning, data analysis, professional development, leadership, entrepreneurship…"},
+{"key":"alternatives","label":"Do you have other computing resources? If yes, why are they not enough?","type":"textarea"},
+{"key":"s4","label":"Leadership and community involvement","type":"section"},
+{"key":"leadership","label":"Leadership positions you have held","type":"textarea","help":"For each: organisation, position, period, main responsibilities and one achievement."},
+{"key":"community","label":"Community service or volunteer activities","type":"textarea"},
+{"key":"leadership_evidence","label":"Evidence of leadership or community involvement","type":"file","help":"Appointment letter, letter from an organisation, certificate, reference or similar."},
+{"key":"s5","label":"Other scholarships and support","type":"section"},
+{"key":"other_support","label":"Do you receive any scholarship, bursary, grant or sponsorship? If yes, from whom and what kind?","type":"textarea","required":true},
+{"key":"laptop_covered","label":"Does any of that support provide a laptop?","type":"radio","required":true,"options":["Yes","No"]},
+{"key":"s6","label":"Personal statement","type":"section","help":"About 500 words: your educational journey, why you're applying, your leadership or community involvement, the challenges you face without a laptop, how support would help, your academic and career goals, and how you'll use your education to serve your community."},
+{"key":"statement","label":"Personal statement","type":"textarea","required":true},
+{"key":"s7","label":"Referee","type":"section","help":"One referee who has known you for at least six months: a lecturer, head of department, supervisor, student leader, NGO, church or community leader."},
+{"key":"ref_name","label":"Referee's full name","type":"text","required":true},
+{"key":"ref_position","label":"Position / title","type":"text","required":true},
+{"key":"ref_org","label":"Organisation / institution","type":"text","required":true},
+{"key":"ref_relationship","label":"Relationship to you","type":"text","required":true},
+{"key":"ref_known","label":"How long have they known you?","type":"text","required":true},
+{"key":"ref_phone","label":"Referee's phone number","type":"tel","required":true},
+{"key":"ref_email","label":"Referee's email address","type":"email","required":true},
+{"key":"ref_letter","label":"Recommendation letter","type":"file","required":true},
+{"key":"citizenship","label":"Proof of Ghanaian citizenship","type":"file","required":true,"help":"A photo of your Ghana Card is fine."},
+{"key":"s8","label":"Declaration and consent","type":"section"},
+{"key":"declaration","label":"I declare that I am a Ghanaian citizen enrolled as an undergraduate at UCC, have completed at least one semester, have a CGPA of at least 2.5, have at least one semester remaining, do not have adequate access to a laptop, and that everything in this application is true. I understand false information leads to disqualification, applying does not guarantee support, and the committee's decision is final.","type":"checkbox","required":true,"options":["I agree"]},
+{"key":"consent","label":"I consent to BCIL Foundation using and verifying my information and documents for assessment, selection, communication, programme administration and reporting, including contacting my referee and the University of Cape Coast.","type":"checkbox","required":true,"options":["I consent"]},
+{"key":"obligations","label":"If selected, I may sign a Beneficiary Agreement and agree to keep a CGPA of 2.5, use the laptop responsibly for my studies, join a BCIL mentorship programme, volunteer at a BCIL activity, mentor another student, do community service, report on my progress and look after the laptop.","type":"checkbox","required":true,"options":["I accept"]}
+]$j$::jsonb)
+on conflict (slug) do nothing;
+
+select 'ok' as student_support_setup;
+-- 038: newsletter opt-in for app members, photo albums, and a weekly summary for admins. Safe to run more than once.
+
+-- 1. members choose to get the monthly newsletter by email
+alter table public.profiles add column if not exists newsletter boolean not null default false;
+
+-- staff download the list (name + email) to send the newsletter
+create or replace function public.newsletter_list() returns table (full_name text, email text, joined date)
+language sql stable security definer set search_path = public as $$
+  select p.full_name, u.email::text, p.created_at::date from profiles p join auth.users u on u.id = p.id
+  where p.newsletter and is_staff() order by p.created_at
+$$;
+revoke all on function public.newsletter_list() from public, anon;
+grant execute on function public.newsletter_list() to authenticated;
+
+-- 2. photo albums (programme photos), staff add and edit them in the app
+create table if not exists public.albums (
+  id bigint generated always as identity primary key,
+  title text not null,
+  subtitle text,
+  taken_on date,
+  photos jsonb not null default '[]',   -- ["https://…jpg", …]
+  sort int not null default 100,
+  created_at timestamptz not null default now()
+);
+alter table public.albums enable row level security;
+drop policy if exists "everyone sees albums" on public.albums;
+create policy "everyone sees albums" on public.albums for select using (true);
+drop policy if exists "staff manage albums" on public.albums;
+create policy "staff manage albums" on public.albums for all to authenticated using (is_staff()) with check (is_staff());
+
+insert into public.albums (title, subtitle, taken_on, photos, sort)
+select 'Beyond Junior High', 'August 2023', '2023-08-03',
+  '["/photos/bjh/bjh-1.jpg","/photos/bjh/bjh-2.jpg","/photos/bjh/bjh-3.jpg","/photos/bjh/bjh-4.jpg","/photos/bjh/bjh-5.jpg"]'::jsonb, 50
+where not exists (select 1 from public.albums where title = 'Beyond Junior High');
+
+-- 3. every Monday at 7:00 (Ghana time) admins get a summary of the past week
+create or replace function public.send_weekly_summary() returns int
+language plpgsql security definer set search_path = public as $$
+declare members int; forms int; gifts_n int; gifts_sum bigint; sessions int; body text; n int;
+begin
+  select count(*) into members from profiles where created_at > now() - interval '7 days';
+  select count(*) into forms from form_responses where created_at > now() - interval '7 days';
+  select count(*), coalesce(sum(amount_pesewas), 0) into gifts_n, gifts_sum from gifts
+    where created_at > now() - interval '7 days' and status in ('paid', 'recorded');
+  select count(*) into sessions from live_sessions where starts_at > now() - interval '7 days' and starts_at <= now();
+  body := '📊 Last week: ' || members || ' new member' || case when members = 1 then '' else 's' end
+    || ' · ' || forms || ' form response' || case when forms = 1 then '' else 's' end
+    || ' · ' || gifts_n || ' gift' || case when gifts_n = 1 then '' else 's' end || ' (GH₵ ' || to_char(gifts_sum / 100.0, 'FM999,990.00') || ')'
+    || ' · ' || sessions || ' live session' || case when sessions = 1 then '' else 's' end;
+  insert into notifications (user_id, kind, link, body) select id, 'summary', '/admin', body from profiles where role = 'admin';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.send_weekly_summary() from public, anon, authenticated;
+select cron.unschedule(jobid) from cron.job where jobname = 'bcil-weekly-summary';
+select cron.schedule('bcil-weekly-summary', '0 7 * * 1', 'select public.send_weekly_summary()');
+
+select 'ok' as newsletter_photos_summary_setup;
