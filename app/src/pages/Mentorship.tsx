@@ -33,6 +33,12 @@ export default function Mentorship() {
     <section className="view">
       <h1>Mentorship</h1>
       <p className="muted">BCIL Academic Mentorship pairs students with experienced mentors for support beyond our programmes: studies, career, leadership and personal growth.</p>
+      <Link to="/plan" className="card plancta">
+        <span className="eyebrow">New · free pilot</span>
+        <b>📝 Plan 2027</b>
+        <span className="muted small">Write your one-year plan for 2027 with goals, quarterly milestones and habits, get feedback from BCIL mentors, and check in every month.</span>
+        <span className="btn primary sm">Open my plan</span>
+      </Link>
       {pairs === null ? <p className="muted">Loading…</p> : <>
         {asMentee.map((p) => <PairCard key={p.id} p={p} other={p.mentor} label="Your mentor" reload={load} />)}
         {asMentor.length > 0 && <h2 style={{ marginTop: 16 }}>Your mentees</h2>}

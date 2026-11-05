@@ -30,6 +30,8 @@ const Shop = lazy(() => import("./pages/Shop"));
 const Team = lazy(() => import("./pages/Team"));
 const Mentorship = lazy(() => import("./pages/Mentorship"));
 const Photos = lazy(() => import("./pages/Photos"));
+const Plan = lazy(() => import("./pages/Plan"));
+const Meet = lazy(() => import("./pages/Meet"));
 import NewsletterSwitch from "./components/NewsletterSwitch";
 const Search = lazy(() => import("./pages/Search"));
 const Register = lazy(() => import("./pages/Register"));
@@ -44,9 +46,9 @@ const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/groups", "Groups"], ["/donate", "Donate"],
 ] as const);
 const NAV_MORE = ([
-  ["/about", "About us"], ["/events", "Programmes"], ["/mentorship", "Mentorship"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
+  ["/about", "About us"], ["/events", "Programmes"], ["/mentorship", "Mentorship"], ["/meet", "Meet Solomon"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
 ] as const);
-const MORE_ICONS: Record<string, string> = { "/about": "star", "/events": "calendar", "/mentorship": "userplus", "/forms?form=join-campus-sync": "userplus", "/forms?form=fcb27-volunteer": "users" };
+const MORE_ICONS: Record<string, string> = { "/about": "star", "/events": "calendar", "/mentorship": "userplus", "/meet": "calendar", "/forms?form=join-campus-sync": "userplus", "/forms?form=fcb27-volunteer": "users" };
 const sideActive = (to: string, path: string, search: string) =>
   to === "/" ? path === "/"
   : to === "/library" ? /^\/(library|reading|shop|photos)/.test(path)
@@ -121,6 +123,8 @@ export default function App() {
             <Route path="/about" element={<Team />} />
             <Route path="/mentorship" element={<Mentorship />} />
             <Route path="/photos" element={<Photos />} />
+            <Route path="/plan" element={<Plan />} />
+            <Route path="/meet" element={<Meet />} />
             <Route path="/team" element={<Navigate to="/about" replace />} />
             <Route path="/search" element={<Search />} />
             <Route path="/quotes" element={<Quotes />} />
@@ -130,7 +134,8 @@ export default function App() {
                 <div className="list morelist">
                   <NavLink to="/about"><Icon name="star" size={22} />About us</NavLink>
                   <NavLink to="/events"><Icon name="calendar" size={22} />Programmes</NavLink>
-                  <NavLink to="/mentorship"><Icon name="userplus" size={22} /><span className="grow">Mentorship<small className="muted">Find a mentor or become one</small></span></NavLink>
+                  <NavLink to="/mentorship"><Icon name="userplus" size={22} /><span className="grow">Mentorship<small className="muted">Plan 2027, find a mentor or become one</small></span></NavLink>
+                  <NavLink to="/meet"><Icon name="calendar" size={22} /><span className="grow">Meet Solomon<small className="muted">Ask for a meeting with our founder</small></span></NavLink>
                   <NavLink to="/forms?form=join-campus-sync"><Icon name="userplus" size={22} /><span className="grow">Join us<small className="muted">Become a member through Campus Sync</small></span></NavLink>
                   <NavLink to="/forms?form=fcb27-volunteer"><Icon name="users" size={22} /><span className="grow">Volunteer for FCB 27<small className="muted">Serve at Finding Campus Balance 2027</small></span></NavLink>
                 </div>

@@ -1,12 +1,13 @@
 import type { Field } from "./Forms";
 import FormBuilder from "../components/FormBuilder";
 import { useEffect, useState } from "react";
+import type { Goal, PlanRow } from "./Plan";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 
-const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
@@ -15,7 +16,8 @@ const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric",
 export default function Admin() {
   const { profile, setViewAsMember } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("Engagement");
+  // notifications link straight to a tab: /admin?tab=Meetings
+  const [tab, setTab] = useState<Tab>(() => { const t = new URLSearchParams(location.search).get("tab"); return (TABS as readonly string[]).includes(t ?? "") ? (t as Tab) : "Engagement"; });
   if (profile?.role !== "admin" && profile?.role !== "moderator")
     return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
   const isAdmin = profile.role === "admin";
@@ -31,6 +33,8 @@ export default function Admin() {
       {tab === "Talks" && isAdmin && <TalksAdmin />}
       {tab === "Forms" && isAdmin && <FormsAdmin />}
       {tab === "Mentorship" && isAdmin && <MentorshipAdmin />}
+      {tab === "Plan 2027" && isAdmin && <PlansAdmin />}
+      {tab === "Meetings" && isAdmin && <MeetingsAdmin />}
       {tab === "Gifts" && isAdmin && <GiftsAdmin />}
       {tab === "Engagement" && <EngagementAdmin />}
       {(tab === "Reports" || (!isAdmin && tab !== "Engagement")) && <ReportsAdmin />}
@@ -558,4 +562,108 @@ function MentorshipAdmin() {
     <h3>Mentors ({mentors.length})</h3>
     <div className="list">{mentors.length ? mentors.map((r) => <Req key={r.id} r={r} />) : <p className="muted">No mentors yet.</p>}</div>
   </>);
+}
+
+
+type PlanItem = PlanRow & { profiles: { full_name: string } | null; plan_goals: Goal[]; plan_checkins: { created_at: string; score: number | null }[] };
+// Plan 2027: every submitted plan, its progress and last check-in; open one to read it and give feedback
+function PlansAdmin() {
+  const [rows, setRows] = useState<PlanItem[] | null>(null);
+  const [drafts, setDrafts] = useState(0);
+  const [open, setOpen] = useState<PlanItem | null>(null);
+  const [fb, setFb] = useState(""); const [msg, setMsg] = useState("");
+  const load = () => {
+    supabase.from("plans").select("*, profiles!plans_user_id_fkey(full_name), plan_goals(*), plan_checkins(created_at, score)").eq("status", "submitted").order("submitted_at", { ascending: false })
+      .then(({ data }) => setRows((data ?? []) as unknown as PlanItem[]));
+    supabase.rpc("plan_draft_count").then(({ data }) => setDrafts(typeof data === "number" ? data : 0), () => {});
+  };
+  useEffect(() => { load(); }, []);
+  const avg = (p: PlanItem) => p.plan_goals.length ? Math.round(p.plan_goals.reduce((s, g) => s + g.progress, 0) / p.plan_goals.length) : 0;
+  const last = (p: PlanItem) => p.plan_checkins.map((c) => c.created_at).sort().pop();
+  if (open) return (<>
+    <button className="linkbtn" onClick={() => { setOpen(null); setMsg(""); }}>← All plans</button>
+    <h2>{open.profiles?.full_name ?? "Member"}: {open.theme || "Plan 2027"}</h2>
+    {open.vision && <p className="prewrap">{open.vision}</p>}
+    {[...open.plan_goals].sort((a, b) => a.sort - b.sort).map((g) => <div key={g.id} className="card" style={{ marginBottom: 8 }}>
+      <b>{g.title}</b> {g.area && <span className="pill">{g.area}</span>} <span className="muted">· {g.progress}%</span>
+      {g.success && <div className="small muted">Success: {g.success}</div>}
+      {(["q1", "q2", "q3", "q4"] as const).map((q, i) => g[q] ? <div key={q} className="small">Q{i + 1}: {g[q]}</div> : null)}
+      {g.first_actions && <div className="small">First actions: {g.first_actions}</div>}
+    </div>)}
+    {open.habits_build && <p><b>Habits to build:</b> {open.habits_build}</p>}
+    {open.habits_drop && <p><b>Habits to drop:</b> {open.habits_drop}</p>}
+    <p className="muted small">{open.plan_checkins.length} check-in(s){last(open) ? `, last on ${fmt(last(open)!)}` : ""}</p>
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <b>💬 Feedback</b>
+      <textarea value={fb} onChange={(e) => setFb(e.target.value)} placeholder="Encourage, sharpen a goal, suggest a first step…" />
+      <button className="btn primary sm" style={{ alignSelf: "flex-start" }} disabled={!fb.trim()} onClick={async () => {
+        const { error } = await supabase.rpc("give_plan_feedback", { p_id: open.id, p_feedback: fb });
+        setMsg(error ? error.message : "Sent ✓ They've been notified."); if (!error) load();
+      }}>Send feedback</button>
+      {msg && <small className="muted">{msg}</small>}
+    </div>
+  </>);
+  return (<>
+    <p className="muted">{rows?.length ?? 0} plans submitted{drafts ? ` · ${drafts} still in draft` : ""}. Members get a check-in reminder on the 1st of every month, and a quarterly review in April, July and October.</p>
+    <div className="list">{(rows ?? []).map((p) => <div key={p.id}><div className="grow">
+      <b>{p.profiles?.full_name ?? "Member"}</b> · {p.theme || "Plan 2027"} {p.feedback ? <span className="pill paid">Feedback given</span> : <span className="pill">Needs feedback</span>}
+      <br /><small className="muted">{p.plan_goals.length} goals · {avg(p)}% progress · {p.plan_checkins.length} check-ins{last(p) ? ` (last ${fmt(last(p)!)})` : ""}</small>
+    </div><button className="btn ghost sm" onClick={() => { setOpen(p); setFb(p.feedback ?? ""); }}>Open</button></div>)}
+    {rows && !rows.length && <p className="muted">No plans submitted yet.</p>}</div>
+  </>);
+}
+
+type MeetRow = { id: number; topic: string; message: string; mode: string | null; preferred: string | null; files: string[]; status: string; meet_at: string | null; reply: string | null; room_id: string | null; created_at: string; profiles: { full_name: string; phone?: string | null } | null };
+// Meet Solomon requests: confirm a time (opens a chat), decline, or mark done
+function MeetingsAdmin() {
+  const [rows, setRows] = useState<MeetRow[]>([]);
+  const [show, setShow] = useState<"open" | "all">("open");
+  const load = () => supabase.from("meeting_requests").select("*, profiles!meeting_requests_user_id_fkey(full_name, phone)").order("created_at", { ascending: false }).limit(200)
+    .then(({ data }) => setRows((data ?? []) as unknown as MeetRow[]));
+  useEffect(() => { load(); }, []);
+  const list = rows.filter((r) => show === "all" || r.status === "pending" || (r.status === "confirmed" && (!r.meet_at || new Date(r.meet_at) > new Date(Date.now() - 864e5))));
+  return (<>
+    <div className="chips" style={{ marginBottom: 8 }}>
+      <button className="chip" aria-pressed={show === "open"} onClick={() => setShow("open")}>Pending and upcoming</button>
+      <button className="chip" aria-pressed={show === "all"} onClick={() => setShow("all")}>All</button>
+    </div>
+    {list.length === 0 && <p className="muted">No requests here.</p>}
+    {list.map((r) => <MeetCard key={r.id} r={r} reload={load} />)}
+  </>);
+}
+
+function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
+  const [at, setAt] = useState(""); const [reply, setReply] = useState(""); const [err, setErr] = useState("");
+  async function act(status: string) {
+    setErr("");
+    const { error } = await supabase.rpc("respond_meeting", { p_id: r.id, p_status: status, p_at: at ? new Date(at).toISOString() : null, p_reply: reply });
+    if (error) setErr(error.message); else reload();
+  }
+  const open = async (path: string) => { const { data } = await supabase.storage.from("form-files").createSignedUrl(path, 600); if (data) window.open(data.signedUrl, "_blank", "noopener"); };
+  return (
+    <div className="card" style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span><b>{r.profiles?.full_name ?? "Member"}</b> · {r.topic}</span>
+        <span className={`pill ${r.status === "confirmed" ? "paid" : r.status === "done" ? "sent" : ""}`}>{r.status}{r.meet_at ? ` · ${fmt(r.meet_at)}` : ""}</span>
+      </div>
+      <p className="prewrap" style={{ margin: 0 }}>{r.message}</p>
+      <small className="muted">{[r.mode && `Prefers: ${r.mode}`, r.preferred && `When: ${r.preferred}`, r.profiles?.phone && `Phone: ${r.profiles.phone}`, `Sent ${fmt(r.created_at)}`].filter(Boolean).join(" · ")}</small>
+      {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{r.files.map((p) => <button key={p} className="btn ghost sm" onClick={() => open(p)}>📎 {p.split("/").pop()!.replace(/^[0-9a-f-]{36}-/, "")}</button>)}</div>}
+      {r.reply && <small>💬 Reply: {r.reply}</small>}
+      {r.status === "pending" && <>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} aria-label="Meeting date and time" />
+          <input placeholder="Message (e.g. I'll call you on WhatsApp)" value={reply} onChange={(e) => setReply(e.target.value)} style={{ flex: "1 1 220px" }} aria-label="Message to the member" />
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn primary sm" disabled={!at} onClick={() => act("confirmed")}>Confirm time</button>
+          <button className="btn ghost sm" onClick={() => act("declined")}>Decline</button>
+        </div>
+      </>}
+      {r.status === "confirmed" && <div className="row" style={{ gap: 8 }}>
+        {r.room_id && <Link className="btn ghost sm" to={`/chat?room=${r.room_id}`}>💬 Chat</Link>}
+        <button className="btn ghost sm" onClick={() => act("done")}>Mark done</button></div>}
+      {err && <p className="err">{err}</p>}
+    </div>
+  );
 }

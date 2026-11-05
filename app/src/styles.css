@@ -807,3 +807,18 @@ html,body{max-width:100%;overflow-x:hidden}
 .photogrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block}
 .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:0;font-size:2.4rem;width:48px;height:64px;border-radius:10px;cursor:pointer}
 .lightbox-nav.prev{left:10px}.lightbox-nav.next{right:10px}
+.planhero{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.plansteps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.planbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}
+.planfeedback{background:#fff8e1;border-color:#e9d48a;margin:10px 0}
+.planprog{height:10px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0 12px}
+.planprog span{display:block;height:100%;background:var(--gold, #c9a227)}
+.goalcard{margin-bottom:10px}
+.goalcard input[type=range]{width:100%;accent-color:var(--navy);margin-top:8px}
+.goalpct{font-size:1.3rem;color:var(--navy)}
+.quarters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:6px}
+.quarters div{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.goaledit{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.planedit h2{margin-top:16px}
+.meetform{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.plancta{display:flex;flex-direction:column;gap:6px;align-items:flex-start;background:linear-gradient(135deg,var(--navy-soft),#fff8e1);margin:10px 0;text-decoration:none;color:inherit}
