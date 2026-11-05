@@ -1,7 +1,10 @@
 -- BCIL Live: photos/files without text can be sent; group leaders can add and remove members; people are told when added.
 -- Safe to run more than once.
-alter table public.messages drop constraint if exists messages_body_check;
-alter table public.messages drop constraint if exists messages_body_or_file;
+do $$ declare c text; begin
+  for c in select conname from pg_constraint where conrelid = 'public.messages'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%body%' loop
+    execute format('alter table public.messages drop constraint %I', c);
+  end loop;
+end $$;
 alter table public.messages add constraint messages_body_or_file
   check (char_length(body) <= 2000 and (char_length(trim(body)) >= 1 or attachment_url is not null));
 
