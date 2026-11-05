@@ -788,3 +788,6 @@ html,body{max-width:100%;overflow-x:hidden}
 .groupnote{margin:0;padding:8px 12px;border-radius:10px;background:rgba(255,213,74,.18);border:1px solid #ffd54a;font-size:.9rem}
 .golivebtn{color:var(--live);font-weight:800;white-space:nowrap}
 .addpeople{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+
+.about-follow{margin-top:22px}
+.about-socials{display:flex;flex-wrap:wrap;gap:8px}

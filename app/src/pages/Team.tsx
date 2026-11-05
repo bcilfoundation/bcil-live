@@ -17,6 +17,16 @@ async function openUrl(url: string) {
 // who give advice, guidance and mentorship, without running the Foundation.
 const TEAMS = ["Board of Directors", "Executives", "Advisory Council", "Coordinators"];
 
+// BCIL's social media, as linked on bcilfoundation.org. Add Telegram here once we have its link.
+const SOCIALS: [string, string, string][] = [
+  ["Facebook", "https://www.facebook.com/share/1AXRApBrbN/", "#1877f2"],
+  ["Instagram", "https://www.instagram.com/bcilfoundation", "#d62976"],
+  ["YouTube", "https://youtube.com/@bcilfoundation", "#ff0000"],
+  ["TikTok", "https://www.tiktok.com/@bcil_foundation", "#111111"],
+  ["LinkedIn", "https://www.linkedin.com/company/102104920", "#0a66c2"],
+];
+const EMAIL = "bcilfound@gmail.com";
+
 const VALUES = ["Integrity", "Mentorship", "Persistence", "Responsibility", "Excellence", "Impact"];
 
 // About us: who BCIL Foundation is (vision, mission, core values) and the people leading it. Staff add and edit people here.
@@ -59,6 +69,14 @@ export default function Team() {
           ))}</div>
         </div>
       ))}
+
+      <div className="card about-follow">
+        <span className="eyebrow">Follow us</span>
+        <p className="muted" style={{ margin: "4px 0 10px" }}>@bcilfoundation on all our pages. Programme videos, flyers and updates go here first.</p>
+        <div className="about-socials">{SOCIALS.map(([name, url, color]) => (
+          <button key={name} className="btn sm" style={{ background: color, color: "#fff", border: 0 }} onClick={() => openUrl(url)}>{name}</button>))}</div>
+        <p style={{ margin: "12px 0 0" }}>✉️ <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · 🌐 <a href="#" onClick={(e) => { e.preventDefault(); openUrl("https://bcilfoundation.org"); }}>bcilfoundation.org</a></p>
+      </div>
 
       {open && <>
         <div className="sheet-back" onClick={() => setOpen(null)} />
