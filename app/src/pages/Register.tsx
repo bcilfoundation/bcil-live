@@ -65,7 +65,7 @@ export default function Register({ slug }: { slug: string }) {
             <Ticket ticket={done.ticket} title={form.title} checkedIn={done.checked_in} />
             <p className="muted small">{mail || "Take a screenshot of your ticket now, or keep this link:"}</p>
             <a className="btn ghost" href={`${base}t/${done.ticket}`}>Open my ticket page</a>
-            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Join BCIL Live for live sessions, talks, the Daily Bite and the community. It's optional.</span>
+            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Join BCIL Live for live sessions, talks, the Daily Bite and the community.</span>
               <a className="btn primary" href={base}>Join BCIL Live</a></div>}
           </div>
         ) : (
