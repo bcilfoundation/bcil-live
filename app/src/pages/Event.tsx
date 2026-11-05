@@ -25,6 +25,7 @@ export default function Event() {
   const [editing, setEditing] = useState(params.get("edit") === "1");
   const [payMsg, setPayMsg] = useState("");
   const [flyer, setFlyer] = useState(false);
+  const [volTicket, setVolTicket] = useState<string | null>(null);
 
   const load = async () => {
     const { data: e } = await supabase.from("event_pages").select(EVENT_COLS).eq("slug", slug).maybeSingle();
@@ -39,6 +40,14 @@ export default function Event() {
       const { data: r } = await supabase.from("form_responses").select("id, ticket, paid_at, checked_in_at, status")
         .eq("form_id", f.id).eq("user_id", session!.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
       setMine(r as Mine | null);
+    }
+    // my volunteer sign-up for this programme (for the volunteer certificate)
+    const { data: vs } = await supabase.from("event_pages").select("volunteer_form_slug").eq("slug", slug).maybeSingle();
+    const vslug = (vs as { volunteer_form_slug?: string | null } | null)?.volunteer_form_slug;
+    if (vslug) {
+      const { data: v } = await supabase.from("form_responses").select("ticket, forms!inner(slug)").eq("forms.slug", vslug)
+        .eq("user_id", session!.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      setVolTicket((v as { ticket: string } | null)?.ticket ?? null);
     }
   };
   useEffect(() => { load(); }, [slug]);
@@ -88,6 +97,7 @@ export default function Event() {
         <Link className="btn primary evreg" to={`/forms?form=${ev.form_slug}`}>Register for {ev.title}{form.fee_pesewas && form.fee_required ? ` · ${form.fee_label || "fee"} ${cedis(form.fee_pesewas)}` : " · free"}</Link>
       ) : null}
 
+      {volTicket && <CertificateBox ticket={volTicket} />}
       {ev.online_url && at && <a className="btn primary evreg" href={ev.online_url} target="_blank" rel="noreferrer">{now ? "● Join now" : "Join link"} ({ev.online_url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]})</a>}
       {all.length > 1 && <div className="card evdates"><b>Sessions</b>{all.map((d, i) => (
         <div key={i} className={`row${at && +d === +at ? " next" : ""}`} style={{ justifyContent: "space-between" }}><span>{i + 1}. {when(d, true)}</span><small className="muted">{+d + 3 * 3600e3 < Date.now() ? "done" : at && +d === +at ? countdown(d) : ""}</small></div>

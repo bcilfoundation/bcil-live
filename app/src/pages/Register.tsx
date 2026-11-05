@@ -28,7 +28,10 @@ export default function Register({ slug }: { slug: string }) {
   useEffect(() => {
     supabase.from("forms").select("id, slug, title, subtitle, description, fields, fee_pesewas, fee_required").eq("slug", slug).eq("is_open", true).maybeSingle()
       .then(({ data }) => setForm((data as PublicForm | null) ?? null));
-    supabase.from("event_pages").select("slug").eq("form_slug", slug).limit(1).then(({ data }) => setIsEvent(!!data?.length));
+    supabase.from("event_pages").select("slug").or(`form_slug.eq.${slug},volunteer_form_slug.eq.${slug}`).limit(1).then(({ data, error }) => {
+      if (!error) { setIsEvent(!!data?.length); return; }
+      supabase.from("event_pages").select("slug").eq("form_slug", slug).limit(1).then(({ data: d }) => setIsEvent(!!d?.length));
+    });
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, [slug]);
 
@@ -129,7 +132,7 @@ export function CertificateBox({ ticket }: { ticket: string }) {
   if (!c.ok) return <p className="muted small">🎓 {certReason(c)}</p>;
   return (
     <div className="certbox">
-      <b>🎓 Your certificate is ready</b>
+      <b>🎓 Your {c.kind === "volunteer" ? "volunteer certificate" : "certificate"} is ready</b>
       <span className="muted small">For {c.name}. Check the spelling before you print it.</span>
       <button className="btn primary" disabled={busy} onClick={async () => { setBusy(true); try { await downloadCertificate(c); } finally { setBusy(false); } }}>{busy ? "Preparing…" : "Download certificate (PDF)"}</button>
     </div>
@@ -146,7 +149,7 @@ export function CertificateCheck({ ticket }: { ticket: string }) {
       {c === undefined ? <p className="muted">Checking…</p> : c?.ok ? (
         <div className="card regdone">
           <h2>✅ Genuine certificate</h2>
-          <p><b>{c.name}</b> took part in <b>{c.event_title}</b>{c.event_subtitle ? ` (${c.event_subtitle})` : ""}{c.starts_on ? `, ${new Date(c.starts_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}{c.venue ? `, at ${c.venue}` : ""}.</p>
+          <p><b>{c.name}</b> {c.kind === "volunteer" ? <>served as a volunteer{c.team ? ` on the ${c.team} team` : ""} at</> : "took part in"} <b>{c.event_title}</b>{c.event_subtitle ? ` (${c.event_subtitle})` : ""}{c.starts_on ? `, ${new Date(c.starts_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}{c.venue ? `, at ${c.venue}` : ""}.</p>
           <p className="muted small">Certificate no. {c.ticket.slice(0, 8).toUpperCase()} · issued by BCIL Foundation</p>
         </div>
       ) : <div className="card"><b>❌ We couldn't confirm this certificate.</b><p className="muted">If you think this is a mistake, contact info@bcilfoundation.org.</p></div>}

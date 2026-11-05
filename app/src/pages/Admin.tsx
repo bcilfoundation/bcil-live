@@ -182,11 +182,16 @@ function FormsAdmin() {
   const found = forms.find((f) => f.id === formId);
   const form = found && { ...found, fields: found.fields.filter((f) => f.type !== "section") };
   // the programme this form registers people for (certificates are released per programme)
-  const [ev, setEv] = useState<{ slug: string; title: string; certificates_open: boolean } | null>(null);
-  const loadEv = () => found && supabase.from("event_pages").select("slug, title, certificates_open").eq("form_slug", found.slug).maybeSingle().then(({ data }) => setEv(data as never));
+  const [ev, setEv] = useState<{ slug: string; title: string; certificates_open: boolean; volunteer_form_slug?: string | null } | null>(null);
+  const loadEv = () => found && supabase.from("event_pages").select("slug, title, certificates_open, volunteer_form_slug")
+    .or(`form_slug.eq.${found.slug},volunteer_form_slug.eq.${found.slug}`).limit(1).maybeSingle().then(({ data }) => setEv(data as never));
   useEffect(() => { setEv(null); loadEv(); }, [found?.slug]);
-  const wantsCert = (r: RespRow) => (r.answers.certificate ?? "Yes") === "Yes";
-  const certReady = (r: RespRow) => !!r.checked_in_at && wantsCert(r) && (!form?.fee_pesewas || !!r.paid_at);
+  const isVol = !!ev && ev.volunteer_form_slug === found?.slug;   // this is the programme's volunteer form
+  const wantsCert = (r: RespRow) => isVol || (r.answers.certificate ?? "Yes") === "Yes";
+  const certReady = (r: RespRow) => !!r.checked_in_at && wantsCert(r) && (isVol || !form?.fee_pesewas || !!r.paid_at);
+  const markServed = async (r: RespRow) => {
+    await supabase.from("form_responses").update({ checked_in_at: r.checked_in_at ? null : new Date().toISOString() }).eq("id", r.id); load();
+  };
   async function toggleCerts() {
     if (!ev) return;
     if (!ev.certificates_open && !window.confirm(`Release certificates for ${ev.title}? ${rows.filter(certReady).length} people can then download theirs from the app or their ticket link.`)) return;
@@ -252,17 +257,20 @@ function FormsAdmin() {
     {form && !form.is_open && <p className="muted">This form is closed. Members can no longer see or fill it in.</p>}
     {ev && <div className="card certadmin">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <span><b>🎓 Certificates</b> · {rows.filter(certReady).length} ready{form?.fee_pesewas ? ` · ${rows.filter((r) => r.checked_in_at && wantsCert(r) && !r.paid_at).length} checked in but fee not paid` : ""}</span>
+        <span><b>🎓 {isVol ? "Volunteer certificates" : "Certificates"}</b> · {rows.filter(certReady).length} ready{!isVol && form?.fee_pesewas ? ` · ${rows.filter((r) => r.checked_in_at && wantsCert(r) && !r.paid_at).length} checked in but fee not paid` : ""}{isVol ? ` · ${rows.length - rows.filter(certReady).length} not marked as served` : ""}</span>
         <button className={`btn ${ev.certificates_open ? "ghost" : "primary"} sm`} onClick={toggleCerts}>{ev.certificates_open ? "Hide certificates" : "Release certificates"}</button>
       </div>
-      <small className="muted">{ev.certificates_open ? "Released: people who were checked in (and paid, if they asked for a certificate) can download theirs now." : "Release them after the programme. Only people checked in at the venue get one."}</small>
+      <small className="muted">{isVol
+        ? (ev.certificates_open ? `Released for ${ev.title}: volunteers who served can download theirs now.` : `Volunteers who are checked in on the day (scan their ticket, or tap "Mark served" below) get one. Releasing here releases all ${ev.title} certificates.`)
+        : (ev.certificates_open ? "Released: people who were checked in (and paid, if they asked for a certificate) can download theirs now." : "Release them after the programme. Only people checked in at the venue get one.")}</small>
     </div>}
     {form && <FeeEditor form={form} onSaved={loadForms} paid={rows.filter((r) => r.paid_at).length} total={rows.length} checkedIn={rows.filter((r) => r.checked_in_at).length} />}
     <div className="list">{rows.map((r) => (
       <div key={r.id}><div className="grow">
         <b>{r.answers.full_name || r.answers.name || r.profiles?.full_name || "Member"}</b> <small className="muted">· {fmt(r.created_at)}</small>
         {form?.fee_pesewas ? (r.paid_at ? <span className="pill paid" style={{ marginLeft: 6 }}>Paid</span> : <span className="pill" style={{ marginLeft: 6 }}>Not paid</span>) : null}
-        {r.checked_in_at && <span className="pill sent" style={{ marginLeft: 6 }}>Checked in</span>}
+        {r.checked_in_at && <span className="pill sent" style={{ marginLeft: 6 }}>{isVol ? "Served" : "Checked in"}</span>}
+        {isVol && <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => markServed(r)}>{r.checked_in_at ? "Undo served" : "Mark served"}</button>}
         {ev && certReady(r) && <span className="pill paid" style={{ marginLeft: 6 }}>🎓 Certificate</span>}
         {form?.fee_pesewas && wantsCert(r) ? <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => markPaid(r)}>{r.paid_at ? "Undo paid" : "Mark paid"}</button> : null}
         {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {f.type === "file"

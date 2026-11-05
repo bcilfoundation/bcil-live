@@ -33,8 +33,15 @@ export default function Forms() {
   const [doneId, setDoneId] = useState<number | null>(null);
   const [ticketFor, setTicketFor] = useState<Resp | null>(null);
   const [eventForms, setEventForms] = useState<Record<string, string>>({});   // form slug → event title (these forms give a QR ticket)
-  useEffect(() => { supabase.from("event_pages").select("form_slug, title").not("form_slug", "is", null).then(({ data }) =>
-    setEventForms(Object.fromEntries(((data ?? []) as { form_slug: string; title: string }[]).map((e) => [e.form_slug, e.title])))); }, []);
+  useEffect(() => { supabase.from("event_pages").select("form_slug, volunteer_form_slug, title").then(({ data, error }) => {
+    // volunteer forms give a ticket too (to check in on the day, and for the volunteer certificate)
+    const rows = (error ? [] : data ?? []) as { form_slug: string | null; volunteer_form_slug: string | null; title: string }[];
+    const map: Record<string, string> = {};
+    for (const e of rows) { if (e.form_slug) map[e.form_slug] = e.title; if (e.volunteer_form_slug) map[e.volunteer_form_slug] = `${e.title} (volunteer)`; }
+    if (error) supabase.from("event_pages").select("form_slug, title").not("form_slug", "is", null).then(({ data: d }) =>
+      setEventForms(Object.fromEntries(((d ?? []) as { form_slug: string; title: string }[]).map((e) => [e.form_slug, e.title]))));
+    else setEventForms(map);
+  }); }, []);
   const ticketTitle = (r: Resp) => { const f = forms.find((x) => x.id === r.form_id); return f ? eventForms[f.slug] : undefined; };
 
   const load = () => {
@@ -79,7 +86,7 @@ export default function Forms() {
     setBusy(false);
     if (error) { setError("Could not send. Check your connection and try again."); return; }
     // email the QR ticket too (does nothing until the email service is connected, or if this form has no programme)
-    if (sent?.ticket) supabase.functions.invoke("send-ticket", { body: { ticket: sent.ticket } }).catch(() => {});
+    if (sent?.ticket && eventForms[open!.slug]) supabase.functions.invoke("send-ticket", { body: { ticket: sent.ticket } }).catch(() => {});
     if (open!.fee_pesewas && sent) setPayFor({ resp: sent.id, form: open! });
     setDone(open!.title); setDoneId(sent?.id ?? null); setOpen(null); setAnswers({}); load();
   }
