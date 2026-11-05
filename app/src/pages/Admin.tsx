@@ -8,7 +8,7 @@ import AddAudioTalk from "../components/AddAudioTalk";
 
 const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
-const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
+const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 

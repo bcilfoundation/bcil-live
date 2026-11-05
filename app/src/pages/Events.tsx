@@ -20,7 +20,7 @@ export default function Events() {
   const past = withNext.filter((x) => !x.at).sort((a, b) => +(b.last ?? 0) - +(a.last ?? 0));
 
   async function create() {
-    const title = window.prompt("Name of the programme (e.g. Keys to Success 2027)");
+    const title = window.prompt("Name of the programme (e.g. Operation 4.0 Series 2027)");
     if (!title?.trim()) return;
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6);
     const { error } = await supabase.from("event_pages").insert({ slug, title: title.trim(), listed: false, dates: [], schedule: [], speakers: [] });

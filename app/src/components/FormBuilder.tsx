@@ -61,7 +61,7 @@ export default function FormBuilder({ form, close, saved }: { form: FormDef | nu
   return (
     <div className="card formbuilder">
       <div className="row" style={{ justifyContent: "space-between" }}><h3 style={{ margin: 0 }}>{isNew ? "New form" : "Edit form"}</h3><button className="linkbtn" onClick={close}>Close</button></div>
-      <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Keys to Success 2027 Registration" /></label>
+      <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Operation 4.0 Registration" /></label>
       <label className="field">Subtitle <small className="muted">(optional)</small><input value={f.subtitle ?? ""} onChange={(e) => setF({ ...f, subtitle: e.target.value })} /></label>
       <label className="field">Description <small className="muted">(shown at the top of the form)</small><textarea value={f.description ?? ""} onChange={(e) => setF({ ...f, description: e.target.value })} /></label>
 

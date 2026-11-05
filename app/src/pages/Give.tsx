@@ -4,7 +4,7 @@ import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pa
 import { useAuth } from "../lib/auth";
 
 type Gift = { id: number; amount_pesewas: number; purpose: string; kind: string; status: string; created_at: string };
-const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027", "Laptop for a student", "Refreshments for students", "Academic Mentorship", "Campus Sync", "Keys to Success"];
+const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027", "Laptop for a student", "Refreshments for students", "Academic Mentorship", "Campus Sync"];
 const AMOUNTS = [10, 20, 50, 100, 200, 500];
 // Until Paystack is live, people can send Mobile Money straight to this number.
 export const MOMO: { number: string; network: string; name: string } | null = { number: "054 021 5225", network: "MTN Mobile Money", name: "Solomon Hope Agbesi" };

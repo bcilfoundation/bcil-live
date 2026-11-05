@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { MicRecorder, audioDuration, clock, uploadAudio } from "../lib/recorder";
 import { convertToMp3 } from "../lib/mp3";
 
-export const PROGRAMS = ["Finding Campus Balance", "Keys to Success", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions", "Campus Sync"];
+export const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions", "Campus Sync"];
 
 // Record a talk on this phone/computer, or upload an audio file, and publish it to the Library
 export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
@@ -113,9 +113,9 @@ export default function AddAudioTalk({ onSaved }: { onSaved?: () => void }) {
 
       {preview && <audio controls src={preview} style={{ width: "100%" }} />}
 
-      <label className="field">Title<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Keys to Success: planning your semester" /></label>
+      <label className="field">Title<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mentorship hour: planning your semester" /></label>
       <div className="grid2">
-        <label className="field">Programme or type (optional)<input list="programs" value={program} onChange={(e) => setProgram(e.target.value)} placeholder="e.g. Keys to Success, Q&A, Devotion" /><datalist id="programs">{PROGRAMS.map((p) => <option key={p} value={p} />)}</datalist></label>
+        <label className="field">Programme or type (optional)<input list="programs" value={program} onChange={(e) => setProgram(e.target.value)} placeholder="e.g. Operation 4.0, Q&A, Devotion" /><datalist id="programs">{PROGRAMS.map((p) => <option key={p} value={p} />)}</datalist></label>
         <label className="field">Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
       <label className="field">Short description (optional)<textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ minHeight: 70 }} /></label>
