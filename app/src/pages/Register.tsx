@@ -22,10 +22,12 @@ export default function Register({ slug }: { slug: string }) {
   const [done, setDone] = useState<Done | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [mail, setMail] = useState("");
+  const [isEvent, setIsEvent] = useState(false);   // only programme registrations give a ticket; Join us / Volunteer just say thanks
 
   useEffect(() => {
     supabase.from("forms").select("id, slug, title, subtitle, description, fields, fee_pesewas, fee_required").eq("slug", slug).eq("is_open", true).maybeSingle()
       .then(({ data }) => setForm((data as PublicForm | null) ?? null));
+    supabase.from("event_pages").select("slug").eq("form_slug", slug).limit(1).then(({ data }) => setIsEvent(!!data?.length));
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, [slug]);
 
@@ -47,6 +49,7 @@ export default function Register({ slug }: { slug: string }) {
     const r = data[0] as { ticket: string; name: string; form_title: string; checked_in: boolean };
     setDone({ ticket: r.ticket, name: r.name, title: r.form_title, checked_in: r.checked_in });
     window.scrollTo(0, 0);
+    if (!isEvent) return;
     // email the ticket (does nothing until the email service is connected)
     supabase.functions.invoke("send-ticket", { body: { ticket: r.ticket } })
       .then(({ data: m }) => setMail(m?.sent ? "We've also emailed your ticket to you." : "")).catch(() => {});
@@ -57,7 +60,14 @@ export default function Register({ slug }: { slug: string }) {
       <header className="reghead"><img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
       {form === undefined ? <p className="muted">Loading…</p>
         : form === null ? <div className="card"><b>This form is closed or the link is not valid.</b><p className="muted">Check the link with the BCIL team.</p></div>
-        : done ? (
+        : done && !isEvent ? (
+          <div className="card regdone">
+            <h2>🎉 Thank you, {done.name.split(" ")[0]}!</h2>
+            <p>We've received your form for <b>{form.title}</b>. The BCIL team will get in touch with you.</p>
+            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
+              <a className="btn primary" href={base}>Open the app</a></div>}
+          </div>
+        ) : done ? (
           <div className="card regdone">
             {done.checked_in
               ? <><h2>✅ Welcome, {done.name.split(" ")[0]}!</h2><p>You're registered <b>and checked in</b> for {form.title}. Enjoy the programme.</p></>
@@ -75,7 +85,7 @@ export default function Register({ slug }: { slug: string }) {
               <h2>{form.title}</h2>
               {form.subtitle && <p className="muted">{form.subtitle}</p>}
               {form.description && <p>{form.description}</p>}
-              {!signedIn && <p className="muted small">No account needed. Already have an account on our app? <a href={`${base}forms?form=${form.slug}`}>Sign in and register there</a>.</p>}
+              {!signedIn && <p className="muted small">No account needed. Already have an account on our app? <a href={`${base}forms?form=${form.slug}`}>Sign in and {isEvent ? "register" : "fill it in"} there</a>.</p>}
               <small className="muted">* Required</small>
             </div>
             <QuestionList fields={form.fields} answers={answers} set={set} toggle={toggle} />
