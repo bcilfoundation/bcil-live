@@ -78,13 +78,15 @@ export async function downloadCertificate(c: CertInfo) {
 
   // signature lines
   doc.setTextColor(...INK); doc.setFont("times", "normal"); doc.setFontSize(12); doc.setDrawColor(...INK); doc.setLineWidth(0.3);
-  const sig = (x: number, who: string, role: string) => {
+  const { SIG_SOLOMON, SIG_EBENEZER } = await import("./signatures");
+  const sig = (x: number, who: string, role: string, image: string, w: number, h: number) => {
+    doc.addImage(image, "PNG", x - w / 2, 162 - h, w, h);
     doc.line(x - 38, 163, x + 38, 163);
     doc.setFont("times", "bold"); doc.text(who, x, 169, { align: "center" });
     doc.setFont("times", "normal"); doc.setFontSize(11); doc.text(role, x, 175, { align: "center" }); doc.setFontSize(12);
   };
-  sig(78, "Solomon Agbesi", "Founder and Chairperson");
-  sig(W - 78, "Ebenezer Nyan", "Board Secretary");
+  sig(78, "Solomon Agbesi", "Founder and Chairperson", SIG_SOLOMON, 26, 26 * 69 / 102);
+  sig(W - 78, "Ebenezer Nyan", "Board Secretary", SIG_EBENEZER, 34, 34 * 69 / 158);
 
   // check code: QR + short number, anyone can confirm the certificate is genuine
   const qr = await Q.toDataURL(checkUrl, { width: 240, margin: 0, color: { dark: "#1E3F78", light: "#FFFFFF" } });
