@@ -75,7 +75,7 @@ export default function Register({ slug }: { slug: string }) {
               <h2>{form.title}</h2>
               {form.subtitle && <p className="muted">{form.subtitle}</p>}
               {form.description && <p>{form.description}</p>}
-              {!signedIn && <p className="muted small">No account needed. Already on BCIL Live? <a href={`${base}forms?form=${form.slug}`}>Sign in and register there</a> (optional).</p>}
+              {!signedIn && <p className="muted small">No account needed. Already on BCIL Live? <a href={`${base}forms?form=${form.slug}`}>Sign in and register there</a>.</p>}
               <small className="muted">* Required</small>
             </div>
             <QuestionList fields={form.fields} answers={answers} set={set} toggle={toggle} />

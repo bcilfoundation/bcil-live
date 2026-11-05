@@ -263,6 +263,7 @@ export function GroupPage() {
           ))}
       </>}
 
+      {tab === "members" && leader && g.kind !== "announcements" && <AddPeople roomId={g.id} have={new Set(members.map((m) => m.user_id))} onAdded={() => { loadMembers(); loadGroup(); }} />}
       {tab === "members" && (
         <div className="list">{members.map((m) => (
           <div key={m.user_id} className="person">
@@ -272,6 +273,11 @@ export function GroupPage() {
             {isStaff && m.user_id !== me && (m.role === "leader"
               ? <button className="linkbtn" onClick={() => setRole(m, "member")}>Remove leader</button>
               : <button className="linkbtn" onClick={() => setRole(m, "leader")}>Make leader</button>)}
+            {leader && m.user_id !== me && m.role !== "leader" && g.kind !== "announcements" && <button className="linkbtn" style={{ color: "var(--live)" }} onClick={async () => {
+              if (!window.confirm(`Remove ${m.profiles?.full_name || "this member"} from ${g.name}?`)) return;
+              const { error } = await supabase.from("room_members").delete().eq("room_id", g.id).eq("user_id", m.user_id);
+              if (error) setErr(error.message); else { loadMembers(); loadGroup(); }
+            }}>Remove</button>}
           </div>
         ))}</div>
       )}
@@ -383,6 +389,44 @@ function About({ g, leader, staff, onSaved }: { g: Group; leader: boolean; staff
       <p className="muted small">{SECTIONS.find(([c]) => c === g.category)?.[1] ?? "Group"}{g.is_private ? " · Private (join with invite link)" : " · Open to all members"}{g.read_only ? " · Only admins post" : ""}</p>
       {err && <p className="err">{err}</p>}
       {leader && <button className="btn ghost sm" onClick={() => setEdit(true)}><Icon name="pencil" size={16} />Edit group</button>}
+    </div>
+  );
+}
+
+// Leaders and BCIL staff add people to a group by name (the person gets a notification)
+function AddPeople({ roomId, have, onAdded }: { roomId: string; have: Set<string>; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<{ id: string; full_name: string; avatar_url: string | null }[]>([]);
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    const t = q.trim();
+    if (t.length < 2) { setFound([]); return; }
+    const h = setTimeout(() => supabase.from("profiles").select("id, full_name, avatar_url").ilike("full_name", `%${t.replace(/[%_,()]/g, " ")}%`).neq("full_name", "").limit(10)
+      .then(({ data }) => setFound((data ?? []) as typeof found)), 250);
+    return () => clearTimeout(h);
+  }, [q]);
+  async function add(id: string) {
+    setErr("");
+    const { error } = await supabase.from("room_members").insert({ room_id: roomId, user_id: id });
+    if (error && !/duplicate/i.test(error.message)) { setErr("Could not add: " + error.message); return; }
+    setAdded((s) => new Set(s).add(id)); onAdded();
+  }
+  if (!open) return <button className="btn primary" style={{ marginBottom: 10 }} onClick={() => setOpen(true)}><Icon name="userplus" size={18} />Add people</button>;
+  return (
+    <div className="card addpeople">
+      <div className="row" style={{ justifyContent: "space-between" }}><b>Add people to this group</b><button className="linkbtn" onClick={() => setOpen(false)}>Done</button></div>
+      <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members by name…" autoFocus aria-label="Search members by name" />
+      {err && <p className="err">{err}</p>}
+      {q.trim().length >= 2 && !found.length && <p className="muted small">No one found. They need a BCIL Live account first.</p>}
+      <div className="list">{found.map((p) => (
+        <div key={p.id} className="person">
+          <Avatar name={p.full_name} url={p.avatar_url} size={36} />
+          <b className="grow">{p.full_name}</b>
+          {have.has(p.id) || added.has(p.id) ? <span className="ok">✓ In the group</span> : <button className="btn primary sm" onClick={() => add(p.id)}>Add</button>}
+        </div>
+      ))}</div>
     </div>
   );
 }
