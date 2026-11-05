@@ -8,10 +8,10 @@ export default function Privacy() {
     <section className="view legal">
       <img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" style={{ height: 40, width: "auto", alignSelf: "flex-start" }} />
       <h1>Privacy policy</h1>
-      <p className="muted">BCIL Live · BCIL Foundation LBG · Last updated 31 October 2026</p>
+      <p className="muted">BCIL Foundation LBG · Last updated 31 October 2026</p>
 
       <h2>Who we are</h2>
-      <p>BCIL Live is the app and website of BCIL Foundation LBG, a non-profit organisation working with students in Ghana. This policy explains what information the app collects, why, and the choices you have. Contact us any time at <a href="mailto:info@bcilfoundation.org">info@bcilfoundation.org</a>.</p>
+      <p>This is the app and website of BCIL Foundation LBG (live.bcilfoundation.org), a non-profit organisation working with students in Ghana. This policy explains what information the app collects, why, and the choices you have. Contact us any time at <a href="mailto:info@bcilfoundation.org">info@bcilfoundation.org</a>.</p>
 
       <h2>What we collect</h2>
       <ul>
@@ -51,7 +51,7 @@ export default function Privacy() {
 
       <h2>Changes</h2>
       <p>If we change this policy we will update the date above and tell members in the app.</p>
-      <p><Link to="/">← Back to BCIL Live</Link></p>
+      <p><Link to="/">← Back to the app</Link></p>
     </section>
   );
 }
@@ -63,7 +63,7 @@ function DeleteAccount() {
   useEffect(() => { supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session)); }, []);
   if (!signedIn) return null;
   async function del() {
-    const typed = window.prompt("This permanently deletes your BCIL Live account, your messages, posts and friends. It cannot be undone.\n\nType DELETE to confirm.");
+    const typed = window.prompt("This permanently deletes your BCIL Foundation account, your messages, posts and friends. It cannot be undone.\n\nType DELETE to confirm.");
     if (typed?.trim().toUpperCase() !== "DELETE") return;
     const { error } = await supabase.rpc("delete_my_account");
     if (error) { setMsg("Could not delete your account: " + error.message); return; }

@@ -25,7 +25,7 @@ export default function UpdateBanner() {
   const later = () => { try { localStorage.setItem("bcil.update.later", String(Date.now() + 864e5)); } catch { /* ignore */ } setUrl(null); };
   return (
     <div className="updatebar" role="status">
-      <span>✨ A new version of BCIL Live is ready.</span>
+      <span>✨ A new version of BCIL Foundation is ready.</span>
       <button className="btn primary sm" onClick={update}>Update</button>
       <button className="linkbtn" onClick={later} aria-label="Remind me later">Later</button>
     </div>

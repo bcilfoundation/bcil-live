@@ -82,7 +82,7 @@ export default function App() {
         </nav>
       </aside>
       <div className="app">
-        {viewAsMember && <div className="viewasbar" role="status">👁 You're viewing BCIL Live as a member. Staff buttons are hidden.
+        {viewAsMember && <div className="viewasbar" role="status">👁 You're viewing BCIL Foundation as a member. Staff buttons are hidden.
           <button onClick={() => setViewAsMember(false)}>Back to admin view</button></div>}
         <header className="top">
           <span className="org"><img className="toplogo" src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" />BCIL Foundation</span>
@@ -131,9 +131,9 @@ export default function App() {
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}
                 </div>
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
-                {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Live.</p>}
+                {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Foundation.</p>}
                 {!isNative && !isAndroid && !isIOS && <p className="muted small">On your phone, open live.bcilfoundation.org to install the app (Android) or add it to your Home Screen (iPhone).</p>}
-                <p className="app-version">BCIL Live · version {__APP_VERSION__}</p></section>} />
+                <p className="app-version">BCIL Foundation · version {__APP_VERSION__}</p></section>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           </Suspense>

@@ -19,8 +19,8 @@ export default defineConfig({
         globIgnores: ["**/pdf*.{js,mjs}", "**/agora-extension-virtual-background*", "**/fcb/**"],
       },
       manifest: {
-        name: "BCIL Live",
-        short_name: "BCIL Live",
+        name: "BCIL Foundation",
+        short_name: "BCIL",
         description: "Live sessions, talks, daily quotes and community from BCIL Foundation",
         theme_color: "#1e3f78",
         background_color: "#ffffff",

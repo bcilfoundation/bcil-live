@@ -126,7 +126,7 @@ function QuoteAlerts({ me }: { me: string }) {
   return (
     <div className="quotealert">
       <div className="grow"><b>Get the Daily Bite on your phone</b>
-        <small className="muted">{iosBrowser ? "On iPhone: tap Share → Add to Home Screen, open BCIL Live from your home screen, then come back here." : "A notification every morning at 6:00 am, no need to open the app."}</small></div>
+        <small className="muted">{iosBrowser ? "On iPhone: tap Share → Add to Home Screen, open BCIL Foundation from your home screen, then come back here." : "A notification every morning at 6:00 am, no need to open the app."}</small></div>
       {!iosBrowser && <button className="btn small primary" disabled={busy} onClick={push ? () => setQuotes(true) : turnOn}>{busy ? "…" : "Turn on"}</button>}
       {msg && <p className="muted" role="status" style={{ width: "100%", margin: 0 }}>{msg}</p>}
     </div>

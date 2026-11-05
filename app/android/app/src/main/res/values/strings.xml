@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">BCIL Live</string>
-    <string name="title_activity_main">BCIL Live</string>
+    <string name="app_name">BCIL Foundation</string>
+    <string name="title_activity_main">BCIL Foundation</string>
     <string name="package_name">org.bcilfoundation.live</string>
     <string name="custom_url_scheme">org.bcilfoundation.live</string>
 </resources>

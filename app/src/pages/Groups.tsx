@@ -187,7 +187,7 @@ export function GroupPage() {
   }
   async function copyInvite() {
     const link = inviteLink(g!.invite_code!);
-    try { if (navigator.share) await navigator.share({ title: g!.name, text: `Join ${g!.name} on BCIL Live`, url: link }); else { await navigator.clipboard.writeText(link); setNote("Invite link copied."); } }
+    try { if (navigator.share) await navigator.share({ title: g!.name, text: `Join ${g!.name} on BCIL Foundation`, url: link }); else { await navigator.clipboard.writeText(link); setNote("Invite link copied."); } }
     catch { /* share cancelled */ }
   }
   async function rsvp(e: Ev) {
@@ -419,7 +419,7 @@ function AddPeople({ roomId, have, onAdded }: { roomId: string; have: Set<string
       <div className="row" style={{ justifyContent: "space-between" }}><b>Add people to this group</b><button className="linkbtn" onClick={() => setOpen(false)}>Done</button></div>
       <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members by name…" autoFocus aria-label="Search members by name" />
       {err && <p className="err">{err}</p>}
-      {q.trim().length >= 2 && !found.length && <p className="muted small">No one found. They need a BCIL Live account first.</p>}
+      {q.trim().length >= 2 && !found.length && <p className="muted small">No one found. They need a BCIL Foundation account first.</p>}
       <div className="list">{found.map((p) => (
         <div key={p.id} className="person">
           <Avatar name={p.full_name} url={p.avatar_url} size={36} />

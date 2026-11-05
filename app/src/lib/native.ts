@@ -4,7 +4,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 const LiveKeep = registerPlugin<{ start(): Promise<void>; stop(): Promise<void> }>("LiveKeep");
 
 // Inside the downloaded Android app, keep the live room running when the phone sleeps or
-// another app is opened. Android shows a "BCIL Live" notification while this is on.
+// another app is opened. Android shows a "BCIL Foundation" notification while this is on.
 // On the website (and on iPhone) these do nothing.
 export const isNative = Capacitor.isNativePlatform();
 const isAndroid = Capacitor.getPlatform() === "android";
@@ -20,7 +20,7 @@ export async function startLiveService(title: string, speaking: boolean) {
     if (perm.display !== "granted") await ForegroundService.requestPermissions();
     await ForegroundService.startForegroundService({
       id: 7001,
-      title: speaking ? "You're on air · BCIL Live" : "Listening · BCIL Live",
+      title: speaking ? "You're on air · BCIL Foundation" : "Listening · BCIL Foundation",
       body: title,
       smallIcon: "ic_stat_live",
       serviceType: (speaking ? MICROPHONE | MEDIA_PLAYBACK : MEDIA_PLAYBACK) as never,

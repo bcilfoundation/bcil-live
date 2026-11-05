@@ -6,8 +6,8 @@ export default function Thanks() {
       <div style={{ fontSize: 56 }}>💛</div>
       <h1>Thank you!</h1>
       <p>Your gift to BCIL Foundation is being confirmed. {live ? "It will appear in the live room in a moment." : "You'll see it under My donations."}</p>
-      <p className="muted">You can close this page and go back to BCIL Live.</p>
-      <a className="btn primary" href="/">Open BCIL Live</a>
+      <p className="muted">You can close this page and go back to BCIL Foundation.</p>
+      <a className="btn primary" href="/">Open BCIL Foundation</a>
     </section>
   );
 }

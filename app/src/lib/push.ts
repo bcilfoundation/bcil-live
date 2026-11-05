@@ -20,8 +20,8 @@ async function enableNative(userId: string): Promise<void> {
   const P = await nativePush();
   let perm = await P.checkPermissions();
   if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") perm = await P.requestPermissions();
-  if (perm.receive !== "granted") throw new Error("Notifications are turned off for BCIL Live. Turn them on in your phone's Settings → Apps → BCIL Live → Notifications.");
-  await P.createChannel({ id: "bcil", name: "BCIL Live", description: "Live sessions, messages and updates", importance: 5, visibility: 1 }).catch(() => {});
+  if (perm.receive !== "granted") throw new Error("Notifications are turned off for BCIL Foundation. Turn them on in your phone's Settings → Apps → BCIL Foundation → Notifications.");
+  await P.createChannel({ id: "bcil", name: "BCIL Foundation", description: "Live sessions, messages and updates", importance: 5, visibility: 1 }).catch(() => {});
   const token = await new Promise<string>((ok, no) => {
     const t = setTimeout(() => no(new Error("Could not connect to notifications. Check your internet and try again.")), 20000);
     P.addListener("registration", (r) => { clearTimeout(t); ok(r.value); });
@@ -29,7 +29,7 @@ async function enableNative(userId: string): Promise<void> {
     P.register();
   });
   const { error } = await supabase.from("push_subscriptions").upsert(
-    { user_id: userId, endpoint: `fcm:${token}`, p256dh: "fcm", auth: "fcm", user_agent: "BCIL Live Android app" }, { onConflict: "endpoint" });
+    { user_id: userId, endpoint: `fcm:${token}`, p256dh: "fcm", auth: "fcm", user_agent: "BCIL Foundation Android app" }, { onConflict: "endpoint" });
   if (error) throw error;
   try { localStorage.setItem(FCM_KEY, token); } catch { /* ignore */ }
 }
@@ -75,9 +75,9 @@ export async function pushEnabled(): Promise<boolean> {
 
 export async function enablePush(userId: string): Promise<void> {
   if (await nativeCheck) return enableNative(userId);
-  if (isNative) throw new Error("Please update the BCIL Live app to get phone notifications (Get the Android app in the menu).");
+  if (isNative) throw new Error("Please update the BCIL Foundation app to get phone notifications (Get the Android app in the menu).");
   if (!pushSupported()) throw new Error(/iPhone|iPad/.test(navigator.userAgent)
-    ? "On iPhone, add BCIL Live to your home screen first (Share → Add to Home Screen), then open it from there and try again."
+    ? "On iPhone, add BCIL Foundation to your home screen first (Share → Add to Home Screen), then open it from there and try again."
     : "This browser can't show notifications. Try Chrome.");
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Notifications are blocked. Allow notifications for live.bcilfoundation.org in your phone or browser settings.");

@@ -8,7 +8,7 @@ type Done = { ticket: string; name: string; title: string; checked_in: boolean }
 const base = import.meta.env.BASE_URL;
 
 /**
- * Public registration: live.bcilfoundation.org/register/<form>. Works without a BCIL Live account
+ * Public registration: live.bcilfoundation.org/register/<form>. Works without a BCIL Foundation account
  * (people who are signed in are linked to their account). With ?w=<walk-in code> (the QR code at the venue)
  * the person is checked in as soon as they submit.
  */
@@ -65,8 +65,8 @@ export default function Register({ slug }: { slug: string }) {
             <Ticket ticket={done.ticket} title={form.title} checkedIn={done.checked_in} />
             <p className="muted small">{mail || "Take a screenshot of your ticket now, or keep this link:"}</p>
             <a className="btn ghost" href={`${base}t/${done.ticket}`}>Open my ticket page</a>
-            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Join BCIL Live for live sessions, talks, the Daily Bite and the community.</span>
-              <a className="btn primary" href={base}>Join BCIL Live</a></div>}
+            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
+              <a className="btn primary" href={base}>Open the app</a></div>}
           </div>
         ) : (
           <form className="card formcard" onSubmit={submit} noValidate>
@@ -75,7 +75,7 @@ export default function Register({ slug }: { slug: string }) {
               <h2>{form.title}</h2>
               {form.subtitle && <p className="muted">{form.subtitle}</p>}
               {form.description && <p>{form.description}</p>}
-              {!signedIn && <p className="muted small">No account needed. Already on BCIL Live? <a href={`${base}forms?form=${form.slug}`}>Sign in and register there</a>.</p>}
+              {!signedIn && <p className="muted small">No account needed. Already have an account on our app? <a href={`${base}forms?form=${form.slug}`}>Sign in and register there</a>.</p>}
               <small className="muted">* Required</small>
             </div>
             <QuestionList fields={form.fields} answers={answers} set={set} toggle={toggle} />

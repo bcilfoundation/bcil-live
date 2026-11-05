@@ -19,7 +19,7 @@ async function systemAlert(n: Note) {
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     const opts = { body: n.body, icon: `${import.meta.env.BASE_URL}icon-192.png`, tag: `bcil-${n.id}`, data: { link: n.link } };
-    if (reg) await reg.showNotification("BCIL Live", opts); else new Notification("BCIL Live", opts);
+    if (reg) await reg.showNotification("BCIL Foundation", opts); else new Notification("BCIL Foundation", opts);
   } catch { /* alerts are best-effort */ }
 }
 

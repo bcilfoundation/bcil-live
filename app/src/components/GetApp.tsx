@@ -17,10 +17,10 @@ export default function GetApp({ where = "app" }: { where?: "app" | "signin" }) 
     <div className={`getapp ${where}`} role="note">
       <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
       {isAndroid ? <>
-        <div className="grow"><b>Get the BCIL Live app</b><small>Free for Android · notifications, live sessions in the background</small></div>
+        <div className="grow"><b>Get the BCIL Foundation app</b><small>Free for Android · notifications, live sessions in the background</small></div>
         <a className="btn primary sm" href={APK} download>Download</a>
       </> : <>
-        <div className="grow"><b>Add BCIL Live to your Home Screen</b><small>Tap <span aria-label="Share">⬆︎ Share</span> at the bottom of Safari, then <b>Add to Home Screen</b></small></div>
+        <div className="grow"><b>Add BCIL Foundation to your Home Screen</b><small>Tap <span aria-label="Share">⬆︎ Share</span> at the bottom of Safari, then <b>Add to Home Screen</b></small></div>
       </>}
       <button className="linkbtn" onClick={hide} aria-label="Hide">✕</button>
     </div>

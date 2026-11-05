@@ -359,9 +359,9 @@ function useLiveEngine() {
       if (stayIn.current && (!c || c.connectionState !== "CONNECTED" || micDead)) reconnectRef.current();
     };
     document.addEventListener("visibilitychange", onVisible);
-    // lock-screen card ("BCIL Live") so the phone treats this like a podcast that is playing
+    // lock-screen card ("BCIL Foundation") so the phone treats this like a podcast that is playing
     if ("mediaSession" in navigator && live) {
-      navigator.mediaSession.metadata = new MediaMetadata({ title: live.title, artist: "BCIL Live",
+      navigator.mediaSession.metadata = new MediaMetadata({ title: live.title, artist: "BCIL Foundation",
         artwork: [{ src: `${import.meta.env.BASE_URL}icon-512.png`, sizes: "512x512", type: "image/png" }] });
     }
     // warn the host before closing the page by accident
@@ -523,7 +523,7 @@ function useLiveEngine() {
       if (seconds < 5 || blob.size < 2000) { setNotice("The recording was too short to save."); return; }
       const url = await uploadAudio(me, blob, sess?.title ?? "live-session");
       await supabase.from("talks").insert({
-        kind: "audio", audio_url: url, title: sess?.title ?? "BCIL Live session", program: "Live sessions",
+        kind: "audio", audio_url: url, title: sess?.title ?? "BCIL Foundation session", program: "Live sessions",
         description: sess?.topic ?? null, published_on: new Date().toISOString().slice(0, 10), duration_seconds: seconds,
         live_session_id: sess?.id ?? null, created_by: me, status: "draft",
       });
@@ -586,15 +586,15 @@ function useLiveEngine() {
   async function share() {
     const priv = live?.is_private && live.invite_code;
     const url = `${window.location.origin}${import.meta.env.BASE_URL}live${priv ? `?join=${live!.invite_code}` : ""}`;
-    const shareText = priv ? `You're invited to a private BCIL Live session: "${live?.title}". Open this link to join` : `Join "${live?.title}" live on BCIL Live`;
+    const shareText = priv ? `You're invited to a private BCIL Foundation session: "${live?.title}". Open this link to join` : `Join "${live?.title}" live with BCIL Foundation`;
     try {
-      if (navigator.share) await navigator.share({ title: "BCIL Live", text: shareText, url });
+      if (navigator.share) await navigator.share({ title: "BCIL Foundation", text: shareText, url });
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
   async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string }) {
     if (opts.roomId) opts.private = true;   // a group session: only that group sees it and is notified
-    const title = opts.title.trim() || `${opts.private ? "Private meeting" : "BCIL Live"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+    const title = opts.title.trim() || `${opts.private ? "Private meeting" : "Live session"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
     const { data, error } = await supabase.from("live_sessions")
       .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind,

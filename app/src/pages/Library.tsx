@@ -53,7 +53,7 @@ export default function Library() {
     setOpen(t); setSpeed(1);
     if (params.get("talk") !== t.id) setParams({ talk: t.id }, { replace: true });
     if (t.kind === "audio" && "mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "BCIL Foundation", album: t.program ?? "BCIL Live",
+      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "BCIL Foundation", album: t.program ?? "BCIL Foundation",
         artwork: [{ src: `${import.meta.env.BASE_URL}icon-512.png`, sizes: "512x512", type: "image/png" }] });
     }
     const [{ count }, { data: mine }, { data: sv }, { data: cs }] = await Promise.all([

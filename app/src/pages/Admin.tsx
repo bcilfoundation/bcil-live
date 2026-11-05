@@ -340,7 +340,7 @@ function EngagementAdmin() {
       .map((value) => ({ value, fontWeight: "bold" as const, backgroundColor: "#e3ebf6" }));
     const body = rows.map((r, i) => [i + 1, r.name, r.score, r.listen_minutes, r.talks_finished, r.live_minutes, r.live_sessions, r.quotes_read, r.quote_likes, r.days_active].map((value) => ({ value })));
     await writeXlsxFile([head, ...body] as never, { sheet: "Engagement", stickyRowsCount: 1, columns: [{ width: 6 }, { width: 28 }, ...Array(8).fill({ width: 14 })] })
-      .toFile(`BCIL Live engagement (last ${days} days).xlsx`);
+      .toFile(`BCIL Foundation engagement (last ${days} days).xlsx`);
   }
   return (<>
     <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -410,7 +410,7 @@ function FormQr({ form, close }: { form: { id: string; slug: string; title: stri
   return (<>
     <div className="row" style={{ justifyContent: "space-between" }}><h3 style={{ margin: 0 }}>QR codes · {form.title}</h3><button className="linkbtn" onClick={close}>Close</button></div>
     <div className="grid2">
-      <Card title="Registration (share this)" note="For flyers, WhatsApp and posters. People register with or without a BCIL Live account, and get a QR ticket." url={share} img={imgs.share} file={`${safe}-registration-QR.png`} />
+      <Card title="Registration (share this)" note="For flyers, WhatsApp and posters. People register with or without a BCIL Foundation account, and get a QR ticket." url={share} img={imgs.share} file={`${safe}-registration-QR.png`} />
       {code ? <Card title="Walk-in at the venue" note="Print for the registration desk on the day. People who register with this are checked in straight away. Don't share it before the day." url={walk} img={imgs.walk} file={`${safe}-walk-in-QR.png`} />
         : <div className="card"><p className="muted">Making the walk-in code…</p></div>}
     </div>

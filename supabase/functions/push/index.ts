@@ -1,4 +1,4 @@
-// BCIL Live: send phone notifications for a new row in public.notifications:
+// BCIL Foundation: send phone notifications for a new row in public.notifications:
 // Web Push for the website / home-screen app, and Firebase Cloud Messaging (FCM) for the Android app.
 // FCM needs the secret FCM_SERVICE_ACCOUNT (the Firebase service account JSON).
 // Called by a database trigger (pg_net) with { id } and the shared x-push-secret header.
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
   let sa: ServiceAccount | null = null;
   try { const raw = Deno.env.get("FCM_SERVICE_ACCOUNT"); if (raw) sa = JSON.parse(raw); } catch { sa = null; }
   const titles: Record<string, string> = { live: "BCIL is live now", message: "New message", friend_request: "Friend request", friend_accepted: "Friend request accepted", activity: "New group activity", post: "Group update", quote: "Daily Bite · BCIL", programme: "Starting soon" };
-  const payload = JSON.stringify({ title: titles[n.kind] ?? "BCIL Live", body: n.body, url: n.link ?? "/", tag: n.kind === "message" ? `msg-${n.link}` : n.kind === "quote" ? "quote" : undefined });
+  const payload = JSON.stringify({ title: titles[n.kind] ?? "BCIL Foundation", body: n.body, url: n.link ?? "/", tag: n.kind === "message" ? `msg-${n.link}` : n.kind === "quote" ? "quote" : undefined });
 
   let sent = 0;
   const msg = JSON.parse(payload) as { title: string; body: string; url: string; tag?: string };

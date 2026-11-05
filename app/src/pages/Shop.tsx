@@ -50,7 +50,7 @@ export default function Shop() {
 }
 
 function BookSheet({ b, isStaff, close, edit }: { b: ShopBook; isStaff: boolean; close: () => void; edit: () => void }) {
-  const wa = (s: Seller) => `https://wa.me/${digits(s.phone)}?text=${encodeURIComponent(`Hello ${s.name}, I'd like to get a copy of "${b.title}" by ${b.author}. (From the BCIL Live app)`)}`;
+  const wa = (s: Seller) => `https://wa.me/${digits(s.phone)}?text=${encodeURIComponent(`Hello ${s.name}, I'd like to get a copy of "${b.title}" by ${b.author}. (From the BCIL Foundation app)`)}`;
   return (
     <>
       <div className="sheet-back" onClick={close} />

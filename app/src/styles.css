@@ -1,4 +1,4 @@
-/* BCIL Live: light theme in BCIL Foundation colours (navy from the logo, white) */
+/* BCIL Foundation: light theme in BCIL Foundation colours (navy from the logo, white) */
 :root{--bg:#f4f7fb;--panel:#ffffff;--panel-2:#eaf0f8;--line:#d9e1ec;--text:#16233a;--muted:#5b6b80;
   --navy:#1e3f78;--navy-deep:#0f2d52;--navy-soft:#e3ebf6;--accent:#1e3f78;--accent-ink:#ffffff;--live:#d6332b;--good:#1d8a57;
   --display:"Bricolage Grotesque",system-ui,sans-serif;--body:"Figtree",system-ui,sans-serif;color-scheme:light}
