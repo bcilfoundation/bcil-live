@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import HomePosts from "../components/HomePosts";
+import Stories from "../components/Stories";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
@@ -97,6 +98,8 @@ export default function Home() {
         ))}</div>
       </>}
       {events && !upcoming.length && <Link to="/events" className="card"><b>Programmes</b><br /><small className="muted">See past and upcoming BCIL programmes</small></Link>}
+
+      <Stories />
 
       {/* new books and talks this week */}
       {fresh.length > 0 && <>

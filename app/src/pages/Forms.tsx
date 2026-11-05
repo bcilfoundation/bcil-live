@@ -8,7 +8,7 @@ import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pa
 // Question types, matching what BCIL uses in Google Forms
 export type Field = {
   key: string; label: string; required?: boolean; help?: string;
-  type: "text" | "tel" | "email" | "date" | "number" | "textarea" | "select" | "radio" | "checkbox" | "section";
+  type: "text" | "tel" | "email" | "date" | "number" | "textarea" | "select" | "radio" | "checkbox" | "section" | "file";
   options?: string[];
 };
 type Form = { id: string; slug: string; title: string; subtitle: string | null; description: string | null; fields: Field[]; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
@@ -169,7 +169,8 @@ export function QuestionList({ fields, answers, set, toggle }: { fields: Field[]
         <fieldset className="q" key={f.key} id={`q-${f.key}`}>
           <legend>{f.label}{f.required && <span className="req"> *</span>}</legend>
           {f.help && <small className="muted">{f.help}</small>}
-          {f.type === "textarea" ? <textarea value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label} />
+          {f.type === "file" ? <FileQuestion label={f.label} value={answers[f.key] ?? ""} onChange={(v) => set(f.key, v)} />
+            : f.type === "textarea" ? <textarea value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label} />
             : f.type === "select" ? (
               <select value={answers[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} aria-label={f.label}>
                 <option value="">Choose…</option>{f.options?.map((o) => <option key={o}>{o}</option>)}
@@ -193,6 +194,28 @@ export function QuestionList({ fields, answers, set, toggle }: { fields: Field[]
         </fieldset>
       ))}
   </>);
+}
+
+/** A document upload (PDF or photo, up to 10 MB). Files go to private storage only BCIL staff can open; the answer keeps the file's path. */
+function FileQuestion({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  const name = value ? value.split("/").pop()!.replace(/^[0-9a-f-]{36}-/, "") : "";
+  async function pick(file?: File) {
+    if (!file) return; setErr("");
+    if (file.size > 10 * 1024 * 1024) { setErr("That file is over 10 MB. Try a smaller copy or a photo."); return; }
+    setBusy(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const path = `${session?.user.id ?? "guest"}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
+    const { error } = await supabase.storage.from("form-files").upload(path, file, { contentType: file.type || undefined });
+    setBusy(false);
+    if (error) setErr("Upload failed. Check your connection and try again."); else onChange(path);
+  }
+  return (<div className="fileq">
+    {value ? <span className="pill sent">📎 {name}</span> : null}
+    <label className="btn ghost sm">{busy ? "Uploading…" : value ? "Replace file" : "Choose file"}
+      <input type="file" hidden accept="application/pdf,image/*,.doc,.docx" aria-label={label} onChange={(e) => pick(e.target.files?.[0])} /></label>
+    {err && <small className="err">{err}</small>}
+  </div>);
 }
 
 /** Answers ready to save: "Other" text folded in like Google Forms, sections skipped */

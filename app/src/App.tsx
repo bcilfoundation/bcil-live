@@ -28,6 +28,9 @@ const Events = lazy(() => import("./pages/Events"));
 const CheckIn = lazy(() => import("./pages/CheckIn"));
 const Shop = lazy(() => import("./pages/Shop"));
 const Team = lazy(() => import("./pages/Team"));
+const Mentorship = lazy(() => import("./pages/Mentorship"));
+const Photos = lazy(() => import("./pages/Photos"));
+import NewsletterSwitch from "./components/NewsletterSwitch";
 const Search = lazy(() => import("./pages/Search"));
 const Register = lazy(() => import("./pages/Register"));
 const TicketPage = lazy(() => import("./pages/Register").then((m) => ({ default: m.TicketPage })));
@@ -41,12 +44,12 @@ const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/groups", "Groups"], ["/donate", "Donate"],
 ] as const);
 const NAV_MORE = ([
-  ["/about", "About us"], ["/events", "Programmes"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
+  ["/about", "About us"], ["/events", "Programmes"], ["/mentorship", "Mentorship"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
 ] as const);
-const MORE_ICONS: Record<string, string> = { "/about": "star", "/events": "calendar", "/forms?form=join-campus-sync": "userplus", "/forms?form=fcb27-volunteer": "users" };
+const MORE_ICONS: Record<string, string> = { "/about": "star", "/events": "calendar", "/mentorship": "userplus", "/forms?form=join-campus-sync": "userplus", "/forms?form=fcb27-volunteer": "users" };
 const sideActive = (to: string, path: string, search: string) =>
   to === "/" ? path === "/"
-  : to === "/library" ? /^\/(library|reading|shop)/.test(path)
+  : to === "/library" ? /^\/(library|reading|shop|photos)/.test(path)
   : to === "/groups" ? /^\/(groups|chat|campus|friends|join)/.test(path)
   : to.startsWith("/forms?") ? path === "/forms" && search === to.slice(6)
   : path.startsWith(to);
@@ -116,6 +119,8 @@ export default function App() {
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/about" element={<Team />} />
+            <Route path="/mentorship" element={<Mentorship />} />
+            <Route path="/photos" element={<Photos />} />
             <Route path="/team" element={<Navigate to="/about" replace />} />
             <Route path="/search" element={<Search />} />
             <Route path="/quotes" element={<Quotes />} />
@@ -125,6 +130,7 @@ export default function App() {
                 <div className="list morelist">
                   <NavLink to="/about"><Icon name="star" size={22} />About us</NavLink>
                   <NavLink to="/events"><Icon name="calendar" size={22} />Programmes</NavLink>
+                  <NavLink to="/mentorship"><Icon name="userplus" size={22} /><span className="grow">Mentorship<small className="muted">Find a mentor or become one</small></span></NavLink>
                   <NavLink to="/forms?form=join-campus-sync"><Icon name="userplus" size={22} /><span className="grow">Join us<small className="muted">Become a member through Campus Sync</small></span></NavLink>
                   <NavLink to="/forms?form=fcb27-volunteer"><Icon name="users" size={22} /><span className="grow">Volunteer for FCB 27<small className="muted">Serve at Finding Campus Balance 2027</small></span></NavLink>
                 </div>
@@ -133,6 +139,7 @@ export default function App() {
                   <NavLink to="/shop"><Icon name="cart" size={22} />Bookshop</NavLink>
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}
                 </div>
+                <NewsletterSwitch />
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
                 {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Foundation.</p>}
                 {!isNative && !isAndroid && !isIOS && <p className="muted small">On your phone, open live.bcilfoundation.org to install the app (Android) or add it to your Home Screen (iPhone).</p>}

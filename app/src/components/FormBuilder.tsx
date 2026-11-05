@@ -5,7 +5,7 @@ import type { Field } from "../pages/Forms";
 type FormDef = { id?: string; slug: string; title: string; subtitle: string | null; description: string | null; fields: Field[]; is_open: boolean; sensitive?: boolean };
 const TYPES: [Field["type"], string][] = [
   ["text", "Short answer"], ["textarea", "Paragraph"], ["radio", "Multiple choice (pick one)"], ["checkbox", "Checkboxes (pick any)"],
-  ["select", "Dropdown"], ["email", "Email"], ["tel", "Phone number"], ["number", "Number"], ["date", "Date"], ["section", "Section heading"],
+  ["select", "Dropdown"], ["email", "Email"], ["tel", "Phone number"], ["number", "Number"], ["date", "Date"], ["file", "File upload"], ["section", "Section heading"],
 ];
 const hasOptions = (t: Field["type"]) => t === "radio" || t === "checkbox" || t === "select";
 const slugify = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "form";

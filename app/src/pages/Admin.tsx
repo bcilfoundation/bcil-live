@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 
-const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
@@ -30,6 +30,7 @@ export default function Admin() {
       {tab === "Live sessions" && isAdmin && <LiveAdmin />}
       {tab === "Talks" && isAdmin && <TalksAdmin />}
       {tab === "Forms" && isAdmin && <FormsAdmin />}
+      {tab === "Mentorship" && isAdmin && <MentorshipAdmin />}
       {tab === "Gifts" && isAdmin && <GiftsAdmin />}
       {tab === "Engagement" && <EngagementAdmin />}
       {(tab === "Reports" || (!isAdmin && tab !== "Engagement")) && <ReportsAdmin />}
@@ -140,7 +141,24 @@ function TalksAdmin() {
 }
 
 type FormRow = { id: string; slug: string; title: string; subtitle: string | null; description: string | null; sensitive?: boolean; fields: Field[]; is_open: boolean; fee_pesewas: number | null; fee_label: string | null; fee_required: boolean };
-type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; paid_at: string | null; checked_in_at: string | null; profiles: { full_name: string } | null };
+type RespRow = { id: number; answers: Record<string, string>; status: string; created_at: string; paid_at: string | null; checked_in_at: string | null; review_score?: number | null; review_note?: string | null; profiles: { full_name: string } | null };
+
+// the selection committee's score (out of 100; 60 to be considered) and notes on an application
+function Review({ r, reload }: { r: RespRow; reload: () => void }) {
+  const [score, setScore] = useState(r.review_score?.toString() ?? ""); const [note, setNote] = useState(r.review_note ?? ""); const [saved, setSaved] = useState(false);
+  const dirty = score !== (r.review_score?.toString() ?? "") || note !== (r.review_note ?? "");
+  async function save() {
+    const n = score === "" ? null : Math.max(0, Math.min(100, Number(score)));
+    await supabase.from("form_responses").update({ review_score: n, review_note: note.trim() || null }).eq("id", r.id);
+    setSaved(true); setTimeout(() => setSaved(false), 1500); reload();
+  }
+  return (<div className="review row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+    <label className="small">Score <input type="number" min={0} max={100} value={score} onChange={(e) => setScore(e.target.value)} style={{ width: 70 }} aria-label="Score out of 100" /> / 100</label>
+    {r.review_score != null && <span className={`pill ${r.review_score >= 60 ? "paid" : ""}`}>{r.review_score >= 60 ? "Meets 60" : "Below 60"}</span>}
+    <input placeholder="Committee notes" value={note} onChange={(e) => setNote(e.target.value)} style={{ flex: "1 1 200px" }} aria-label="Committee notes" />
+    <button className="btn ghost sm" disabled={!dirty} onClick={save}>{saved ? "Saved ✓" : "Save"}</button>
+  </div>);
+}
 
 function FormsAdmin() {
   const [forms, setForms] = useState<FormRow[]>([]);
@@ -153,8 +171,13 @@ function FormsAdmin() {
   const loadForms = () => supabase.from("forms").select("id, slug, title, subtitle, description, sensitive, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
     .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
   useEffect(() => { loadForms(); }, []);
-  const load = () => formId && supabase.from("form_responses").select("id, answers, status, created_at, paid_at, checked_in_at, profiles(full_name)")
-    .eq("form_id", formId).order("created_at", { ascending: false }).then(({ data }) => setRows((data ?? []) as unknown as RespRow[]));
+  const load = async () => {
+    if (!formId) return;
+    const q = (cols: string) => supabase.from("form_responses").select(cols).eq("form_id", formId).order("created_at", { ascending: false });
+    let { data, error } = await q("id, answers, status, created_at, paid_at, checked_in_at, review_score, review_note, profiles(full_name)");
+    if (error) ({ data } = await q("id, answers, status, created_at, paid_at, checked_in_at, profiles(full_name)"));   // before migration 037
+    setRows((data ?? []) as unknown as RespRow[]);
+  };
   useEffect(() => { load(); }, [formId]);
   const found = forms.find((f) => f.id === formId);
   const form = found && { ...found, fields: found.fields.filter((f) => f.type !== "section") };
@@ -242,7 +265,10 @@ function FormsAdmin() {
         {r.checked_in_at && <span className="pill sent" style={{ marginLeft: 6 }}>Checked in</span>}
         {ev && certReady(r) && <span className="pill paid" style={{ marginLeft: 6 }}>🎓 Certificate</span>}
         {form?.fee_pesewas && wantsCert(r) ? <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => markPaid(r)}>{r.paid_at ? "Undo paid" : "Mark paid"}</button> : null}
-        {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {r.answers[f.key]}</div> : null)}
+        {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {f.type === "file"
+          ? <button className="linkbtn" onClick={async () => { const { data } = await supabase.storage.from("form-files").createSignedUrl(r.answers[f.key], 600); if (data) window.open(data.signedUrl, "_blank", "noopener"); }}>📎 Open file</button>
+          : r.answers[f.key]}</div> : null)}
+        {form?.slug.startsWith("student-support") && <Review r={r} reload={load} />}
       </div>
         <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} aria-label="Status" style={{ width: 130 }}>{["received", "accepted", "waitlist", "declined"].map((s) => <option key={s}>{s}</option>)}</select></div>
     ))}</div>
@@ -295,7 +321,23 @@ function PeopleAdmin() {
   const load = () => supabase.from("profiles").select("id, full_name, phone, role, is_minor").order("created_at", { ascending: false }).limit(200).then(({ data }) => setRows(data ?? []));
   useEffect(() => { load(); }, []);
   const update = async (id: string, patch: Record<string, unknown>) => { await supabase.from("profiles").update(patch).eq("id", id); load(); };
+  const [nl, setNl] = useState("");
+  async function newsletterList() {
+    setNl("Preparing…");
+    const { data, error } = await supabase.rpc("newsletter_list");
+    if (error) { setNl("Couldn't load the list."); return; }
+    const list = (data ?? []) as { full_name: string; email: string; joined: string }[];
+    const { default: writeXlsxFile } = await import("write-excel-file/browser");
+    await writeXlsxFile([[{ value: "Name", fontWeight: "bold" }, { value: "Email", fontWeight: "bold" }, { value: "Joined", fontWeight: "bold" }],
+      ...list.map((r) => [{ value: r.full_name }, { value: r.email }, { value: r.joined }])] as never,
+      { sheet: "Newsletter", columns: [{ width: 28 }, { width: 34 }, { width: 12 }] }).toFile("BCIL newsletter list (app members).xlsx");
+    setNl(`${list.length} app member${list.length === 1 ? "" : "s"} on the list. Website sign-ups are in WordPress → SureForms → Entries.`);
+  }
   return (<>
+    <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+      <button className="btn ghost sm" onClick={newsletterList}>📬 Download newsletter list</button>
+      {nl && <small className="muted">{nl}</small>}
+    </div>
     <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or phone" aria-label="Search people" />
     <div className="list">{rows.filter((r) => (r.full_name + (r.phone ?? "")).toLowerCase().includes(q.toLowerCase())).map((r) => (
       <div key={r.id}><div className="grow"><b>{r.full_name || "No name"}</b><br /><small className="muted">{r.phone}</small></div>
@@ -439,5 +481,73 @@ function FormQr({ form, close }: { form: { id: string; slug: string; title: stri
       {code ? <Card title="Walk-in at the venue" note="Print for the registration desk on the day. People who register with this are checked in straight away. Don't share it before the day." url={walk} img={imgs.walk} file={`${safe}-walk-in-QR.png`} />
         : <div className="card"><p className="muted">Making the walk-in code…</p></div>}
     </div>
+  </>);
+}
+
+
+type MReq = { id: number; user_id: string | null; answers: Record<string, string>; created_at: string; forms: { slug: string } };
+type MPair = { id: number; mentor_id: string; mentee_id: string; room_id: string | null; next_session: string | null; created_at: string;
+  mentor: { full_name: string } | null; mentee: { full_name: string } | null };
+
+// Mentorship: requests from students, offers from mentors, and the pairs. Pairing opens a private chat for the two.
+function MentorshipAdmin() {
+  const [reqs, setReqs] = useState<MReq[]>([]);
+  const [pairs, setPairs] = useState<MPair[]>([]);
+  const [mentee, setMentee] = useState(""); const [mentor, setMentor] = useState("");
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const load = () => {
+    supabase.from("form_responses").select("id, user_id, answers, created_at, forms!inner(slug)").in("forms.slug", ["mentorship-mentee", "mentorship-mentor"])
+      .order("created_at", { ascending: false }).then(({ data }) => setReqs((data ?? []) as unknown as MReq[]));
+    supabase.from("mentorships").select("id, mentor_id, mentee_id, room_id, next_session, created_at, mentor:profiles!mentorships_mentor_id_fkey(full_name), mentee:profiles!mentorships_mentee_id_fkey(full_name)")
+      .eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setPairs((data ?? []) as unknown as MPair[]));
+  };
+  useEffect(() => { load(); }, []);
+  const paired = new Set(pairs.map((p) => p.mentee_id));
+  const load_of = (uid: string) => pairs.filter((p) => p.mentor_id === uid).length;
+  const students = reqs.filter((r) => r.forms.slug === "mentorship-mentee");
+  const mentors = reqs.filter((r) => r.forms.slug === "mentorship-mentor");
+  const name = (r: MReq) => r.answers.full_name || "Member";
+  async function pair() {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.rpc("pair_mentorship", { p_mentor: mentor, p_mentee: mentee });
+    setBusy(false);
+    if (error) setMsg(error.message); else { setMsg("Paired ✓ Both have been told in the app, and their chat is open."); setMentee(""); setMentor(""); load(); }
+  }
+  async function end(p: MPair) {
+    if (!window.confirm(`End the mentorship between ${p.mentor?.full_name} and ${p.mentee?.full_name}? Their chat stays.`)) return;
+    await supabase.from("mentorships").update({ status: "ended" }).eq("id", p.id); load();
+  }
+  const Req = ({ r }: { r: MReq }) => (
+    <div><div className="grow">
+      <b>{name(r)}</b> <small className="muted">· {fmt(r.created_at)}</small>
+      {!r.user_id && <span className="pill" style={{ marginLeft: 6 }}>No app account</span>}
+      {r.forms.slug === "mentorship-mentee" && r.user_id && paired.has(r.user_id) && <span className="pill paid" style={{ marginLeft: 6 }}>Paired</span>}
+      {r.forms.slug === "mentorship-mentor" && r.user_id && <span className="pill" style={{ marginLeft: 6 }}>{load_of(r.user_id)} mentee(s) · can take {r.answers.capacity || "?"}</span>}
+      {["school", "level", "work", "areas", "goal", "frequency", "phone"].map((k) => r.answers[k] ? <div key={k}><small className="muted">{k === "areas" ? (r.forms.slug === "mentorship-mentor" ? "Can help with" : "Wants help with") : k[0].toUpperCase() + k.slice(1)}:</small> {r.answers[k]}</div> : null)}
+    </div></div>
+  );
+  return (<>
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <b>🤝 Pair a mentor with a student</b>
+      <select value={mentee} onChange={(e) => setMentee(e.target.value)} aria-label="Student">
+        <option value="">Choose a student…</option>
+        {students.filter((r) => r.user_id && !paired.has(r.user_id)).map((r) => <option key={r.id} value={r.user_id!}>{name(r)}{r.answers.areas ? ` · ${r.answers.areas}` : ""}</option>)}
+      </select>
+      <select value={mentor} onChange={(e) => setMentor(e.target.value)} aria-label="Mentor">
+        <option value="">Choose a mentor…</option>
+        {mentors.filter((r) => r.user_id).map((r) => <option key={r.id} value={r.user_id!}>{name(r)} · {load_of(r.user_id!)} now{r.answers.areas ? ` · ${r.answers.areas}` : ""}</option>)}
+      </select>
+      <button className="btn primary" disabled={!mentee || !mentor || busy} onClick={pair}>{busy ? "Pairing…" : "Pair them"}</button>
+      {msg && <small className="muted">{msg}</small>}
+      <small className="muted">Requests without an app account can't be paired yet: ask them to sign up in the app and fill the form there.</small>
+    </div>
+    <h3>Active pairs ({pairs.length})</h3>
+    <div className="list">{pairs.length ? pairs.map((p) => <div key={p.id}><div className="grow"><b>{p.mentor?.full_name}</b> → {p.mentee?.full_name}<br />
+      <small className="muted">Since {fmt(p.created_at)}{p.next_session ? ` · next session ${fmt(p.next_session)}` : ""}</small></div>
+      <button className="btn ghost sm" onClick={() => end(p)}>End</button></div>) : <p className="muted">No pairs yet.</p>}</div>
+    <h3>Students asking for a mentor ({students.length})</h3>
+    <div className="list">{students.length ? students.map((r) => <Req key={r.id} r={r} />) : <p className="muted">No requests yet.</p>}</div>
+    <h3>Mentors ({mentors.length})</h3>
+    <div className="list">{mentors.length ? mentors.map((r) => <Req key={r.id} r={r} />) : <p className="muted">No mentors yet.</p>}</div>
   </>);
 }

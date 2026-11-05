@@ -794,3 +794,16 @@ html,body{max-width:100%;overflow-x:hidden}
 .certbox{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#fff8e1,#fdf3d0);border:1px solid #e9d48a;margin:8px 0}
 .certbox .btn{align-self:flex-start}
 .certadmin{margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.mentorcta{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.paircard{margin-top:10px}
+.fileq{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nlswitch{display:flex;gap:12px;align-items:center;cursor:pointer;margin:10px 0}
+.nlswitch .grow{display:flex;flex-direction:column;gap:2px}
+.nlswitch input{width:44px;height:24px;accent-color:var(--navy)}
+.storycard{text-align:left;border:0;cursor:pointer;font:inherit}
+.albumgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:12px 0}
+.albumcard{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;cursor:pointer;font:inherit;color:inherit}
+.albumcard img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}
+.photogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin:12px 0}
+.photogrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:0;font-size:2.4rem;width:48px;height:64px;border-radius:10px;cursor:pointer}
+.lightbox-nav.prev{left:10px}.lightbox-nav.next{right:10px}
