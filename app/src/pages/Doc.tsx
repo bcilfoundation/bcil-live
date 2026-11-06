@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import Avatar from "../components/Avatar";
 import { openPdf, renderPage, type OpenPdf } from "../lib/pdf";
+import { downloadWithComments } from "../lib/docExport";
 import { useLive, type Session } from "../lib/LiveContext";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
@@ -41,6 +42,7 @@ export default function Doc() {
   const [other, setOther] = useState<{ id: string; name: string } | null>(null);
   const [docCall, setDocCall] = useState<Session | null>(null);
   const [calling, setCalling] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const canCall = isStaff || profile?.role === "mentor";
   const topic = `/doc/${id}`;
   const inCall = L.joined && L.live?.topic === topic;
@@ -175,7 +177,15 @@ export default function Doc() {
         <h1 className="docname">{doc.name}</h1>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {kind !== "other" && <button className={`btn sm ${pinMode ? "primary" : "ghost"}`} onClick={startComment}>{pinMode ? "Tap the document…" : "＋ Comment"}</button>}
-          {url && <a className="btn ghost sm" href={url} target="_blank" rel="noopener">⬇ Download</a>}
+          {url && <a className="btn ghost sm" href={url} target="_blank" rel="noopener">⬇ Original</a>}
+          {url && <button className="btn primary sm" disabled={exporting} onClick={async () => {
+            setExporting(true); setErr("");
+            try {
+              await downloadWithComments({ name: doc.name, url, kind, numbers: number,
+                comments: comments.map((c) => ({ ...c, author: c.user_id === me ? (profile?.full_name ?? "You") : c.profiles?.full_name ?? "Member" })) });
+            } catch { setErr("Could not make the download. Try again, or use Original to get the file."); }
+            setExporting(false);
+          }}>{exporting ? "Preparing…" : "⬇ Download with comments"}</button>}
           {canCall && other && !inCall && !docCall && !L.joined && <>
             <button className="btn ghost sm" disabled={calling} onClick={() => startCall("audio")} title={`Voice call ${other.name} to review this together`}>📞 Call</button>
             <button className="btn ghost sm" disabled={calling} onClick={() => startCall("video")} title={`Video call ${other.name} to review this together`}>🎥 Video</button>
