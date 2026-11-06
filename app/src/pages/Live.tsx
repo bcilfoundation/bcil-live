@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
-import { initials } from "../lib/supabase";
+import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
@@ -409,8 +409,9 @@ function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: 
               <button className="btn ghost" onClick={L.pauseMusic}>{L.musicPlaying ? "Pause" : "Play"}</button><button className="btn ghost" onClick={L.stopMusic}>Stop</button></div>
             <label className="field">Volume {L.musicVol}%<input type="range" min={0} max={100} value={L.musicVol} onChange={(e) => L.setVolume(Number(e.target.value))} /></label>
           </>}
+          <MusicLibrary />
           <div className="row" style={{ flexWrap: "wrap" }}>
-            <label className="btn primary filebtn">{L.musicBusy ? "Loading…" : L.musicName ? "Choose another song" : "Choose a song"}
+            <label className="btn ghost sm filebtn">{L.musicBusy ? "Loading…" : "Play a file from this device"}
               <input type="file" accept="audio/*" onChange={(e) => { L.startMusic(e.target.files?.[0]); e.target.value = ""; }} hidden /></label>
             <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={L.musicLoop} onChange={(e) => L.setMusicLoop(e.target.checked)} style={{ width: 18, height: 18 }} /> Repeat</label>
           </div>
@@ -551,6 +552,73 @@ function GiftSheet({ close }: { close: () => void }) {
         ))}</div>
         <p className="muted small">Want to donate a different amount? Use <a href={`${import.meta.env.BASE_URL}donate`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>Donate</a> in the menu.</p>
       </>}
+    </div>
+  );
+}
+
+// BCIL's saved background music: upload songs once, then play them in any session
+type Song = { id: number; name: string; path: string };
+const songCache = new Map<string, File>();
+function MusicLibrary() {
+  const L = useLive();
+  const { isStaff } = useAuth();
+  const [songs, setSongs] = useState<Song[] | null>(null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const load = () => supabase.from("live_music").select("id, name, path").order("name").then(({ data, error }) => setSongs(error ? [] : (data ?? []) as Song[]));
+  useEffect(() => { load(); }, []);
+  async function play(s: Song) {
+    setErr(""); setBusy(`play-${s.id}`);
+    try {
+      let f = songCache.get(s.path);
+      if (!f) {
+        const { data, error } = await supabase.storage.from("live-music").download(s.path);
+        if (error || !data) throw new Error();
+        f = new File([data], s.name, { type: data.type || "audio/mpeg" });
+        songCache.set(s.path, f);
+      }
+      await L.startMusic(f);
+    } catch { setErr("Could not load that song. Check your connection and try again."); }
+    finally { setBusy(""); }
+  }
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setErr(""); setBusy("upload");
+    let failed = 0;
+    for (const file of Array.from(files)) {
+      if (file.size > 30 * 1024 * 1024) { failed++; continue; }
+      const path = `${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
+      const up = await supabase.storage.from("live-music").upload(path, file, { contentType: file.type || "audio/mpeg" });
+      if (up.error) { failed++; continue; }
+      const { error } = await supabase.from("live_music").insert({ name: file.name.replace(/\.[^.]+$/, "").slice(0, 120), path });
+      if (error) { failed++; await supabase.storage.from("live-music").remove([path]); continue; }
+      songCache.set(path, file);
+    }
+    setBusy(""); load();
+    if (failed) setErr(`${failed} file${failed > 1 ? "s" : ""} could not be uploaded. Use MP3, M4A or WAV files under 30 MB.`);
+  }
+  async function remove(s: Song) {
+    if (!window.confirm(`Remove "${s.name}" from BCIL's music?`)) return;
+    setSongs((cur) => cur?.filter((x) => x.id !== s.id) ?? cur);
+    await supabase.from("live_music").delete().eq("id", s.id);
+    await supabase.storage.from("live-music").remove([s.path]);
+  }
+  return (
+    <div className="musiclib">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <b>Saved music</b>
+        {isStaff && <label className="btn primary sm filebtn">{busy === "upload" ? "Uploading…" : "＋ Upload songs"}
+          <input type="file" accept="audio/*" multiple hidden disabled={busy === "upload"} onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></label>}
+      </div>
+      {songs === null ? <small className="muted">Loading…</small>
+        : songs.length === 0 ? <small className="muted">{isStaff ? "Upload your background songs once and they stay here for every session." : "No saved music yet."}</small>
+        : <ul className="songs">{songs.map((s) => (
+          <li key={s.id} className={L.musicName === s.name ? "on" : ""}>
+            <button className="songplay" disabled={!!busy || L.musicBusy} onClick={() => play(s)} aria-label={`Play ${s.name}`}>{busy === `play-${s.id}` ? "…" : L.musicName === s.name && L.musicPlaying ? "♪" : "▶"}</button>
+            <span className="grow">{s.name}</span>
+            {isStaff && <button className="linkbtn" onClick={() => remove(s)} aria-label={`Remove ${s.name}`}>✕</button>}
+          </li>))}</ul>}
+      {err && <small className="err">{err}</small>}
     </div>
   );
 }
