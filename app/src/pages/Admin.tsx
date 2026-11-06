@@ -6,6 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
+import { docLink, fileName } from "../lib/docs";
 
 const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
@@ -165,6 +166,7 @@ function Review({ r, reload }: { r: RespRow; reload: () => void }) {
 }
 
 function FormsAdmin() {
+  const review = useReview();
   const [forms, setForms] = useState<FormRow[]>([]);
   const [formId, setFormId] = useState("");
   const [rows, setRows] = useState<RespRow[]>([]);
@@ -278,7 +280,8 @@ function FormsAdmin() {
         {ev && certReady(r) && <span className="pill paid" style={{ marginLeft: 6 }}>🎓 Certificate</span>}
         {form?.fee_pesewas && wantsCert(r) ? <button className="linkbtn" style={{ marginLeft: 8 }} onClick={() => markPaid(r)}>{r.paid_at ? "Undo paid" : "Mark paid"}</button> : null}
         {form?.fields.filter((f) => !/full_name|^name$/.test(f.key)).map((f) => r.answers[f.key] ? <div key={f.key}><small className="muted">{f.label}:</small> {f.type === "file"
-          ? <button className="linkbtn" onClick={async () => { const { data } = await supabase.storage.from("form-files").createSignedUrl(r.answers[f.key], 600); if (data) window.open(data.signedUrl, "_blank", "noopener"); }}>📎 Open file</button>
+          ? <><button className="linkbtn" onClick={async () => { const { data } = await supabase.storage.from("form-files").createSignedUrl(r.answers[f.key], 600); if (data) window.open(data.signedUrl, "_blank", "noopener"); }}>📎 Open file</button>
+            {" "}<button className="linkbtn" onClick={() => review(r.answers[f.key], `${r.answers.full_name || r.profiles?.full_name || "Applicant"} · ${f.label}`.slice(0, 140), "form", r.id)}>💬 Review</button></>
           : r.answers[f.key]}</div> : null)}
         {form?.slug.startsWith("student-support") && <Review r={r} reload={load} />}
       </div>
@@ -640,6 +643,7 @@ function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
     if (error) setErr(error.message); else reload();
   }
   const open = async (path: string) => { const { data } = await supabase.storage.from("form-files").createSignedUrl(path, 600); if (data) window.open(data.signedUrl, "_blank", "noopener"); };
+  const review = useReview();
   return (
     <div className="card" style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
       <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
@@ -648,7 +652,8 @@ function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
       </div>
       <p className="prewrap" style={{ margin: 0 }}>{r.message}</p>
       <small className="muted">{[r.mode && `Prefers: ${r.mode}`, r.preferred && `When: ${r.preferred}`, r.profiles?.phone && `Phone: ${r.profiles.phone}`, `Sent ${fmt(r.created_at)}`].filter(Boolean).join(" · ")}</small>
-      {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{r.files.map((p) => <button key={p} className="btn ghost sm" onClick={() => open(p)}>📎 {p.split("/").pop()!.replace(/^[0-9a-f-]{36}-/, "")}</button>)}</div>}
+      {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{r.files.map((p) => <span key={p} className="row" style={{ gap: 4 }}><button className="btn ghost sm" onClick={() => open(p)}>📎 {fileName(p)}</button>
+        <button className="btn primary sm" onClick={() => review(p, fileName(p), "meeting", r.id)}>💬 Review</button></span>)}</div>}
       {r.reply && <small>💬 Reply: {r.reply}</small>}
       {r.status === "pending" && <>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -666,4 +671,12 @@ function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
       {err && <p className="err">{err}</p>}
     </div>
   );
+}
+
+// open a member's document on its review page, where staff can leave comments
+function useReview() {
+  const nav = useNavigate();
+  return async (path: string, name: string, context: "meeting" | "form", ref: number) => {
+    try { nav(await docLink(path, name, context, ref)); } catch (e) { alert((e as Error).message); }
+  };
 }

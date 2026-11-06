@@ -22,6 +22,7 @@
     "agora-rtc-sdk-ng": "^4.22.0",
     "jspdf": "^2.5.2",
     "jsqr": "^1.4.0",
+    "mammoth": "^1.13.0",
     "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { startLiveService, stopLiveService } from "./native";
+import { isNative, startLiveService, stopLiveService } from "./native";
 import { MixRecorder, uploadAudio } from "./recorder";
-import type { IAgoraRTCClient, IMicrophoneAudioTrack, ICameraVideoTrack, IRemoteVideoTrack, IBufferSourceAudioTrack } from "agora-rtc-sdk-ng";
+import type { IAgoraRTCClient, IMicrophoneAudioTrack, ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack, IBufferSourceAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
@@ -10,7 +10,7 @@ import { useAuth } from "./auth";
 export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
-export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number };
+export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number; screen?: boolean };
 export type Float = { id: number; emoji: string; left: number };
 export type Gift = { emoji: string; name: string };
 export type GiftShow = Gift & { from: string; id?: number };
@@ -24,6 +24,9 @@ let rtcPromise: Promise<typeof import("agora-rtc-sdk-ng").default> | null = null
 const rtc = () => (rtcPromise ??= import("agora-rtc-sdk-ng").then((m) => m.default));
 
 import { applyCamBg, savedCamBg, saveCamBg, type CamBg } from "./camBackground";
+// screen sharing needs a computer browser; phones and the Android app can't share their screen
+const canShare = !isNative && typeof navigator !== "undefined" && !!navigator.mediaDevices && "getDisplayMedia" in navigator.mediaDevices
+  && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 function useLiveEngine() {
   const { session: auth, profile, isStaff } = useAuth();
@@ -73,6 +76,9 @@ function useLiveEngine() {
   const client = useRef<IAgoraRTCClient | null>(null);
   const mic = useRef<IMicrophoneAudioTrack | null>(null);
   const cam = useRef<ICameraVideoTrack | null>(null);
+  const screen = useRef<ILocalVideoTrack | null>(null);   // screen sharing (computers only)
+  const [sharing, setSharing] = useState(false);
+  const sharingRef = useRef(false); sharingRef.current = sharing;
   const music = useRef<IBufferSourceAudioTrack | null>(null);
   const room = useRef<RealtimeChannel | null>(null);
   const joining = useRef(false);
@@ -151,8 +157,8 @@ function useLiveEngine() {
     if (!live || !joined) return;
     const ch = supabase.channel(`room:${live.id}`, { config: { presence: { key: me } } });
     ch.on("presence", { event: "sync" }, () => {
-      const state = ch.presenceState<{ name: string; role: "host" | "listener"; staff?: boolean; hand?: number }>();
-      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener", staff: !!metas[0]?.staff, hand: metas[0]?.hand || 0 })));
+      const state = ch.presenceState<{ name: string; role: "host" | "listener"; staff?: boolean; hand?: number; screen?: boolean }>();
+      setPeople(Object.entries(state).map(([id, metas]) => ({ id, name: metas[0]?.name ?? "Member", role: metas[0]?.role ?? "listener", staff: !!metas[0]?.staff, hand: metas[0]?.hand || 0, screen: !!metas[0]?.screen })));
     })
       .on("broadcast", { event: "react" }, ({ payload }) => { showFloat(payload.emoji); if (payload.emoji === "❤️") setLikes((n) => n + 1); })
       .on("broadcast", { event: "gift" }, ({ payload }) => showGift(payload as GiftShow))
@@ -165,8 +171,8 @@ function useLiveEngine() {
     return () => { supabase.removeChannel(ch); room.current = null; setPeople([]); };
   }, [live?.id, joined]);
   // when the host changes hands, update the "HOST" label in the People list
-  function presence() { return { name: myName, role: liveRef.current?.host_id === me ? "host" as const : "listener" as const, staff: isStaff, hand: handRef.current }; }
-  useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp]);
+  function presence() { return { name: myName, role: liveRef.current?.host_id === me ? "host" as const : "listener" as const, staff: isStaff, hand: handRef.current, screen: sharingRef.current }; }
+  useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp, sharing]);
   useEffect(() => { setHandUp(0); }, [live?.id]);
   const toggleHand = () => setHandUp((h) => (h ? 0 : Date.now()));
   const lowerHand = (user: string) => room.current?.send({ type: "broadcast", event: "lower-hand", payload: { user } });
@@ -320,6 +326,7 @@ function useLiveEngine() {
     if (!reconnecting.current) stopLiveService();
     mic.current?.close(); mic.current = null;
     cam.current?.close(); cam.current = null; setCamOn(false); setRemoteVideo({});
+    screen.current?.close(); screen.current = null; setSharing(false);
     if (music.current) { music.current.stopProcessAudioBuffer(); music.current.close(); music.current = null; setMusicName(""); setMusicPlaying(false); }
     await client.current?.leave().catch(() => {}); client.current = null;
     speakerRef.current = false;
@@ -412,6 +419,7 @@ function useLiveEngine() {
     const c = client.current;
     if (!c) return;
     const guest = !speakerRef.current;   // in the audience, not on the mic
+    if (screen.current) { setNotice("Stop sharing your screen first, then turn your camera on."); return; }
     if (!cam.current) {
       if (guest && !canVideo) { setError("Please leave and join the room again to turn on your camera."); return; }
       try {
@@ -434,6 +442,38 @@ function useLiveEngine() {
       return;
     }
     await cam.current.setEnabled(!camOn); setCamOn(!camOn);
+  }
+  // ---------- screen sharing: replaces your camera picture while it is on (computers only) ----------
+  async function toggleShare() {
+    const c = client.current;
+    if (!c) return;
+    if (screen.current) return stopShare();
+    if (!canShare) { setError("Screen sharing works on a computer (Chrome, Edge or Firefox). Phones can't share their screen."); return; }
+    const guest = !speakerRef.current;
+    if (guest && !canVideo) { setError("Please leave and join the room again, then try sharing."); return; }
+    let t: ILocalVideoTrack | null = null;
+    try {
+      t = await (await rtc()).createScreenVideoTrack({ encoderConfig: "1080p_1", optimizationMode: "detail" }, "disable") as ILocalVideoTrack;
+      if (guest && !camOnRef.current) await c.setClientRole("host");
+      if (cam.current && camOnRef.current) await c.unpublish(cam.current).catch(() => {});
+      await c.publish(t);
+      screen.current = t; setSharing(true);
+      t.on("track-ended", () => { stopShare(); });   // the browser's own "Stop sharing" button
+      setNotice("You're sharing your screen. Everyone in the session can see it.");
+    } catch (e) {
+      t?.close();
+      if (guest && !camOnRef.current) await c.setClientRole("audience", { level: 1 }).catch(() => {});
+      if (!/NotAllowed|Permission|denied|cancel/i.test(String(e))) setError("Could not share your screen.");
+    }
+  }
+  async function stopShare() {
+    const c = client.current, t = screen.current;
+    if (!t) return;
+    screen.current = null; setSharing(false);
+    await c?.unpublish(t).catch(() => {}); t.close();
+    if (!c) return;
+    if (cam.current && camOnRef.current) await c.publish(cam.current).catch(() => {});
+    else if (!speakerRef.current) await c.setClientRole("audience", { level: 1 }).catch(() => {});
   }
   // camera background (blur / colour / picture); remembered on this phone
   function withBg(t: NonNullable<typeof cam.current>) {
@@ -592,7 +632,7 @@ function useLiveEngine() {
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
-  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string }) {
+  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string; dm?: boolean }) {
     if (opts.roomId) opts.private = true;   // a group session: only that group sees it and is notified
     const title = opts.title.trim() || `${opts.private ? "Private meeting" : "Live session"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
@@ -606,7 +646,7 @@ function useLiveEngine() {
     left.current.delete(data.id);
     const ok = await join(data as Session, { cam: opts.kind === "video" && opts.cam !== false });
     if (ok && opts.record) await startRecording();
-    if (ok && opts.roomId) setNotice("👥 Group session. Only members of the group can see it and have been notified.");
+    if (ok && opts.roomId) setNotice(opts.dm ? "📞 Calling… they've been notified and can join and talk straight away." : "👥 Group session. Only members of the group can see it and have been notified.");
     else if (ok && opts.private) setNotice("🔒 Private session. Only people with the link can join. Tap ⤴ at the top to copy and send the link.");
     return ok;
   }
@@ -652,7 +692,7 @@ function useLiveEngine() {
   }, [live?.id, live?.status, isStaff, joined]);
 
   const value = {
-    me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn,
+    me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn, sharing, screen, canShare, toggleShare,
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,

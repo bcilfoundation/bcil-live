@@ -33,6 +33,8 @@ export default function Chat() {
   const [viewImg, setViewImg] = useState<string | null>(null);
   const [reacts, setReacts] = useState<Record<number, { emoji: string; user_id: string }[]>>({});
   const [pickFor, setPickFor] = useState<number | null>(null);
+  // read receipts: when each other member last opened this conversation
+  const [reads, setReads] = useState<Record<string, string>>({});
   async function react(m: Msg, emoji: string) {
     setPickFor(null);
     const mine = (reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === emoji);
@@ -93,7 +95,9 @@ export default function Chat() {
       .eq("room_id", roomId).order("created_at", { ascending: false }).limit(200)
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
     markRead(roomId);
-    setReacts({}); setPickFor(null);
+    setReacts({}); setPickFor(null); setReads({});
+    supabase.from("room_members").select("user_id, last_read_at").eq("room_id", roomId).neq("user_id", me).limit(500)
+      .then(({ data }) => setReads(Object.fromEntries(((data ?? []) as { user_id: string; last_read_at: string }[]).map((r) => [r.user_id, r.last_read_at]))));
     supabase.from("message_reactions").select("message_id, emoji, user_id").eq("room_id", roomId).then(({ data }) => {
       const m: Record<number, { emoji: string; user_id: string }[]> = {};
       for (const r of (data ?? []) as { message_id: number; emoji: string; user_id: string }[]) (m[r.message_id] ??= []).push({ emoji: r.emoji, user_id: r.user_id });
@@ -115,6 +119,10 @@ export default function Chat() {
           setMsgs((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, { ...m, profiles: data }]));
           markRead(roomId);
         })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` }, (p) => {
+        const r = p.new as { user_id: string; last_read_at: string };
+        if (r.user_id && r.user_id !== me) setReads((cur) => ({ ...cur, [r.user_id]: r.last_read_at }));
+      })
       .on("presence", { event: "sync" }, () => setOnline(Object.keys(ch.presenceState()).length))
       .subscribe((s) => { if (s === "SUBSCRIBED") ch.track({ name: profile?.full_name ?? "" }); });
     // keep unread counts on the list fresh for other rooms
@@ -158,6 +166,8 @@ export default function Chat() {
   }
 
   const canPost = room && (!room.read_only || isStaff);
+  const seenBy = (m: Msg) => Object.values(reads).filter((t) => Date.parse(t) >= Date.parse(m.created_at)).length;
+  const lastMine = [...msgs].reverse().find((m) => m.user_id === me)?.id;
   const startReply = (m: Msg) => { if (!canPost) return; setReplyTo(m); setTimeout(() => inputRef.current?.focus(), 0); };
   const nameOf = (m: Msg) => (m.user_id === me ? "You" : m.profiles?.full_name || "Member");
   const jumpTo = (id: number) => { const el = document.getElementById(`m${id}`); if (!el) return; el.scrollIntoView({ block: "center", behavior: "smooth" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); };
@@ -185,6 +195,7 @@ export default function Chat() {
                 <span className="grow"><b>{room.name}</b>
                   <small className="muted">{room.kind === "dm" ? "Tap for profile" : `${room.members ?? ""} members · tap for group info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
               </button>
+              {room.kind === "dm" && (isStaff || profile?.role === "mentor") && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name, dm: true } } })} aria-label={`Start a live call with ${room.name}`}>● Live</button>}
               {room.kind === "group" && room.leader && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name } } })} aria-label={`Go live with ${room.name}`}>● Live</button>}
             </div>
             <div className="msgs">
@@ -216,7 +227,9 @@ export default function Chat() {
                             <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
                           </button>)}
                         {m.body && <p className="prewrap">{m.body}</p>}
-                        <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}</small>
+                        <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
+                          {mine && room.kind === "dm" && (seenBy(m) > 0 ? <span className="tick seen" title="Seen" aria-label="Seen"> ✓✓</span> : <span className="tick" title="Sent" aria-label="Sent"> ✓</span>)}</small>
+                        {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <small className="seenby">Seen by {seenBy(m)}</small>}
                         {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
                         <button className="linkbtn" onClick={() => setPickFor(pickFor === m.id ? null : m.id)} aria-label="React">☺︎+</button>
                         {pickFor === m.id && <span className="reactpick">{EMOJIS.map((e) => <button key={e} onClick={() => react(m, e)} aria-label={`React ${e}`}>{e}</button>)}</span>}

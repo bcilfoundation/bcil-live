@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { docLink, fileName } from "../lib/docs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import Avatar from "../components/Avatar";
@@ -14,6 +15,7 @@ export const when = (d: string) => new Date(d).toLocaleString("en-GB", { weekday
 export default function Meet() {
   const { session } = useAuth();
   const me = session!.user.id;
+  const nav = useNavigate();
   const [list, setList] = useState<Req[] | null>(null);
   const [f, setF] = useState({ topic: "", message: "", mode: "", preferred: "" });
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
@@ -59,7 +61,7 @@ export default function Meet() {
           <div className="field"><span>Documents <small className="muted">(optional · CV, plan, proposal · up to 3, 10 MB each)</small></span>
             <div className="fileq">{files.map((x) => <span key={x.path} className="pill sent">📎 {x.name}</span>)}
               {files.length < 3 && <label className="btn ghost sm">{busy === "Uploading…" ? busy : "Attach a file"}<input type="file" hidden accept="application/pdf,image/*,.doc,.docx" onChange={(e) => addFile(e.target.files?.[0])} /></label>}</div>
-            <small className="muted">Only BCIL staff can open your documents.</small></div>
+            <small className="muted">Only BCIL staff can open your documents. They can leave comments on them, which you'll see under My requests.</small></div>
           {err && <p className="err">{err}</p>}
           <button className="btn primary" disabled={!!busy} onClick={send}>{busy === "Sending…" ? busy : "Send request"}</button>
         </div>
@@ -72,6 +74,8 @@ export default function Meet() {
             <b>{r.topic}</b> <span className={`pill ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span>
             {r.status === "confirmed" && r.meet_at && <div>📅 <b>{when(r.meet_at)}</b>{r.mode ? ` · ${r.mode}` : ""}</div>}
             {r.reply && <div className="muted">💬 {r.reply}</div>}
+            {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap", margin: "4px 0" }}>{r.files.map((p) => (
+              <button key={p} className="btn ghost sm" onClick={async () => { try { nav(await docLink(p, fileName(p), "meeting", r.id)); } catch (e) { setErr((e as Error).message); } }}>📄 {fileName(p)} · comments</button>))}</div>}
             <small className="muted">Sent {new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small>
           </div>{r.room_id && r.status === "confirmed" && <Link className="btn ghost sm" to={`/chat?room=${r.room_id}`}>💬 Chat</Link>}</div>
         ))}</div>

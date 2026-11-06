@@ -32,6 +32,7 @@ const Mentorship = lazy(() => import("./pages/Mentorship"));
 const Photos = lazy(() => import("./pages/Photos"));
 const Plan = lazy(() => import("./pages/Plan"));
 const Meet = lazy(() => import("./pages/Meet"));
+const Doc = lazy(() => import("./pages/Doc"));
 import NewsletterSwitch from "./components/NewsletterSwitch";
 const Search = lazy(() => import("./pages/Search"));
 const Register = lazy(() => import("./pages/Register"));
@@ -125,6 +126,7 @@ export default function App() {
             <Route path="/photos" element={<Photos />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/meet" element={<Meet />} />
+            <Route path="/doc/:id" element={<Doc />} />
             <Route path="/team" element={<Navigate to="/about" replace />} />
             <Route path="/search" element={<Search />} />
             <Route path="/quotes" element={<Quotes />} />

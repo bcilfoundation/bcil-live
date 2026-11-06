@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { ICameraVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
@@ -35,12 +35,13 @@ export default function Live() {
   const navigate = useNavigate();
   const autostart = useRef(Boolean((location.state as { autostart?: boolean } | null)?.autostart));
   // arriving from a group's "Go live": a session only for that group
-  const group = (location.state as { group?: { id: string; name: string } } | null)?.group ?? null;
+  const group = (location.state as { group?: { id: string; name: string; dm?: boolean } } | null)?.group ?? null;
+  const dm = !!group?.dm;   // a live call with one person, started from a direct message
   const canStart = isStaff || !!group;
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(dm ? `Call with ${group!.name}` : "");
   const [topic, setTopic] = useState("");
-  const [kind, setKind] = useState<"audio" | "video">("audio");
-  const [record, setRecord] = useState(true);
+  const [kind, setKind] = useState<"audio" | "video">(dm ? "video" : "audio");
+  const [record, setRecord] = useState(!dm);
   const [startCam, setStartCam] = useState(true);
   const [priv, setPriv] = useState(false);
   const [review, setReview] = useState(false);
@@ -81,12 +82,14 @@ export default function Live() {
   }, [raised.map((p) => p.id).join(",")]);
 
   // ---------- nothing live ----------
-  if (!live) return (
+  // starting a call from a DM while another session is on: still show the start form
+  const startingOwn = !!group && !!live && live.room_id !== group.id && live.host_id !== me && !joined;
+  if (!live || startingOwn) return (
     <section className="view">
       <h1>Live</h1>
       {canStart ? (
         <form className="pod-golive" onSubmit={(e) => { e.preventDefault(); if (title.trim().length < 3) { setFormErr("Add a title so people know what the session is about."); document.getElementById("golive-title")?.focus(); return; } setFormErr(""); setReview(true); }}>
-          <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>Start a live session</b><p>Go live now. Everyone with the app can listen and call in.</p></div></div>
+          <div className="row"><img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" /><div><b>{dm ? `Live with ${group!.name}` : "Start a live session"}</b><p>{dm ? "A private call for just the two of you. You can both talk, use your cameras and share your screen." : "Go live now. Everyone with the app can listen and call in."}</p></div></div>
           <label className="golive-lab" htmlFor="golive-title">Title <span className="req">required</span></label>
           <input id="golive-title" value={title} onChange={(e) => { setTitle(e.target.value); setFormErr(""); }} placeholder="e.g. Mentorship hour: planning your semester" aria-label="Session title" aria-required="true" maxLength={90} />
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
@@ -94,7 +97,7 @@ export default function Live() {
             <button type="button" role="radio" aria-checked={kind === "audio"} className={kind === "audio" ? "on" : ""} onClick={() => setKind("audio")}>🎙 Audio<small>Like a podcast</small></button>
             <button type="button" role="radio" aria-checked={kind === "video"} className={kind === "video" ? "on" : ""} onClick={() => setKind("video")}>🎥 Video<small>Like Zoom</small></button>
           </div>
-          {group ? <p className="groupnote">👥 For <b>{group.name}</b> only: members of the group are notified and can join. No one else sees it.</p> : <>
+          {dm ? <p className="groupnote">📞 Only <b>{group!.name}</b> can see and join it. They get a notification now and can talk straight away.</p> : group ? <p className="groupnote">👥 For <b>{group.name}</b> only: members of the group are notified and can join. No one else sees it.</p> : <>
           <div className="kindpick" role="radiogroup" aria-label="Who can join">
             <button type="button" role="radio" aria-checked={!priv} className={!priv ? "on" : ""} onClick={() => setPriv(false)}>🌍 Public<small>Everyone is notified</small></button>
             <button type="button" role="radio" aria-checked={priv} className={priv ? "on" : ""} onClick={() => setPriv(true)}>🔒 Private<small>Only people with the link</small></button>
@@ -130,13 +133,13 @@ export default function Live() {
             <div><span>Title</span><b>{title.trim()}</b></div>
             {topic.trim() && <div><span>Topic</span><b>{topic.trim()}</b></div>}
             <div><span>Type</span><b>{kind === "video" ? `🎥 Video${startCam ? " · your camera starts on" : " · camera off at first"}` : "🎙 Audio"}</b></div>
-            <div><span>Who can join</span><b>{group ? `👥 Only members of ${group.name}. They're notified now.` : priv ? "🔒 Private: only people you send the link to. No notification." : "🌍 Public: everyone with the app is notified now."}</b></div>
+            <div><span>Who can join</span><b>{dm ? `📞 Only ${group!.name}. They're notified now.` : group ? `👥 Only members of ${group.name}. They're notified now.` : priv ? "🔒 Private: only people you send the link to. No notification." : "🌍 Public: everyone with the app is notified now."}</b></div>
             <div className={record && isStaff ? "rec" : ""}><span>Recording</span><b>{record && isStaff ? "● ON: the session will be recorded and saved as a draft in the Library. Everyone in the room sees a REC badge." : "Off: nothing will be recorded."}</b></div>
           </div>
           {record && isStaff && <p className="gl-warn">Make sure speakers are happy to be recorded. You can stop the recording any time from ⚙ Host tools.</p>}
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn primary" disabled={busy} onClick={async () => {
-              if (await L.goLiveNow({ title, topic, kind, record: record && isStaff, cam: startCam, private: priv, roomId: group?.id })) { setTitle(""); setTopic(""); setPriv(false); navigate(".", { replace: true, state: null }); }
+              if (await L.goLiveNow({ title, topic, kind, record: record && isStaff, cam: startCam, private: priv, roomId: group?.id, dm })) { setTitle(""); setTopic(""); setPriv(false); navigate(".", { replace: true, state: null }); }
               setReview(false);
             }}>{busy ? "Starting…" : "● Go live now"}</button>
             <button className="btn ghost" disabled={busy} onClick={() => setReview(false)}>← Go back and edit</button>
@@ -176,7 +179,11 @@ export default function Live() {
   const stageUids = new Set([live?.host_id, ...onStage.map((r) => r.user_id)].filter(Boolean).map((id) => String(agoraUid(id as string))));
   const guestCams = Object.entries(L.remoteVideo).filter(([uid]) => !stageUids.has(uid))
     .map(([uid, track]) => ({ uid, track, name: people.find((p) => String(agoraUid(p.id)) === uid)?.name ?? "Guest" }));
-  const meGuestCam = L.camOn && !amHost && !onStage.some((r) => r.user_id === me);
+  const meGuestCam = (L.camOn || L.sharing) && !amHost && !onStage.some((r) => r.user_id === me);
+  // my own picture: the shared screen while sharing, otherwise the camera
+  const myVideo = L.sharing ? L.screen.current : L.camOn ? L.cam.current : null;
+  const isScreen = (userId?: string | null) => !!userId && (userId === me ? L.sharing : !!people.find((p) => p.id === userId)?.screen);
+  const sharer = people.find((p) => p.screen && p.id !== me);
   const tiles = 1 + onStage.length + guestCams.length + (meGuestCam ? 1 : 0);
   const hands = people.filter((p) => p.hand && p.id !== me).sort((a, b) => (a.hand ?? 0) - (b.hand ?? 0));
   const listeners = people.filter((p) => !onStage.some((r) => r.user_id === p.id) && p.role !== "host");
@@ -231,15 +238,15 @@ export default function Live() {
       {live.kind === "video" ? (
         <div className={`vgrid n${Math.min(tiles, 4)}${tiles > 4 ? " many" : ""}`}>
           <VideoTile name={amHost ? "You" : L.hostName} label="Host" talking={live.host_id ? isTalking(live.host_id) : false}
-            track={amHost ? (L.camOn ? L.cam.current : null) : (live.host_id ? L.remoteVideo[String(agoraUid(live.host_id))] ?? null : null)} mirror={amHost} />
+            track={amHost ? myVideo : (live.host_id ? L.remoteVideo[String(agoraUid(live.host_id))] ?? null : null)} mirror={amHost && !L.sharing} screen={isScreen(live.host_id)} />
           {onStage.map((r) => (
             <VideoTile key={r.id} name={r.user_id === me ? "You" : r.profiles?.full_name ?? "Caller"} label={r.muted_by_host ? "Muted" : "Caller"} talking={isTalking(r.user_id)} muted={r.muted_by_host}
-              track={r.user_id === me ? (L.camOn ? L.cam.current : null) : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me}>
+              track={r.user_id === me ? myVideo : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me && !L.sharing} screen={isScreen(r.user_id)}>
               {amHost && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
             </VideoTile>
           ))}
-          {meGuestCam && <VideoTile name="You" label="Camera on" talking={false} track={L.cam.current} mirror />}
-          {guestCams.map((g) => <VideoTile key={g.uid} name={g.name} label="Guest" talking={false} track={g.track} />)}
+          {meGuestCam && <VideoTile name="You" label={L.sharing ? "Sharing screen" : "Camera on"} talking={false} track={myVideo} mirror={!L.sharing} screen={L.sharing} />}
+          {guestCams.map((g) => { const p = people.find((x) => String(agoraUid(x.id)) === g.uid); return <VideoTile key={g.uid} name={g.name} label={p?.screen ? "Sharing screen" : "Guest"} talking={false} track={g.track} screen={!!p?.screen} />; })}
         </div>
       ) : (
         <div className="slots">
@@ -280,7 +287,8 @@ export default function Live() {
           : <button onClick={L.toggleHand} className={L.handUp ? "on" : ""} disabled={!joined}><span>✋</span>{L.handUp ? "Lower hand" : "Raise hand"}</button>}
         <button onClick={() => setSheet("people")}><span>👥</span>People <em>{Math.max(people.length, joined ? 1 : 0)}</em></button>
         <button onClick={() => setSheet("gifts")} disabled={!joined}><span>🎁</span>Gifts</button>
-        {joined && live.kind === "video" && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
+        {joined && live.kind === "video" && !L.sharing && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
+        {joined && live.kind === "video" && L.canShare && (speaker || L.canVideo) && (!sharer || L.sharing) && <button onClick={L.toggleShare} className={L.sharing ? "on" : ""}><span>🖥</span>{L.sharing ? "Stop sharing" : "Share screen"}</button>}
         {L.camOn && live.kind === "video" && <button onClick={() => setSheet("cambg")} className={L.camBg.type !== "none" ? "on" : ""}><span>🖼</span>Background</button>}
       </div>
 
@@ -437,20 +445,20 @@ function BackgroundPicker({ close }: { close: () => void }) {
 }
 
 // One person's video on stage; shows their initials when the camera is off
-function VideoTile({ track, name, label, talking, muted, mirror, children }: {
-  track: ICameraVideoTrack | IRemoteVideoTrack | null; name: string; label: string; talking?: boolean; muted?: boolean; mirror?: boolean; children?: React.ReactNode;
+function VideoTile({ track, name, label, talking, muted, mirror, screen, children }: {
+  track: ICameraVideoTrack | ILocalVideoTrack | IRemoteVideoTrack | null; name: string; label: string; talking?: boolean; muted?: boolean; mirror?: boolean; screen?: boolean; children?: React.ReactNode;
 }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
     if (!track || !el) return;
-    track.play(el, { fit: "cover", ...(mirror ? { mirror: true } : {}) });
+    track.play(el, { fit: screen ? "contain" : "cover", ...(mirror ? { mirror: true } : {}) });
     // only stop if the video is still playing here: when the same camera moves to another tile
     // (preview -> room), stopping it would blank your own view while others still see you
     return () => { if (el.querySelector("video")) track.stop(); };
-  }, [track, mirror]);
+  }, [track, mirror, screen]);
   return (
-    <div className={`vtile${talking ? " talking" : ""}`}>
+    <div className={`vtile${talking ? " talking" : ""}${screen ? " vscreen" : ""}`}>
       <div className="vvideo" ref={box} />
       {!track && <div className="vnocam"><div className="ava">{initials(name === "You" ? "Me" : name)}</div></div>}
       <div className="vname">{muted ? "🔇 " : ""}{name} · <small>{label}</small></div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { docLink } from "../lib/docs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import Avatar from "../components/Avatar";
@@ -90,6 +91,48 @@ function PairCard({ p, other, label, reload }: { p: Pair; other: Pair["mentor"];
         {p.next_session && <button className="btn ghost sm" onClick={() => save(true)}>Clear</button>}
         <small className="muted" style={{ width: "100%" }}>You'll both get a reminder an hour before.</small>
       </div>}
+      {err && <p className="err">{err}</p>}
+      <PairDocs pairId={p.id} />
+    </div>
+  );
+}
+
+// documents shared in this mentorship, each opening on a page where you can both comment
+function PairDocs({ pairId }: { pairId: number }) {
+  const { session } = useAuth();
+  const me = session!.user.id;
+  const nav = useNavigate();
+  const [docs, setDocs] = useState<{ id: number; name: string; owner_id: string; created_at: string; doc_comments: { count: number }[] }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    supabase.from("documents").select("id, name, owner_id, created_at, doc_comments(count)").eq("context", "mentorship").eq("ref_id", pairId).order("created_at", { ascending: false })
+      .then(({ data, error }) => setDocs(error ? [] : (data ?? []) as never));
+  }, [pairId]);
+  async function share(file?: File) {
+    if (!file) return; setErr("");
+    if (file.size > 10 * 1024 * 1024) { setErr("That file is over 10 MB."); return; }
+    setBusy(true);
+    try {
+      const path = `${me}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
+      const up = await supabase.storage.from("form-files").upload(path, file, { contentType: file.type || undefined });
+      if (up.error) throw new Error(/mime|type/i.test(up.error.message) ? "Please share a PDF, Word file (.docx) or a picture." : "Upload failed. Check your connection and try again.");
+      nav(await docLink(path, file.name, "mentorship", pairId));
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <div className="pairdocs">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <b>📄 Documents for review</b>
+        <label className="btn ghost sm">{busy ? "Uploading…" : "＋ Share a document"}<input type="file" hidden disabled={busy} accept="application/pdf,image/*,.docx" onChange={(e) => { share(e.target.files?.[0]); e.target.value = ""; }} /></label>
+      </div>
+      {docs && docs.length === 0 && <small className="muted">Share a CV, essay, plan or application and get comments on it, like in Google Docs.</small>}
+      {docs?.map((d) => (
+        <Link key={d.id} to={`/doc/${d.id}`} className="pairdoc">
+          <span className="grow"><b>{d.name}</b><small className="muted">{d.owner_id === me ? "You" : "Shared with you"} · {new Date(d.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small></span>
+          <span className="pill">💬 {d.doc_comments?.[0]?.count ?? 0}</span>
+        </Link>
+      ))}
       {err && <p className="err">{err}</p>}
     </div>
   );
