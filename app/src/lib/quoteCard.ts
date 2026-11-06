@@ -94,11 +94,9 @@ export async function quoteBlob(q: BiteQ) {
   return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error("no image"))), "image/png"));
 }
 
-/** The caption to post with the image. */
-export function biteCaption(q: BiteQ) {
-  return [`“${q.body.trim()}” — ${q.author}`, q.reflection ? `Reflect: ${q.reflection}` : "",
-    "Get a Daily Bite every morning in the BCIL Foundation app: live.bcilfoundation.org",
-    "#BCILFoundation #DailyBite #GroomingGenerationalLeaders"].filter(Boolean).join("\n\n");
+/** The caption to post with the image: hashtags only (the quote is already on the image). */
+export function biteCaption(_q?: BiteQ) {
+  return "#BCILFoundation #DailyBite #GroomingGenerationalLeaders";
 }
 
 export function saveBlob(blob: Blob, name: string) {
@@ -116,9 +114,9 @@ export async function monthPack(month: string, bites: BiteQ[]) {
   for (const q of bites) {
     const name = `${q.show_on} Daily Bite.png`;
     zip.file(name, await quoteBlob(q));
-    zip.file(`${q.show_on} caption.txt`, biteCaption(q));
     rows.push([q.show_on, name, biteCaption(q)]);
   }
+  zip.file("caption.txt", biteCaption());
   const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\r\n");
   zip.file("captions.csv", "﻿" + csv);
   zip.file("HOW TO SCHEDULE.txt", [
@@ -126,7 +124,7 @@ export async function monthPack(month: string, bites: BiteQ[]) {
     "",
     "1. Go to business.facebook.com and open Planner (or Content > Planner).",
     "2. Click Create post. Choose the BCIL Facebook Page and the Instagram account.",
-    "3. Add the image for a day (e.g. 2026-12-01 Daily Bite.png) and paste its caption (from the matching caption.txt).",
+    "3. Add the image for a day (e.g. 2026-12-01 Daily Bite.png) and paste the caption (the hashtags in caption.txt).",
     "4. Click the arrow next to Publish > Schedule, pick that date and a time (e.g. 7:00 am), and schedule it.",
     "5. Repeat for each day. Tip: Meta Business Suite also has Bulk upload under Planner, which takes several posts at once.",
   ].join("\r\n"));
