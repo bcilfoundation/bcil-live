@@ -83,8 +83,15 @@ export default function Quotes() {
   );
 }
 
-export async function shareBite(x: { body: string; author: string }) {
+export async function shareBite(x: { body: string; author: string; show_on?: string; reflection?: string | null }) {
   const text = `“${x.body}” — ${x.author}\n\nBCIL Foundation · Daily Bite\n${location.origin}${import.meta.env.BASE_URL}`;
+  // share the branded image when the phone allows it (WhatsApp status, Instagram, Facebook…), with the words as text
+  try {
+    const { quoteBlob } = await import("../lib/quoteCard");
+    const blob = await quoteBlob({ body: x.body, author: x.author, show_on: x.show_on ?? new Date().toISOString().slice(0, 10), reflection: x.reflection });
+    const file = new File([blob], "BCIL Daily Bite.png", { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+  } catch (e) { if ((e as Error)?.name === "AbortError") return; }
   try {
     if (navigator.share) await navigator.share({ text });
     else { await navigator.clipboard.writeText(text); alert("Copied. Paste it on WhatsApp or your status."); }

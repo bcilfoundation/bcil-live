@@ -69,9 +69,64 @@ function QuotesAdmin() {
       <p className="muted">{msg}</p>
       <button className="btn primary">Save bite</button>
     </form>
+    <SocialBites />
     <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.show_on}</b><br /><small className="muted">“{r.body}” — {r.author}</small></div>
+      <button className="linkbtn" onClick={() => bitePost({ ...r, reflection: null })}>Image</button>
       <button className="linkbtn" onClick={async () => { await supabase.from("quotes").delete().eq("id", r.id); load(); }}>Delete</button></div>)}</div>
   </>);
+}
+
+async function bitePost(q: { body: string; author: string; show_on: string; reflection: string | null }) {
+  const { quoteBlob, saveBlob } = await import("../lib/quoteCard");
+  saveBlob(await quoteBlob(q), `${q.show_on} Daily Bite.png`);
+}
+
+// Daily Bites for social media: today's image and caption, and a month of images to schedule in Meta Business Suite
+function SocialBites() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const [month, setMonth] = useState(ym(now.getDate() > 20 ? next : now));
+  const [today, setToday] = useState<{ body: string; author: string; show_on: string; reflection: string | null } | null>(null);
+  const [img, setImg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    supabase.from("quotes").select("body, author, show_on, reflection").eq("show_on", new Date().toISOString().slice(0, 10)).maybeSingle().then(async ({ data }) => {
+      setToday(data ?? null);
+      if (data) { const { quoteBlob } = await import("../lib/quoteCard"); setImg(URL.createObjectURL(await quoteBlob(data))); }
+    });
+  }, []);
+  async function pack() {
+    setBusy(true); setMsg("");
+    const [y, m] = month.split("-").map(Number);
+    const end = new Date(y, m, 0).getDate();
+    const { data } = await supabase.from("quotes").select("body, author, show_on, reflection").gte("show_on", `${month}-01`).lte("show_on", `${month}-${end}`).order("show_on");
+    if (!data?.length) { setMsg("There are no bites saved for that month yet. Add them above first."); setBusy(false); return; }
+    const { monthPack } = await import("../lib/quoteCard");
+    await monthPack(month, data);
+    setMsg(`Downloaded ${data.length} of ${end} days.${data.length < end ? " Some days have no bite yet." : ""}`);
+    setBusy(false);
+  }
+  return (
+    <div className="card socialbites">
+      <h3>📣 Post Daily Bites on social media</h3>
+      {today ? <div className="row" style={{ gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {img && <img src={img} alt="Today's Daily Bite image" />}
+        <div className="grow" style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 200 }}>
+          <b>Today's bite</b>
+          <button className="btn primary sm" onClick={() => bitePost(today)}>⬇ Download image</button>
+          <button className="btn ghost sm" onClick={async () => { const { biteCaption } = await import("../lib/quoteCard"); await navigator.clipboard.writeText(biteCaption(today)).catch(() => {}); setMsg("Caption copied."); }}>Copy caption</button>
+        </div>
+      </div> : <p className="muted small">No bite for today yet.</p>}
+      <div className="row" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginTop: 10 }}>
+        <label className="field">A month of posts<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
+        <button className="btn primary" disabled={busy} onClick={pack}>{busy ? "Making images…" : "⬇ Download month pack"}</button>
+      </div>
+      <small className="muted">The pack has one image and caption per day. Upload it to Meta Business Suite (business.facebook.com → Planner) to schedule a post for every day on the Facebook Page and Instagram. Instructions are inside the pack.</small>
+      {msg && <p className="muted small">{msg}</p>}
+    </div>
+  );
 }
 
 function LiveAdmin() {
