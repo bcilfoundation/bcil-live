@@ -882,3 +882,18 @@ html,body{max-width:100%;overflow-x:hidden}
 .musiclib .songs li.on{background:rgba(245,179,1,.22)}
 .musiclib .songplay{width:32px;height:32px;border-radius:50%;border:0;background:#0f2d52;color:#fff;font-weight:700;cursor:pointer;flex-shrink:0}
 .musiclib .songplay:disabled{opacity:.5}
+/* Plan 2027 table in Solomon's format */
+.plantable-wrap{overflow-x:auto;margin-top:8px;border-radius:10px;border:1px solid rgba(15,45,82,.15)}
+.plantable{width:100%;min-width:720px;border-collapse:collapse;font-size:.9rem;background:var(--card,#fff)}
+.plantable thead th{background:#1e3f78;color:#fff;text-align:left;padding:8px;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase}
+.plantable td,.plantable th.planarea{border:1px solid rgba(15,45,82,.15);padding:8px;vertical-align:top;text-align:left}
+.plantable th.planarea{background:rgba(201,162,39,.12);color:#1e3f78;text-transform:uppercase;font-size:.8rem;letter-spacing:.04em;width:120px}
+.plantable .plangoal{width:170px}
+.plantable td:nth-child(n+4){white-space:nowrap}
+.remarkcell{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.remarkcell textarea{font-size:.85rem;white-space:normal}
+.sharelink{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.sharelink img{width:130px;height:130px;border-radius:8px}
+.sharelink .grow{display:flex;flex-direction:column;gap:6px;min-width:220px}
+.sharelink code{font-size:.85rem;word-break:break-all}
+.signin-note{position:fixed;top:0;left:0;right:0;z-index:50;background:#fff7d6;color:#5b4500;padding:10px 14px;text-align:center;font-size:.9rem}

@@ -1,7 +1,7 @@
 import type { Field } from "./Forms";
 import FormBuilder from "../components/FormBuilder";
 import { useEffect, useState } from "react";
-import type { Goal, PlanRow } from "./Plan";
+import { PlanTable, downloadPlan, type Goal, type PlanRow } from "./Plan";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -587,14 +587,8 @@ function PlansAdmin() {
     <button className="linkbtn" onClick={() => { setOpen(null); setMsg(""); }}>← All plans</button>
     <h2>{open.profiles?.full_name ?? "Member"}: {open.theme || "Plan 2027"}</h2>
     {open.vision && <p className="prewrap">{open.vision}</p>}
-    {[...open.plan_goals].sort((a, b) => a.sort - b.sort).map((g) => <div key={g.id} className="card" style={{ marginBottom: 8 }}>
-      <b>{g.title}</b> {g.area && <span className="pill">{g.area}</span>} <span className="muted">· {g.progress}%</span>
-      {g.success && <div className="small muted">Success: {g.success}</div>}
-      {(["q1", "q2", "q3", "q4"] as const).map((q, i) => g[q] ? <div key={q} className="small">Q{i + 1}: {g[q]}</div> : null)}
-      {g.first_actions && <div className="small">First actions: {g.first_actions}</div>}
-    </div>)}
-    {open.habits_build && <p><b>Habits to build:</b> {open.habits_build}</p>}
-    {open.habits_drop && <p><b>Habits to drop:</b> {open.habits_drop}</p>}
+    <button className="btn ghost sm" style={{ marginBottom: 8 }} onClick={() => downloadPlan(open, open.plan_goals, open.profiles?.full_name)}>⬇️ PDF</button>
+    <PlanTable goals={open.plan_goals} />
     <p className="muted small">{open.plan_checkins.length} check-in(s){last(open) ? `, last on ${fmt(last(open)!)}` : ""}</p>
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <b>💬 Feedback</b>
@@ -607,6 +601,7 @@ function PlansAdmin() {
     </div>
   </>);
   return (<>
+    <ShareLink path="/plan" title="Plan 2027" note="People sign in (or create an account) first, then go straight to their plan." />
     <p className="muted">{rows?.length ?? 0} plans submitted{drafts ? ` · ${drafts} still in draft` : ""}. Members get a check-in reminder on the 1st of every month, and a quarterly review in April, July and October.</p>
     <div className="list">{(rows ?? []).map((p) => <div key={p.id}><div className="grow">
       <b>{p.profiles?.full_name ?? "Member"}</b> · {p.theme || "Plan 2027"} {p.feedback ? <span className="pill paid">Feedback given</span> : <span className="pill">Needs feedback</span>}
@@ -679,4 +674,27 @@ function useReview() {
   return async (path: string, name: string, context: "meeting" | "form", ref: number) => {
     try { nav(await docLink(path, name, context, ref)); } catch (e) { alert((e as Error).message); }
   };
+}
+
+// a link and QR code to share a page of the app (people sign in first, then land on it)
+function ShareLink({ path, title, note }: { path: string; title: string; note?: string }) {
+  const url = `https://live.bcilfoundation.org${path}`;
+  const [qr, setQr] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { import("qrcode").then((Q) => Q.toDataURL(url, { width: 600, margin: 2, color: { dark: "#1E3F78", light: "#FFFFFF" } })).then(setQr); }, [url]);
+  return (
+    <div className="card sharelink">
+      {qr && <img src={qr} alt={`QR code for ${title}`} />}
+      <div className="grow">
+        <b>Share {title}</b>
+        <code>{url}</code>
+        {note && <small className="muted">{note}</small>}
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <button className="btn primary sm" onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* ignore */ } }}>{copied ? "Copied ✓" : "Copy link"}</button>
+          {qr && <a className="btn ghost sm" href={qr} download={`${title} QR code.png`}>⬇️ QR code</a>}
+          {"share" in navigator && <button className="btn ghost sm" onClick={() => navigator.share({ title: `${title} · BCIL Foundation`, text: `Write your one-year plan for 2027 with BCIL Foundation:`, url }).catch(() => {})}>⤴ Share</button>}
+        </div>
+      </div>
+    </div>
+  );
 }

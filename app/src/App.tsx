@@ -64,8 +64,16 @@ export default function App() {
   const go = useNavigate();
   // Android app: notifications (asks once), and taps on a notification open the right page
   useEffect(() => { if (session) startNativePush(session.user.id, (url) => go(url.replace(/^https?:\/\/[^/]+/, ""))); }, [session?.user.id]);
-  const nav = NAV.filter(([to]) => to !== "/donate" || paymentsOn(isStaff) || !!MOMO);
   const { pathname, search } = useLocation();
+  // a shared link (e.g. /plan) still lands on its page after signing in or creating an account
+  useEffect(() => {
+    if (loading) return;
+    try {
+      if (!session) { if (pathname !== "/" && !/^\/(privacy|register|t|c|thanks)(\/|$)/.test(pathname)) localStorage.setItem("bcil.after", pathname + search); }
+      else { const after = localStorage.getItem("bcil.after"); if (after) { localStorage.removeItem("bcil.after"); if (after !== pathname + search) go(after, { replace: true }); } }
+    } catch { /* ignore */ }
+  }, [session?.user.id, loading]);
+  const nav = NAV.filter(([to]) => to !== "/donate" || paymentsOn(isStaff) || !!MOMO);
   // the privacy policy is public, so the app stores and visitors can read it without signing in
   if (pathname === "/privacy") return <main className="public"><Privacy /></main>;
   // registration and tickets are public: people register for programmes with or without an account
@@ -76,7 +84,7 @@ export default function App() {
   if (cert) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><CertificateCheck ticket={cert[1]} /></Suspense></main>;
   if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
-  if (!session) return <SignIn />;
+  if (!session) return <>{pathname.startsWith("/plan") && <div className="signin-note">📝 <b>Plan 2027</b> is part of BCIL mentorship. Sign in or create a free account to write your plan.</div>}<SignIn /></>;
 
   return (
     <LiveProvider>

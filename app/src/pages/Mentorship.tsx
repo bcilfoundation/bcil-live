@@ -37,7 +37,7 @@ export default function Mentorship() {
       <Link to="/plan" className="card plancta">
         <span className="eyebrow">New · free pilot</span>
         <b>📝 Plan 2027</b>
-        <span className="muted small">Write your one-year plan for 2027 with goals, quarterly milestones and habits, get feedback from BCIL mentors, and check in every month.</span>
+        <span className="muted small">Write your one-year plan for 2027: your goals and targets for each area of life, with start and end months. Get feedback from BCIL mentors and check in every month.</span>
         <span className="btn primary sm">Open my plan</span>
       </Link>
       {pairs === null ? <p className="muted">Loading…</p> : <>
