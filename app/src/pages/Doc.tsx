@@ -10,7 +10,8 @@ import { downloadWithComments } from "../lib/docExport";
 import { useLive, type Session } from "../lib/LiveContext";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
-type DocRow = { id: number; owner_id: string | null; path: string; name: string; context: string; ref_id: number | null; created_at: string };
+type DocRow = { id: number; owner_id: string | null; path: string; name: string; context: string; ref_id: number | null; created_at: string; root_id?: number | null; version?: number; uploaded_by?: string | null };
+type Ver = { id: number; version: number; name: string; created_at: string; uploaded_by: string | null };
 type Comment = { id: number; document_id: number; user_id: string; parent_id: number | null; page: number | null; x: number | null; y: number | null; quote: string | null;
   body: string; resolved: boolean; created_at: string; profiles?: { full_name: string; avatar_url: string | null } | null };
 type Draft = { page: number | null; x: number | null; y: number | null; quote: string | null };
@@ -43,6 +44,8 @@ export default function Doc() {
   const [docCall, setDocCall] = useState<Session | null>(null);
   const [calling, setCalling] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [versions, setVersions] = useState<Ver[]>([]);
+  const [uploading, setUploading] = useState(false);
   const canCall = isStaff || profile?.role === "mentor";
   const topic = `/doc/${id}`;
   const inCall = L.joined && L.live?.topic === topic;
@@ -63,6 +66,28 @@ export default function Doc() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id]);
+
+  // all versions of this document (the original and any revised uploads)
+  useEffect(() => {
+    if (!doc) return;
+    const root = doc.root_id ?? doc.id;
+    supabase.from("documents").select("id, version, name, created_at, uploaded_by").or(`id.eq.${root},root_id.eq.${root}`).order("version")
+      .then(({ data, error }) => setVersions(error ? [] : (data ?? []) as Ver[]));
+  }, [doc?.id]);
+  async function uploadRevision(file?: File) {
+    if (!file || !doc) return;
+    setErr("");
+    if (file.size > 10 * 1024 * 1024) { setErr("That file is over 10 MB."); return; }
+    setUploading(true);
+    try {
+      const path = `${me}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
+      const up = await supabase.storage.from("form-files").upload(path, file, { contentType: file.type || undefined });
+      if (up.error) throw new Error(/mime|type/i.test(up.error.message) ? "Please upload a PDF, Word file (.docx) or a picture." : "Upload failed. Check your connection and try again.");
+      const { data, error } = await supabase.rpc("add_doc_version", { p_doc: doc.id, p_path: path, p_name: file.name });
+      if (error || !data) throw new Error(/function|does not exist/i.test(error?.message ?? "") ? "Revised versions aren't switched on yet." : error?.message ?? "Could not save the new version.");
+      nav(`/doc/${data}`);
+    } catch (e) { setErr((e as Error).message); } finally { setUploading(false); }
+  }
 
   // who to call: the mentorship partner, or the person who sent the document
   useEffect(() => {
@@ -181,17 +206,28 @@ export default function Doc() {
           {url && <button className="btn primary sm" disabled={exporting} onClick={async () => {
             setExporting(true); setErr("");
             try {
-              await downloadWithComments({ name: doc.name, url, kind, numbers: number,
-                comments: comments.map((c) => ({ ...c, author: c.user_id === me ? (profile?.full_name ?? "You") : c.profiles?.full_name ?? "Member" })) });
+              const list = comments.map((c) => ({ ...c, author: c.user_id === me ? (profile?.full_name ?? "You") : c.profiles?.full_name ?? "Member" }));
+              // Word files come back as Word, with the comments in the margin, ready to edit and resolve
+              if (kind === "docx") await (await import("../lib/docxComments")).wordWithComments({ name: doc.name, url, comments: list });
+              else await downloadWithComments({ name: doc.name, url, kind, numbers: number, comments: list });
             } catch { setErr("Could not make the download. Try again, or use Original to get the file."); }
             setExporting(false);
-          }}>{exporting ? "Preparing…" : "⬇ Download with comments"}</button>}
+          }}>{exporting ? "Preparing…" : kind === "docx" ? "⬇ Word with comments" : "⬇ Download with comments"}</button>}
+          <label className="btn ghost sm" title="Upload an edited version of this document. The comments on this version stay here.">{uploading ? "Uploading…" : "⤴ Upload revised version"}
+            <input type="file" hidden disabled={uploading} accept="application/pdf,image/*,.docx" onChange={(e) => { uploadRevision(e.target.files?.[0]); e.target.value = ""; }} /></label>
           {canCall && other && !inCall && !docCall && !L.joined && <>
             <button className="btn ghost sm" disabled={calling} onClick={() => startCall("audio")} title={`Voice call ${other.name} to review this together`}>📞 Call</button>
             <button className="btn ghost sm" disabled={calling} onClick={() => startCall("video")} title={`Video call ${other.name} to review this together`}>🎥 Video</button>
           </>}
         </div>
       </div>
+      {versions.length > 1 && <div className="docversions" role="navigation" aria-label="Versions">
+        <span className="muted small">Versions:</span>
+        {versions.map((v) => v.id === doc.id
+          ? <span key={v.id} className="pill on">v{v.version}{v.version === 1 ? " · original" : ""}</span>
+          : <Link key={v.id} className="pill" to={`/doc/${v.id}`}>v{v.version}{v.version === 1 ? " · original" : ""}</Link>)}
+        {versions[versions.length - 1].id !== doc.id && <Link className="linkbtn" to={`/doc/${versions[versions.length - 1].id}`}>Open the latest version →</Link>}
+      </div>}
       {pinMode && <p className="docnote">Tap the spot you want to comment on.{kind === "docx" ? " In a Word file you can also select some text first, then tap ＋ Comment." : ""} <button className="linkbtn" onClick={() => setPinMode(false)}>Cancel</button></p>}
       {err && <p className="err">{err}</p>}
       {docCall && !inCall && <div className="docnote callnote">📞 There's a call about this document right now.

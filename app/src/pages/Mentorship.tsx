@@ -102,11 +102,11 @@ function PairDocs({ pairId }: { pairId: number }) {
   const { session } = useAuth();
   const me = session!.user.id;
   const nav = useNavigate();
-  const [docs, setDocs] = useState<{ id: number; name: string; owner_id: string; created_at: string; doc_comments: { count: number }[] }[] | null>(null);
+  const [docs, setDocs] = useState<{ id: number; name: string; owner_id: string; created_at: string; version?: number; doc_comments: { count: number }[] }[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => {
-    supabase.from("documents").select("id, name, owner_id, created_at, doc_comments(count)").eq("context", "mentorship").eq("ref_id", pairId).order("created_at", { ascending: false })
+    supabase.from("documents").select("id, name, owner_id, created_at, version, doc_comments(count)").eq("context", "mentorship").eq("ref_id", pairId).order("created_at", { ascending: false })
       .then(({ data, error }) => setDocs(error ? [] : (data ?? []) as never));
   }, [pairId]);
   async function share(file?: File) {
@@ -129,7 +129,7 @@ function PairDocs({ pairId }: { pairId: number }) {
       {docs && docs.length === 0 && <small className="muted">Share a CV, essay, plan or application and get comments on it, like in Google Docs.</small>}
       {docs?.map((d) => (
         <Link key={d.id} to={`/doc/${d.id}`} className="pairdoc">
-          <span className="grow"><b>{d.name}</b><small className="muted">{d.owner_id === me ? "You" : "Shared with you"} · {new Date(d.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small></span>
+          <span className="grow"><b>{d.name}</b>{(d.version ?? 1) > 1 && <span className="pill">v{d.version}</span>}<small className="muted">{d.owner_id === me ? "You" : "Shared with you"} · {new Date(d.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small></span>
           <span className="pill">💬 {d.doc_comments?.[0]?.count ?? 0}</span>
         </Link>
       ))}

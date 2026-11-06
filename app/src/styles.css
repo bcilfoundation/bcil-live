@@ -897,3 +897,6 @@ html,body{max-width:100%;overflow-x:hidden}
 .sharelink .grow{display:flex;flex-direction:column;gap:6px;min-width:220px}
 .sharelink code{font-size:.85rem;word-break:break-all}
 .signin-note{position:fixed;top:0;left:0;right:0;z-index:50;background:#fff7d6;color:#5b4500;padding:10px 14px;text-align:center;font-size:.9rem}
+.docversions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.docversions .pill{text-decoration:none}
+.docversions .pill.on{background:#0f2d52;color:#fff}
