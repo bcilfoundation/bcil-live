@@ -44,7 +44,7 @@ import { paymentsOn } from "./lib/pay";
 // The laptop sidebar mirrors the phone: the bottom tabs first, then what's in More.
 // Library covers the Reading room and Bookshop; Groups covers Messages, Campus Sync and Friends.
 const NAV = ([
-  ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/groups", "Groups"], ["/donate", "Donate"],
+  ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/groups", "Chats"], ["/donate", "Donate"],
 ] as const);
 const NAV_MORE = ([
   ["/about", "About us"], ["/events", "Programmes"], ["/mentorship", "Mentorship"], ["/meet", "Meet Solomon"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
@@ -158,7 +158,7 @@ export default function App() {
       </div>
       <MiniPlayer />
       <nav className="tabbar">
-        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/groups", "Groups", "users"], ["/donate", "Donate", "gift"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
+        {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/groups", "Chats", "users"], ["/donate", "Donate", "gift"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}
             className={({ isActive }) => (isActive || (to === "/groups" && /^\/(chat|campus|friends|join)/.test(pathname)) || (to === "/library" && /^\/(reading|shop)/.test(pathname)) ? "active" : "")}>
             <Icon name={icon} size={24} /><span>{label}</span></NavLink>)}

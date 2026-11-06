@@ -9,6 +9,7 @@ import type { Group } from "./Groups";
 import PersonSheet from "../components/PersonSheet";
 import { shrink } from "../lib/media";
 import { isNative } from "../lib/native";
+import { useLive } from "../lib/LiveContext";
 
 type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string; leader?: boolean };
 type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
@@ -16,6 +17,17 @@ type Msg = { id: number; user_id: string; body: string; created_at: string; repl
 
 export default function Chat() {
   const { session, profile, isStaff } = useAuth();
+  const L = useLive();
+  const canCall = isStaff || profile?.role === "mentor";   // staff and mentors can start calls in a direct message
+  const [calling, setCalling] = useState(false);
+  async function call(kind: "audio" | "video") {
+    if (!room || calling) return;
+    if (L.joined) { nav("/live"); return; }
+    setCalling(true);
+    const ok = await L.goLiveNow({ title: `Call with ${room.name}`, topic: "", kind, record: false, cam: kind === "video", roomId: room.id, dm: true });
+    setCalling(false);
+    if (ok) nav("/live");
+  }
   const me = session!.user.id;
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -195,7 +207,10 @@ export default function Chat() {
                 <span className="grow"><b>{room.name}</b>
                   <small className="muted">{room.kind === "dm" ? "Tap for profile" : `${room.members ?? ""} members · tap for group info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
               </button>
-              {room.kind === "dm" && (isStaff || profile?.role === "mentor") && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name, dm: true } } })} aria-label={`Start a live call with ${room.name}`}>● Live</button>}
+              {room.kind === "dm" && canCall && <div className="callbtns">
+                <button className="iconbtn callbtn" disabled={calling} onClick={() => call("audio")} aria-label={`Voice call ${room.name}`} title="Voice call">📞</button>
+                <button className="iconbtn callbtn" disabled={calling} onClick={() => call("video")} aria-label={`Video call ${room.name}`} title="Video call">🎥</button>
+              </div>}
               {room.kind === "group" && room.leader && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name } } })} aria-label={`Go live with ${room.name}`}>● Live</button>}
             </div>
             <div className="msgs">

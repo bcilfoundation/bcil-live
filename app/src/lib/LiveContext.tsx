@@ -94,7 +94,8 @@ function useLiveEngine() {
       const list = (data ?? []) as Session[];
       // your own session first, then a public one, then a private one you were invited to
       const on = list.filter((s) => s.status === "live");
-      setLive(on.find((s) => s.host_id === me) ?? on.find((s) => !s.is_private) ?? on[0] ?? null);
+      // my own session first, then a call or group session meant for me, then the public one
+      setLive(on.find((s) => s.host_id === me) ?? on.find((s) => !!s.room_id) ?? on.find((s) => !s.is_private) ?? on[0] ?? null);
       setUpcoming(list.filter((s) => s.status === "scheduled"));
     });
     const ch = supabase.channel("live-sessions")
@@ -302,7 +303,7 @@ function useLiveEngine() {
       stayIn.current = true;
       startLiveService(sess.title, !!data.speaker);
       setSpeaker(!!data.speaker); setMuted(false); setJoined(true); setJoinedId(sess.id);
-      try { sessionStorage.setItem(`bcil.joined.${sess.id}`, "1"); } catch { /* ignore */ }
+      try { sessionStorage.setItem(`bcil.joined.${sess.id}`, "1"); localStorage.setItem(`bcil.here.${sess.id}`, String(Date.now())); } catch { /* ignore */ }
       reconnectTries.current = 0;
       return true;
     } catch (e) {
@@ -683,10 +684,12 @@ function useLiveEngine() {
   // Join automatically: listeners as soon as a session is live, and the host again when they come back to the app
   useEffect(() => {
     if (!live || live.status !== "live" || joined || joining.current || left.current.has(live.id)) return;
-    // Nobody is pulled into a session they didn't choose: only the host, or someone who already joined
-    // this session in this browser (e.g. after a reload), comes back in automatically.
-    let joinedBefore = false; try { joinedBefore = !!sessionStorage.getItem(`bcil.joined.${live.id}`); } catch { /* ignore */ }
-    if (live.host_id !== me && !joinedBefore) return;
+    // Nobody is pulled into a session they didn't choose. Only someone who already joined this session
+    // on THIS device (e.g. after a reload, or the host coming back to the app) comes back in automatically,
+    // so a session started on a laptop doesn't also start on the host's phone.
+    let joinedBefore = false;
+    try { joinedBefore = !!sessionStorage.getItem(`bcil.joined.${live.id}`) || !!localStorage.getItem(`bcil.here.${live.id}`); } catch { /* ignore */ }
+    if (!joinedBefore) return;
     if (live.kind === "video" && live.host_id !== me) return;   // video: everyone first chooses camera on or off
     join(live);
   }, [live?.id, live?.status, isStaff, joined]);

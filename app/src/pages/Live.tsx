@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import { initials } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -157,7 +157,7 @@ export default function Live() {
       <div className="livecard" style={{ background: bgCss(live.background) }}>
         <div className="row"><span className="pill live">● LIVE</span>{live.is_private && <span className="pill privpill">🔒 Private</span>}<span className="lc-kind">{live.kind === "video" ? "🎥 Video" : "🎙 Audio"} · {L.elapsed}</span></div>
         <b className="lc-title">{live.title}</b>
-        <small>{live.topic ? `${live.topic} · ` : ""}Hosted by {L.hostName}{people.length ? ` · ${people.length} in the room` : ""}</small>
+        <small>{live.topic && !live.topic.startsWith("/doc/") ? `${live.topic} · ` : ""}Hosted by {L.hostName}{people.length ? ` · ${people.length} in the room` : ""}</small>
         <button className="btn lc-join" disabled={busy} onClick={() => { if (live.kind === "video") setEntering(true); else { setEntering(true); L.join(); } }}>
           {busy ? "Connecting…" : live.kind === "video" ? "Join the session" : "🎧 Join and listen"}</button>
       </div>
@@ -221,7 +221,7 @@ export default function Live() {
           {joined && <button className="room-pillbtn leave" onClick={L.leaveRoom}>Leave</button>}
         </div>
       </div>
-      {live.topic && <p className="room-topic">{live.topic} · Hosted by {L.hostName}</p>}
+      {live.topic && <p className="room-topic">{live.topic.startsWith("/doc/") ? <Link to={live.topic}>📄 Open the document you are reviewing</Link> : live.topic} · Hosted by {L.hostName}</p>}
 
       {!joined && live.kind === "video" ? (
         <PreJoin openBg={() => setSheet("cambg")} label={amHost ? "Continue hosting" : "Join the session"} />

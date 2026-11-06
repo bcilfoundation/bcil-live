@@ -861,3 +861,17 @@ html,body{max-width:100%;overflow-x:hidden}
 .pairdocs{border-top:1px solid rgba(15,45,82,.1);margin-top:12px;padding-top:10px;display:flex;flex-direction:column;gap:6px}
 .pairdoc{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(15,45,82,.05);color:inherit;text-decoration:none}
 .pairdoc small{display:block}
+.callbtns{display:flex;gap:6px;flex-shrink:0}
+.callbtn{font-size:1.15rem;width:40px;height:40px;border-radius:50%;background:rgba(15,45,82,.08)}
+/* call while reviewing a document */
+.callnote{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.calldock{position:fixed;right:16px;bottom:88px;z-index:60;width:300px;max-width:calc(100vw - 32px);background:#0f2d52;color:#fff;border-radius:16px;padding:10px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px}
+@media (min-width:900px){.calldock{bottom:20px}}
+.calldock-v{position:relative}
+.calltile{width:100%;aspect-ratio:16/10;background:#081a31;border-radius:10px;overflow:hidden;display:grid;place-items:center;font-size:.85rem;color:#9fb3cc}
+.calltile.small{position:absolute;right:6px;bottom:6px;width:34%;aspect-ratio:4/3;border:2px solid #fff;z-index:1}
+.calldock-who{opacity:.85}
+.calldock-btns{display:flex;justify-content:center;gap:10px}
+.calldock-btns .iconbtn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:1.15rem}
+.calldock-btns .iconbtn.on{background:#f5b301}
+.calldock-btns .iconbtn.hang{background:#dc2626}
