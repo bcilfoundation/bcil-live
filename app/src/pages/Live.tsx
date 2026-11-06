@@ -95,7 +95,7 @@ export default function Live() {
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (optional)" aria-label="Topic" />
           <div className="kindpick" role="radiogroup" aria-label="Session type">
             <button type="button" role="radio" aria-checked={kind === "audio"} className={kind === "audio" ? "on" : ""} onClick={() => setKind("audio")}>🎙 Audio<small>Like a podcast</small></button>
-            <button type="button" role="radio" aria-checked={kind === "video"} className={kind === "video" ? "on" : ""} onClick={() => setKind("video")}>🎥 Video<small>Like Zoom</small></button>
+            <button type="button" role="radio" aria-checked={kind === "video"} className={kind === "video" ? "on" : ""} onClick={() => setKind("video")}>🎥 Video<small>Like Zoom: everyone can turn their camera on</small></button>
           </div>
           {dm ? <p className="groupnote">📞 Only <b>{group!.name}</b> can see and join it. They get a notification now and can talk straight away.</p> : group ? <p className="groupnote">👥 For <b>{group.name}</b> only: members of the group are notified and can join. No one else sees it.</p> : <>
           <div className="kindpick" role="radiogroup" aria-label="Who can join">

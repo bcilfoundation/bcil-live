@@ -24,7 +24,8 @@ export default function Chat() {
     if (!room || calling) return;
     if (L.joined) { nav("/live"); return; }
     setCalling(true);
-    const ok = await L.goLiveNow({ title: `Call with ${room.name}`, topic: "", kind, record: false, cam: kind === "video", roomId: room.id, dm: true });
+    // every call can use cameras: a voice call simply starts with the camera off and either person can turn it on
+    const ok = await L.goLiveNow({ title: `Call with ${room.name}`, topic: "", kind: "video", record: false, cam: kind === "video", roomId: room.id, dm: true });
     setCalling(false);
     if (ok) nav("/live");
   }

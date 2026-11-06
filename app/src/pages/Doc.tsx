@@ -89,7 +89,7 @@ export default function Doc() {
     setCalling(true);
     const { data: roomId, error } = await supabase.rpc("start_dm", { other: other.id });
     if (error || !roomId) { setErr("Could not start the call."); setCalling(false); return; }
-    await L.goLiveNow({ title: `Reviewing ${doc.name}`.slice(0, 90), topic, kind, record: false, cam: kind === "video", roomId: roomId as string, dm: true });
+    await L.goLiveNow({ title: `Reviewing ${doc.name}`.slice(0, 90), topic, kind: "video", record: false, cam: kind === "video", roomId: roomId as string, dm: true });
     setCalling(false);
   }
   async function joinCall() {
