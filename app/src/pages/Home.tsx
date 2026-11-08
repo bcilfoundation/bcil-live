@@ -140,6 +140,7 @@ function BiteCard({ q }: { q: Quote }) {
       <small>— {q.author}</small>
       <div className="bite-acts">
         <button className={`likebtn${l.mine ? " on" : ""}`} onClick={like} aria-pressed={l.mine} aria-label={l.mine ? "Unlike" : "Like"}>{l.mine ? "❤️" : "🤍"} {l.n || ""}</button>
+        <Link to="/quotes" className="btn ghost sm light" aria-label="Comments">💬 Comment</Link>
         <button className="btn ghost sm light" onClick={() => shareBite(q)}>Share</button>
         <Link to="/quotes" className="bite-past">Past bites</Link>
       </div>

@@ -34,6 +34,19 @@ export default function Quotes() {
       setLikes(m);
     });
   }, [ids.join(",")]);
+  // comment and share counts for the bites on screen
+  const [counts, setCounts] = useState<Record<number, { s: number; c: number }>>({});
+  const [openC, setOpenC] = useState<number | null>(null);
+  useEffect(() => {
+    if (!ids.length) return;
+    supabase.from("quotes").select("id, quote_shares(count), quote_comments(count)").in("id", ids).then(({ data, error }) => {
+      if (error) return;
+      const m: Record<number, { s: number; c: number }> = {};
+      for (const r of (data ?? []) as { id: number; quote_shares: { count: number }[]; quote_comments: { count: number }[] }[]) m[r.id] = { s: r.quote_shares?.[0]?.count ?? 0, c: r.quote_comments?.[0]?.count ?? 0 };
+      setCounts(m);
+    });
+  }, [ids.join(",")]);
+  const bump = (id: number) => setCounts((m) => ({ ...m, [id]: { c: m[id]?.c ?? 0, s: (m[id]?.s ?? 0) + 1 } }));
   const q = quotes[0];
   useEffect(() => { if (q) supabase.from("quote_reads").insert({ user_id: me, quote_id: q.id }).then(() => {}, () => {}); }, [q?.id]);
   async function toggleLike(id: number) {
@@ -59,8 +72,10 @@ export default function Quotes() {
         {big && x.reflection && <p className="muted">Reflect: {x.reflection}</p>}
         <div className="row" style={{ gap: 8 }}>
           <button className={`likebtn${l.mine ? " on" : ""}`} onClick={() => toggleLike(x.id)} aria-pressed={l.mine} aria-label={l.mine ? "Unlike" : "Like"}>{l.mine ? "❤️" : "🤍"} {l.n || ""}</button>
-          <button className={big ? "btn primary sm" : "btn ghost sm"} onClick={() => shareBite(x)}>Share</button>
+          <button className="likebtn" onClick={() => setOpenC((o) => (o === x.id ? null : x.id))} aria-expanded={openC === x.id} aria-label="Comments">💬 {counts[x.id]?.c || ""}</button>
+          <button className={big ? "btn primary sm" : "btn ghost sm"} onClick={async () => { if (await shareBite(x)) bump(x.id); }}>Share{counts[x.id]?.s ? ` · ${counts[x.id].s}` : ""}</button>
         </div>
+        {(big || openC === x.id) && <BiteComments quoteId={x.id} me={me} open={openC === x.id || !!big} onCount={(n) => setCounts((m) => ({ ...m, [x.id]: { s: m[x.id]?.s ?? 0, c: n } }))} />}
       </div>
     );
   };
@@ -83,19 +98,50 @@ export default function Quotes() {
   );
 }
 
-export async function shareBite(x: { body: string; author: string; show_on?: string; reflection?: string | null }) {
-  const text = `“${x.body}” — ${x.author}\n\nBCIL Foundation · Daily Bite\n${location.origin}${import.meta.env.BASE_URL}`;
-  // share the branded image when the phone allows it (WhatsApp status, Instagram, Facebook…), with the words as text
+/** Share a Daily Bite as its branded image (card), with a short line of text. Returns true when it was shared. */
+export async function shareBite(x: { id?: number; body: string; author: string; show_on?: string; reflection?: string | null }) {
+  const link = `${location.origin}${import.meta.env.BASE_URL}`;
+  const text = `BCIL Foundation · Daily Bite\n${link}\n#BCILFoundation #DailyBite #GroomingGenerationalLeaders`;
+  const plain = `“${x.body}” — ${x.author}\n\n${text}`;
+  const record = () => { if (x.id) supabase.from("quote_shares").insert({ quote_id: x.id }).then(() => {}, () => {}); };
+  let blob: Blob | null = null;
   try {
     const { quoteBlob } = await import("../lib/quoteCard");
-    const blob = await quoteBlob({ body: x.body, author: x.author, show_on: x.show_on ?? new Date().toISOString().slice(0, 10), reflection: x.reflection });
+    blob = await quoteBlob({ body: x.body, author: x.author, show_on: x.show_on ?? new Date().toISOString().slice(0, 10), reflection: x.reflection });
+  } catch { /* fall back to text */ }
+  // 1. the Android app: save the card and open the phone's share sheet (WhatsApp, Instagram, Facebook…)
+  if (blob && isNative) {
+    try {
+      const [{ Filesystem, Directory }, { Share }] = await Promise.all([import("@capacitor/filesystem"), import("@capacitor/share")]);
+      const data = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.readAsDataURL(blob!); });
+      const f = await Filesystem.writeFile({ path: `bcil-daily-bite-${x.show_on ?? "today"}.png`, data, directory: Directory.Cache });
+      await Share.share({ files: [f.uri], text, dialogTitle: "Share the Daily Bite" });
+      record(); return true;
+    } catch (e) {
+      if (/cancel/i.test(String((e as Error)?.message ?? e))) return false;
+      /* older app without the share feature: fall through */
+    }
+  }
+  // 2. phone browsers: share the card as a picture
+  if (blob) {
     const file = new File([blob], "BCIL Daily Bite.png", { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
-  } catch (e) { if ((e as Error)?.name === "AbortError") return; }
+    try {
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text }); record(); return true; }
+    } catch (e) { if ((e as Error)?.name === "AbortError") return false; }
+    // 3. computers: save the card and copy the text, ready to attach to a post
+    if (!isNative) {
+      const { saveBlob } = await import("../lib/quoteCard");
+      saveBlob(blob, `BCIL Daily Bite ${x.show_on ?? ""}.png`.trim());
+      await navigator.clipboard?.writeText(text).catch(() => {});
+      alert("The Daily Bite card is saved to your downloads, and the text is copied. Attach the picture to your post.");
+      record(); return true;
+    }
+  }
+  // 4. last resort: the words
   try {
-    if (navigator.share) await navigator.share({ text });
-    else { await navigator.clipboard.writeText(text); alert("Copied. Paste it on WhatsApp or your status."); }
-  } catch { /* cancelled */ }
+    if (navigator.share) { await navigator.share({ text: plain }); record(); return true; }
+    await navigator.clipboard.writeText(plain); alert("Copied. Paste it on WhatsApp or your status."); record(); return true;
+  } catch { return false; }
 }
 
 // "Get today's quote on your phone every morning" — turns on phone notifications and the quote setting
@@ -136,6 +182,52 @@ function QuoteAlerts({ me }: { me: string }) {
         <small className="muted">{iosBrowser ? "On iPhone: tap Share → Add to Home Screen, open BCIL Foundation from your home screen, then come back here." : "A notification every morning at 6:00 am, no need to open the app."}</small></div>
       {!iosBrowser && <button className="btn small primary" disabled={busy} onClick={push ? () => setQuotes(true) : turnOn}>{busy ? "…" : "Turn on"}</button>}
       {msg && <p className="muted" role="status" style={{ width: "100%", margin: 0 }}>{msg}</p>}
+    </div>
+  );
+}
+
+type BComment = { id: number; user_id: string; body: string; created_at: string; profiles: { full_name: string; avatar_url: string | null } | null };
+// comments under a Daily Bite
+function BiteComments({ quoteId, me, open, onCount }: { quoteId: number; me: string; open: boolean; onCount: (n: number) => void }) {
+  const { isStaff } = useAuth();
+  const [list, setList] = useState<BComment[] | null>(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [all, setAll] = useState(false);
+  const load = () => supabase.from("quote_comments").select("id, user_id, body, created_at, profiles(full_name, avatar_url)").eq("quote_id", quoteId).order("created_at")
+    .then(({ data, error }) => { if (!error) { setList((data ?? []) as unknown as BComment[]); onCount((data ?? []).length); } else setList([]); });
+  useEffect(() => {
+    if (!open) return;
+    load();
+    const ch = supabase.channel(`bite-comments:${quoteId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quote_comments", filter: `quote_id=eq.${quoteId}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [quoteId, open]);
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.from("quote_comments").insert({ quote_id: quoteId, body: text.trim().slice(0, 1000) });
+    setBusy(false);
+    if (!error) { setText(""); load(); }
+  }
+  if (!open) return null;
+  const shown = list && !all && list.length > 4 ? list.slice(-4) : list;
+  return (
+    <div className="bitecomments">
+      {list && list.length > 4 && !all && <button className="linkbtn" onClick={() => setAll(true)}>See all {list.length} comments</button>}
+      {shown?.map((c) => (
+        <div key={c.id} className="bitecomment">
+          <b>{c.user_id === me ? "You" : c.profiles?.full_name ?? "Member"}</b> <span className="prewrap">{c.body}</span>
+          <small className="muted"> · {new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small>
+          {(c.user_id === me || isStaff) && <button className="linkbtn" aria-label="Delete comment" onClick={async () => { await supabase.from("quote_comments").delete().eq("id", c.id); load(); }}>✕</button>}
+        </div>
+      ))}
+      <form className="row bitecommentform" onSubmit={send}>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="What does this bite mean to you?" aria-label="Write a comment" maxLength={1000} />
+        <button className="btn primary sm" disabled={busy || !text.trim()}>Post</button>
+      </form>
     </div>
   );
 }
