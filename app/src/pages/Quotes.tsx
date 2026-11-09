@@ -62,10 +62,11 @@ export default function Quotes() {
     const { data } = d > biteDay() ? { data: null } : await supabase.from("quotes").select("*").eq("show_on", d).maybeSingle();
     setFound((data as Quote | null) ?? null);
   }
-  const Bite = ({ x, big }: { x: Quote; big?: boolean }) => {
+  // a plain function (not a component), so cards are not rebuilt (and comment boxes not cleared) on every update
+  const bite = (x: Quote, big?: boolean) => {
     const l = likes[x.id] ?? { n: 0, mine: false };
     return (
-      <div className={big ? "quote" : "card bitecard"}>
+      <div key={x.id} className={big ? "quote" : "card bitecard"}>
         <span className="eyebrow">{big && x.show_on === today() ? "Today · " : ""}{dayName(x.show_on)}</span>
         {big ? <blockquote>“{x.body}”</blockquote> : <b>“{x.body}”</b>}
         <cite className={big ? "" : "muted small"}>— {x.author}</cite>
@@ -75,7 +76,7 @@ export default function Quotes() {
           <button className="likebtn" onClick={() => setOpenC((o) => (o === x.id ? null : x.id))} aria-expanded={openC === x.id} aria-label="Comments">💬 {counts[x.id]?.c || ""}</button>
           <button className={big ? "btn primary sm" : "btn ghost sm"} onClick={async () => { if (await shareBite(x)) bump(x.id); }}>Share{counts[x.id]?.s ? ` · ${counts[x.id].s}` : ""}</button>
         </div>
-        {(big || openC === x.id) && <BiteComments quoteId={x.id} me={me} open={openC === x.id || !!big} onCount={(n) => setCounts((m) => ({ ...m, [x.id]: { s: m[x.id]?.s ?? 0, c: n } }))} />}
+        {(big || openC === x.id) && <BiteComments quoteId={x.id} me={me} open={openC === x.id || !!big} onCount={(n) => setCounts((m) => (m[x.id]?.c === n ? m : { ...m, [x.id]: { s: m[x.id]?.s ?? 0, c: n } }))} />}
       </div>
     );
   };
@@ -84,15 +85,15 @@ export default function Quotes() {
     <section className="view">
       <h1>Daily Bite</h1>
       <QuoteAlerts me={me} />
-      {q ? <Bite x={q} big /> : <div className="empty"><b>No bites yet</b>Admins add them from the Admin page.</div>}
+      {q ? bite(q, true) : <div className="empty"><b>No bites yet</b>Admins add them from the Admin page.</div>}
       <div className="row bitefind">
         <label className="field grow">Find the bite for a day<input type="date" value={pick} max={today()} onChange={(e) => findDay(e.target.value)} /></label>
         {pick && <button className="linkbtn" onClick={() => findDay("")}>Clear</button>}
       </div>
-      {pick && (found === undefined ? <p className="muted">Looking…</p> : found ? <Bite x={found} /> : <p className="muted">No bite was shared on {dayName(pick)}.</p>)}
+      {pick && (found === undefined ? <p className="muted">Looking…</p> : found ? bite(found) : <p className="muted">No bite was shared on {dayName(pick)}.</p>)}
       {quotes.length > 1 && <>
         <h2>This past week</h2>
-        <div className="grid2">{quotes.slice(1).map((x) => <Bite key={x.id} x={x} />)}</div>
+        <div className="grid2">{quotes.slice(1).map((x) => bite(x))}</div>
       </>}
     </section>
   );
@@ -194,6 +195,7 @@ function BiteComments({ quoteId, me, open, onCount }: { quoteId: number; me: str
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [all, setAll] = useState(false);
+  const [err, setErr] = useState("");
   const load = () => supabase.from("quote_comments").select("id, user_id, body, created_at, profiles(full_name, avatar_url)").eq("quote_id", quoteId).order("created_at")
     .then(({ data, error }) => { if (!error) { setList((data ?? []) as unknown as BComment[]); onCount((data ?? []).length); } else setList([]); });
   useEffect(() => {
@@ -210,7 +212,8 @@ function BiteComments({ quoteId, me, open, onCount }: { quoteId: number; me: str
     setBusy(true);
     const { error } = await supabase.from("quote_comments").insert({ quote_id: quoteId, body: text.trim().slice(0, 1000) });
     setBusy(false);
-    if (!error) { setText(""); load(); }
+    if (error) setErr("Your comment wasn't posted. Check your connection and try again.");
+    else { setErr(""); setText(""); load(); }
   }
   if (!open) return null;
   const shown = list && !all && list.length > 4 ? list.slice(-4) : list;
@@ -228,6 +231,7 @@ function BiteComments({ quoteId, me, open, onCount }: { quoteId: number; me: str
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="What does this bite mean to you?" aria-label="Write a comment" maxLength={1000} />
         <button className="btn primary sm" disabled={busy || !text.trim()}>Post</button>
       </form>
+      {err && <small className="err">{err}</small>}
     </div>
   );
 }
