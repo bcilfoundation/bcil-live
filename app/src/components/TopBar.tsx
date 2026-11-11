@@ -54,7 +54,11 @@ export default function TopBar() {
   // unread chat messages (for the dot on the chat button)
   async function loadUnread() {
     const { data } = await supabase.rpc("my_unread");
-    setUnreadChats(((data ?? []) as { n: number }[]).reduce((a, r) => a + r.n, 0));
+    const n = ((data ?? []) as { n: number }[]).reduce((a, r) => a + r.n, 0);
+    setUnreadChats(n);
+    // the Chats tab at the bottom shows the same number
+    (window as unknown as { bcilUnread?: number }).bcilUnread = n;
+    window.dispatchEvent(new CustomEvent("bcil-unread", { detail: n }));
   }
   useEffect(() => {
     loadNotes(); loadUnread();
@@ -98,8 +102,8 @@ export default function TopBar() {
       <button className={`iconbtn${open === "bell" ? " on" : ""}`} onClick={openBell} aria-label={`Notifications${unread ? `, ${unread} new` : ""}`}>
         <Icon name="bell" />{unread > 0 && <span className="count">{unread > 9 ? "9+" : unread}</span>}
       </button>
-      <button className="iconbtn" onClick={() => { setOpen(""); nav("/chat"); }} aria-label={`Chat${unreadChats ? ", new messages" : ""}`}>
-        <Icon name="chat" />{unreadChats > 0 && <span className="dot" />}
+      <button className="iconbtn" onClick={() => { setOpen(""); nav("/chat"); }} aria-label={`Chats${unreadChats ? `, ${unreadChats} unread` : ""}`}>
+        <Icon name="chat" />{unreadChats > 0 && <span className="count wa">{unreadChats > 99 ? "99+" : unreadChats}</span>}
       </button>
       <MeButton active={open === "me"} onClick={() => setOpen(open === "me" ? "" : "me")} />
 

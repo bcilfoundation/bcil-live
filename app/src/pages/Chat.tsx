@@ -11,7 +11,11 @@ import { shrink } from "../lib/media";
 import { isNative } from "../lib/native";
 import { useLive } from "../lib/LiveContext";
 
-type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string; leader?: boolean };
+type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string; leader?: boolean;
+  category?: string; at?: string | null; last?: { body: string | null; type: string | null; user: string | null; name: string | null } };
+type ListRow = { room_id: string; kind: string; category: string | null; name: string | null; avatar: string | null; other_id: string | null;
+  last_body: string | null; last_type: string | null; last_user: string | null; last_name: string | null; last_at: string | null; unread: number };
+const byRecent = (a: Conv, b: Conv) => (b.at ? Date.parse(b.at) : 0) - (a.at ? Date.parse(a.at) : 0);
 type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
   attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
@@ -34,6 +38,10 @@ export default function Chat() {
   const [params, setParams] = useSearchParams();
   const roomId = params.get("room");
   const [convs, setConvs] = useState<Conv[] | null>(null);
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread" | "dm" | "groups">("all");
+  const openRoom = useRef<string | null>(roomId);
+  openRoom.current = roomId;
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [online, setOnline] = useState(0);
@@ -46,6 +54,7 @@ export default function Chat() {
   const [viewImg, setViewImg] = useState<string | null>(null);
   const [reacts, setReacts] = useState<Record<number, { emoji: string; user_id: string }[]>>({});
   const [pickFor, setPickFor] = useState<number | null>(null);
+  const [sel, setSel] = useState<number | null>(null);   // tapped message: shows Reply / React / Report
   // read receipts: when each other member last opened this conversation
   const [reads, setReads] = useState<Record<string, string>>({});
   async function react(m: Msg, emoji: string) {
@@ -80,16 +89,38 @@ export default function Chat() {
       groups = groups.map((g) => (autoJoin.includes(g) ? { ...g, is_member: true } : g));
     }
     const list: Conv[] = [
-      ...groups.filter((g) => g.is_member).map((g) => ({ id: g.id, name: g.name, sub: g.kind === "announcements" ? "Announcements" : `${g.member_count} members`, kind: g.kind as Conv["kind"], read_only: g.read_only, cover: g.cover_url, members: g.member_count, leader: isStaff || g.my_role === "leader" })),
+      ...groups.filter((g) => g.is_member).map((g) => ({ id: g.id, name: g.name, category: g.category, sub: g.kind === "announcements" ? "Announcements" : `${g.member_count} members`, kind: g.kind as Conv["kind"], read_only: g.read_only, cover: g.cover_url, members: g.member_count, leader: isStaff || g.my_role === "leader" })),
       ...((dms ?? []) as { room_id: string; other_id: string; other_name: string; other_avatar: string | null }[]).map((d) => ({ id: d.room_id, name: d.other_name || "Member", sub: "Direct message", avatar: d.other_avatar, kind: "dm" as const, read_only: false, otherId: d.other_id })),
     ];
-    setConvs(list);
     setUnread(Object.fromEntries(((un ?? []) as { room_id: string; n: number }[]).map((u) => [u.room_id, u.n])));
+    setConvs(await withPreviews(list));
     // on a big screen, open the first conversation straight away
     const firstDm = list.find((c) => c.kind === "dm");
     if (!roomId && firstDm && window.matchMedia("(min-width: 761px)").matches) setParams({ room: firstDm.id }, { replace: true });
   }
   useEffect(() => { loadConvs(); }, []);
+
+  // last message, time and unread count for each conversation (newest first, like WhatsApp)
+  async function withPreviews(list: Conv[]): Promise<Conv[]> {
+    const { data, error } = await supabase.rpc("chat_list");
+    if (error || !data) return [...list].sort((a, b) => (a.kind === "dm" ? 0 : 1) - (b.kind === "dm" ? 0 : 1));
+    const rows = new Map((data as ListRow[]).map((r) => [r.room_id, r]));
+    setUnread(Object.fromEntries((data as ListRow[]).map((r) => [r.room_id, r.room_id === openRoom.current ? 0 : r.unread])));
+    return list.map((c) => {
+      const r = rows.get(c.id);
+      return r ? { ...c, at: r.last_at, last: { body: r.last_body, type: r.last_type, user: r.last_user, name: r.last_name } } : c;
+    }).sort(byRecent);
+  }
+  const refreshTimer = useRef<ReturnType<typeof setTimeout>>();
+  function refreshList() {
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(async () => {
+      const cur = convsRef.current;
+      if (cur) setConvs(await withPreviews(cur));
+    }, 500);
+  }
+  const convsRef = useRef<Conv[] | null>(null);
+  convsRef.current = convs;
 
   const room = convs?.find((c) => c.id === roomId) ?? null;
   // a DM opened from a notification may be new: reload the list once
@@ -143,6 +174,7 @@ export default function Chat() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
         const m = p.new as Msg & { room_id: string };
         if (m.room_id !== roomId && m.user_id !== me) setUnread((u) => ({ ...u, [m.room_id]: (u[m.room_id] ?? 0) + 1 }));
+        if (convsRef.current && !convsRef.current.some((c) => c.id === m.room_id)) loadConvs(); else refreshList();
       }).subscribe();
     return () => { supabase.removeChannel(ch); supabase.removeChannel(all); };
   }, [roomId]);
@@ -190,18 +222,25 @@ export default function Chat() {
     <section className="view chatview">
       <div className={`chatwrap${room ? " has-room" : ""}`}>
         <div className="chans">
-          <div className="chanhead"><h1>Chat</h1><Link to="/friends" className="iconbtn sm" aria-label="Start a conversation with a friend"><Icon name="userplus" size={18} /></Link></div>
+          <div className="chanhead"><h1>Chats</h1><Link to="/friends" className="iconbtn sm" aria-label="Start a conversation with a friend"><Icon name="userplus" size={18} /></Link></div>
           <div className="pad"><ChatTabs /></div>
-          {convs === null ? <p className="muted pad">Loading…</p> : <>
-            <ChanList title="Messages" items={convs.filter((c) => c.kind === "dm")} roomId={roomId} unread={unread} onPick={(id) => setParams({ room: id })}
-              empty={<p className="muted pad small">Add friends, then message them here. <Link to="/friends">Find people</Link></p>} />
-            <p className="pad small muted">Group chats are under <Link to="/groups">Groups</Link> and <Link to="/campus">Campus Sync</Link>.</p>
-          </>}
+          <div className="wa-search"><Icon name="search" size={17} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chats" aria-label="Search chats" />
+            {q && <button className="linkbtn" onClick={() => setQ("")} aria-label="Clear search">✕</button>}</div>
+          <div className="wa-filters" role="group" aria-label="Show">
+            {([["all", "All"], ["unread", `Unread${Object.values(unread).filter((n) => n > 0).length ? ` ${Object.values(unread).filter((n) => n > 0).length}` : ""}`], ["dm", "People"], ["groups", "Groups"]] as const).map(([k, label]) => (
+              <button key={k} className={filter === k ? "on" : ""} aria-pressed={filter === k} onClick={() => setFilter(k)}>{label}</button>))}
+          </div>
+          {convs === null ? <p className="muted pad">Loading…</p> : (() => {
+            const items = convs.filter((c) => (filter === "all" || (filter === "unread" ? (unread[c.id] ?? 0) > 0 : filter === "dm" ? c.kind === "dm" : c.kind !== "dm"))
+              && (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase())));
+            return <ChanList items={items} roomId={roomId} unread={unread} me={me} onPick={(id) => setParams({ room: id })}
+              empty={<p className="muted pad small">{q ? "No chats match that name." : filter === "unread" ? "You're all caught up." : <>Add friends, then message them here. <Link to="/friends">Find people</Link></>}</p>} />;
+          })()}
         </div>
         <div className="room">
           {!room ? <div className="center muted">Pick a conversation.</div> : <>
             <div className="roomhead">
-              <button className={`iconbtn sm${room.kind === "dm" ? " backonly" : ""}`} onClick={() => nav(room.kind === "dm" ? "/chat" : "/groups")} aria-label={room.kind === "dm" ? "Back to messages" : "Back to groups"}><Icon name="back" size={20} /></button>
+              <button className="iconbtn sm backonly" onClick={() => nav("/chat")} aria-label="Back to chats"><Icon name="back" size={20} /></button>
               <button className="plainbtn roomhead-who" onClick={() => (room.kind === "dm" ? room.otherId && setPerson(room.otherId) : nav(`/groups/${room.id}`))}
                 aria-label={room.kind === "dm" ? `See ${room.name}'s profile` : `About ${room.name}: description, members, leave group`}>
                 {room.kind === "dm" ? <Avatar name={room.name} url={room.avatar} size={40} /> : <ChanIcon c={room} />}
@@ -231,7 +270,7 @@ export default function Chat() {
                         if (dx > 60 && dy < 40) startReply(m); }}
                       onDoubleClick={() => startReply(m)}>
                       {!mine && <span className="msgav">{!sameAuthor && <button className="plainbtn" onClick={() => setPerson(m.user_id)} aria-label={`See ${nameOf(m)}'s profile`}><Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={32} /></button>}</span>}
-                      <div className="bub">
+                      <div className={`bub${sel === m.id ? " sel" : ""}`} onClick={(e) => { if (!(e.target as HTMLElement).closest("button,a")) setSel(sel === m.id ? null : m.id); }}>
                         {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}</button>}
                         {m.reply_to && <button className="quote-in" onClick={() => m.reply_to && jumpTo(m.reply_to)}>
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
@@ -243,15 +282,17 @@ export default function Chat() {
                             <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
                           </button>)}
                         {m.body && <p className="prewrap">{m.body}</p>}
-                        <small>{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
+                        <small className="mtime">{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
                           {mine && room.kind === "dm" && (seenBy(m) > 0 ? <span className="tick seen" title="Seen" aria-label="Seen"> ✓✓</span> : <span className="tick" title="Sent" aria-label="Sent"> ✓</span>)}</small>
                         {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <small className="seenby">Seen by {seenBy(m)}</small>}
+                        <span className="msgacts">
                         {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
                         <button className="linkbtn" onClick={() => setPickFor(pickFor === m.id ? null : m.id)} aria-label="React">☺︎+</button>
+                        {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
+                        </span>
                         {pickFor === m.id && <span className="reactpick">{EMOJIS.map((e) => <button key={e} onClick={() => react(m, e)} aria-label={`React ${e}`}>{e}</button>)}</span>}
                         {(reacts[m.id]?.length ?? 0) > 0 && <span className="reactrow">{Object.entries((reacts[m.id] ?? []).reduce<Record<string, number>>((a, r) => ((a[r.emoji] = (a[r.emoji] ?? 0) + 1), a), {})).map(([e, n]) => (
                           <button key={e} className={`reactchip${(reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === e) ? " mine" : ""}`} onClick={() => react(m, e)}>{e}{n > 1 ? ` ${n}` : ""}</button>))}</span>}
-                        {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
                       </div>
                     </div>
                   </div>
@@ -304,17 +345,35 @@ function ChanIcon({ c }: { c: Conv }) {
   return c.cover ? <img className="gcover sm" src={c.cover} alt="" /> : <span className={`gcover sm cat-${c.kind === "announcements" ? "program" : "general"}`} aria-hidden="true">{initials(c.name.replace(/^BCIL\s+/i, "").replace(/\b(UCC|KNUST|UG|UEW|\d+)\b/g, ""))}</span>;
 }
 
-function ChanList({ title, items, roomId, unread, onPick, empty }: { title: string; items: Conv[]; roomId: string | null; unread: Record<string, number>; onPick: (id: string) => void; empty?: React.ReactNode }) {
+function ChanList({ items, roomId, unread, me, onPick, empty }: { items: Conv[]; roomId: string | null; unread: Record<string, number>; me: string; onPick: (id: string) => void; empty?: React.ReactNode }) {
   return (
-    <div className="chanlist">
-      <div className="chantitle">{title}</div>
-      {items.length === 0 ? empty : items.map((c) => (
-        <button key={c.id} aria-current={c.id === roomId} onClick={() => onPick(c.id)}>
-          {c.kind === "dm" ? <Avatar name={c.name} url={c.avatar} size={40} /> : <ChanIcon c={c} />}
-          <span className="grow"><b>{c.name}</b><small className="muted">{c.sub}</small></span>
-          {(unread[c.id] ?? 0) > 0 && <span className="count inline">{unread[c.id] > 99 ? "99+" : unread[c.id]}</span>}
-        </button>
-      ))}
+    <div className="chanlist wa-list">
+      {items.length === 0 ? empty : items.map((c) => {
+        const n = unread[c.id] ?? 0;
+        const l = c.last;
+        const who = !l?.user ? "" : l.user === me ? "You: " : c.kind !== "dm" ? `${(l.name || "Member").split(" ")[0]}: ` : "";
+        const what = !l || (!l.body && !l.type) ? (c.kind === "dm" ? "Say hello 👋" : c.sub)
+          : l.body ? l.body : l.type === "image" ? "📷 Photo" : "📄 Document";
+        return (
+          <button key={c.id} aria-current={c.id === roomId} className={n > 0 ? "unread" : ""} onClick={() => onPick(c.id)}
+            aria-label={`${c.name}${n ? `, ${n} unread` : ""}`}>
+            {c.kind === "dm" ? <Avatar name={c.name} url={c.avatar} size={48} /> : <ChanIcon c={c} />}
+            <span className="wa-mid">
+              <span className="wa-top"><b>{c.name}</b>{c.at && <small className="wa-time">{listTime(c.at)}</small>}</span>
+              <span className="wa-bot"><span className="wa-prev">{who}{what.replace(/\s+/g, " ")}</span>{n > 0 && <span className="wa-count">{n > 99 ? "99+" : n}</span>}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
+}
+
+function listTime(iso: string) {
+  const d = new Date(iso), now = new Date();
+  const days = Math.round((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000);
+  if (days === 0) return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" });
+  if (days === 1) return "Yesterday";
+  if (days < 7) return d.toLocaleDateString("en-GB", { weekday: "short" });
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: d.getFullYear() === now.getFullYear() ? undefined : "2-digit" });
 }

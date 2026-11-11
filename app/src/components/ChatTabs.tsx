@@ -4,8 +4,8 @@ import { NavLink } from "react-router-dom";
 export default function ChatTabs() {
   return (
     <nav className="chattabs" aria-label="Chat sections">
+      <NavLink to="/chat"><span aria-hidden>💬</span>Chats</NavLink>
       <NavLink to="/groups"><span aria-hidden>👥</span>Groups</NavLink>
-      <NavLink to="/chat"><span aria-hidden>💬</span>Messages</NavLink>
       <NavLink to="/campus"><span aria-hidden>🎓</span>Campus Sync</NavLink>
       <NavLink to="/friends"><span aria-hidden>🤝</span>Friends</NavLink>
     </nav>
