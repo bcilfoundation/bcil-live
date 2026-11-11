@@ -252,13 +252,12 @@ end $$;
 -- the feed itself: confirmed meetings for the token's owner (all of them for the admin)
 create or replace function public.meetings_ics(token text) returns "text/calendar"
 language plpgsql stable security definer set search_path = public as $$
-declare u uuid; adm boolean; out text; m record;
-  esc text;
+declare u uuid; adm boolean; cal text; m record;
 begin
   select c.user_id into u from calendar_tokens c where c.token = meetings_ics.token;
   if u is null then return 'BEGIN:VCALENDAR' || chr(13) || chr(10) || 'VERSION:2.0' || chr(13) || chr(10) || 'END:VCALENDAR'; end if;
   select role = 'admin' into adm from profiles where id = u;
-  out := concat_ws(chr(13) || chr(10), 'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BCIL Foundation//Meet Solomon//EN', 'CALSCALE:GREGORIAN',
+  cal := concat_ws(chr(13) || chr(10), 'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BCIL Foundation//Meet Solomon//EN', 'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH', 'X-WR-CALNAME:Meet Solomon (BCIL)', 'X-PUBLISHED-TTL:PT1H', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H');
   for m in
     select r.*, p.full_name, p.phone from meeting_requests r join profiles p on p.id = r.user_id
@@ -266,7 +265,7 @@ begin
       and (adm or r.assigned_to = u or r.handled_by = u)
     order by r.meet_at
   loop
-    out := out || chr(13) || chr(10) || concat_ws(chr(13) || chr(10),
+    cal := cal || chr(13) || chr(10) || concat_ws(chr(13) || chr(10),
       'BEGIN:VEVENT',
       'UID:meet-' || m.id || '@bcilfoundation.org',
       'DTSTAMP:' || to_char(now() at time zone 'UTC', 'YYYYMMDD"T"HH24MISS"Z"'),
@@ -279,7 +278,7 @@ begin
       'STATUS:CONFIRMED',
       'END:VEVENT');
   end loop;
-  return out || chr(13) || chr(10) || 'END:VCALENDAR' || chr(13) || chr(10);
+  return cal || chr(13) || chr(10) || 'END:VCALENDAR' || chr(13) || chr(10);
 end $$;
 grant execute on function public.meetings_ics(text) to anon, authenticated;
 
