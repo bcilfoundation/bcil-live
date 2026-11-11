@@ -13,7 +13,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       workbox: {
         importScripts: ["push-sw.js"],          // phone notifications (public/push-sw.js)
-        navigateFallbackDenylist: [/^\/bcil-live\.apk$/, /^\/privacy/],
+        navigateFallbackDenylist: [/^\/bcil-live\.apk$/, /^\/privacy/, /^\/bite-relay/],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // big optional parts (PDF reader, camera backgrounds, FCB photos) download only when used, to save mobile data
         globIgnores: ["**/pdf*.{js,mjs}", "**/agora-extension-virtual-background*", "**/fcb/**"],
