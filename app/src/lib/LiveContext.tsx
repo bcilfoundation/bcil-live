@@ -249,7 +249,8 @@ function useLiveEngine() {
     joining.current = true; setBusy(true); setError("");
     try {
       // a meeting: everyone gets the microphone (they join muted and unmute when they want to talk)
-      const meetingGuest = !!sess.open_mic && sess.host_id !== me;
+      // video sessions are always meetings (everyone can unmute); audio sessions keep call-in
+      const meetingGuest = (!!sess.open_mic || sess.kind === "video") && sess.host_id !== me;
       if (meetingGuest) await supabase.rpc("meeting_mic", { p_session: sess.id }).then(() => {}, () => {});
       const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: sess.id } });
       if (error) {
@@ -284,8 +285,10 @@ function useLiveEngine() {
       await c.join(data.appId, data.channel, data.token, data.uid);
       if (data.speaker) {
         mic.current = await (await rtc()).createMicrophoneAudioTrack();
-        if (meetingGuest) await mic.current.setEnabled(false).catch(() => {});
         await c.publish(mic.current);
+        // meetings: join muted, but only AFTER the microphone is connected to the call,
+        // so unmuting sends your voice (muting first meant it was never sent)
+        if (meetingGuest) await mic.current.setEnabled(false).catch(() => {});
         // after a reconnect, keep recording with the new microphone
         if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack().clone()); }
       }
@@ -643,7 +646,7 @@ function useLiveEngine() {
     const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
     const { data, error } = await supabase.from("live_sessions")
       .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind,
-        ...(opts.openMic ? { open_mic: true } : {}),
+        ...(opts.openMic || opts.kind === "video" ? { open_mic: true } : {}),
         ...(opts.private ? { is_private: true, invite_code: code } : {}), ...(opts.roomId ? { room_id: opts.roomId } : {}) })
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return false; }
