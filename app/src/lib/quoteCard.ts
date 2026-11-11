@@ -130,3 +130,18 @@ export async function monthPack(month: string, bites: BiteQ[]) {
   ].join("\r\n"));
   saveBlob(await zip.generateAsync({ type: "blob" }), `BCIL Daily Bites ${month}.zip`);
 }
+
+/** Public address of a day's card image (made when the bite is saved in Admin). */
+export const socialImageUrl = (day: string) => `https://jvfqvbmebfzhenbiklyy.supabase.co/storage/v1/object/public/social/bites/${day}.png`;
+
+/** Make the card for each bite and store it publicly, for scheduled social media posts. Returns how many were stored. */
+export async function publishSocialImages(bites: BiteQ[]) {
+  const { supabase } = await import("./supabase");
+  let ok = 0;
+  for (const q of bites) {
+    const blob = await quoteBlob(q);
+    const { error } = await supabase.storage.from("social").upload(`bites/${q.show_on}.png`, blob, { contentType: "image/png", upsert: true, cacheControl: "300" });
+    if (!error) ok++;
+  }
+  return ok;
+}

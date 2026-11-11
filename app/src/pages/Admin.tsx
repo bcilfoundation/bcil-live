@@ -61,7 +61,12 @@ function QuotesAdmin() {
     let { error } = await supabase.from("quotes").upsert({ ...f, body: f.body.trim(), reflection: f.reflection || null }, { onConflict: "show_on" });
     // older database (before categories were removed) still needs a theme
     if (error && /theme/i.test(error.message)) ({ error } = await supabase.from("quotes").upsert({ ...f, body: f.body.trim(), theme: "Impact", reflection: f.reflection || null }, { onConflict: "show_on" }));
-    setMsg(error ? error.message : "Saved."); if (!error) { setF({ ...f, body: "", reflection: "" }); load(); }
+    setMsg(error ? error.message : "Saved."); if (!error) {
+      // make the day's card image for scheduled social media posts
+      const saved = { body: f.body.trim(), author: f.author, show_on: f.show_on, reflection: f.reflection || null };
+      import("../lib/quoteCard").then((m) => m.publishSocialImages([saved])).catch(() => {});
+      setF({ ...f, body: "", reflection: "" }); load();
+    }
   }
   return (<>
     <form className="card" onSubmit={save}>
@@ -126,6 +131,18 @@ function SocialBites() {
       <div className="row" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginTop: 10 }}>
         <label className="field">A month of posts<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
         <button className="btn primary" disabled={busy} onClick={pack}>{busy ? "Making images…" : "⬇ Download month pack"}</button>
+      </div>
+      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
+        <button className="btn ghost sm" disabled={busy} onClick={async () => {
+          setBusy(true); setMsg("");
+          const from = new Date().toISOString().slice(0, 10), to = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10);
+          const { data } = await supabase.from("quotes").select("body, author, show_on, reflection").gte("show_on", from).lte("show_on", to).order("show_on");
+          const { publishSocialImages } = await import("../lib/quoteCard");
+          const n = data?.length ? await publishSocialImages(data) : 0;
+          setMsg(n ? `Ready for scheduling: ${n} day${n === 1 ? "" : "s"} (${data![0].show_on} to ${data![data!.length - 1].show_on}).` : "No bites saved for the next three weeks yet.");
+          setBusy(false);
+        }}>📣 Prepare the next 3 weeks for social posting</button>
+        <small className="muted">Done automatically whenever you save a bite.</small>
       </div>
       <small className="muted">The pack has one image and caption per day. Upload it to Meta Business Suite (business.facebook.com → Planner) to schedule a post for every day on the Facebook Page and Instagram. Instructions are inside the pack.</small>
       {msg && <p className="muted small">{msg}</p>}
