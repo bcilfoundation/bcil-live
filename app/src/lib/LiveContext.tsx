@@ -303,7 +303,7 @@ function useLiveEngine() {
       stayIn.current = true;
       startLiveService(sess.title, !!data.speaker);
       setSpeaker(!!data.speaker); setMuted(false); setJoined(true); setJoinedId(sess.id);
-      try { sessionStorage.setItem(`bcil.joined.${sess.id}`, "1"); localStorage.setItem(`bcil.here.${sess.id}`, String(Date.now())); } catch { /* ignore */ }
+      try { sessionStorage.setItem(`bcil.joined.${sess.id}`, String(Date.now())); localStorage.setItem(`bcil.here.${sess.id}`, String(Date.now())); } catch { /* ignore */ }
       reconnectTries.current = 0;
       return true;
     } catch (e) {
@@ -687,8 +687,14 @@ function useLiveEngine() {
     // Nobody is pulled into a session they didn't choose. Only someone who already joined this session
     // on THIS device (e.g. after a reload, or the host coming back to the app) comes back in automatically,
     // so a session started on a laptop doesn't also start on the host's phone.
+    // The mark must be from THIS time the session went live: a weekly session that is reused would otherwise
+    // pull in a phone that joined it in an earlier week.
     let joinedBefore = false;
-    try { joinedBefore = !!sessionStorage.getItem(`bcil.joined.${live.id}`) || !!localStorage.getItem(`bcil.here.${live.id}`); } catch { /* ignore */ }
+    try {
+      const since = Date.parse(live.starts_at) - 60000;
+      const t = Math.max(Number(sessionStorage.getItem(`bcil.joined.${live.id}`) || 0), Number(localStorage.getItem(`bcil.here.${live.id}`) || 0));
+      joinedBefore = t > 1e12 && t >= since;
+    } catch { /* ignore */ }
     if (!joinedBefore) return;
     if (live.kind === "video" && live.host_id !== me) return;   // video: everyone first chooses camera on or off
     join(live);
