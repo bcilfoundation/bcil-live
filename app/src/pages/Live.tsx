@@ -42,6 +42,8 @@ export default function Live() {
   const [topic, setTopic] = useState("");
   const [kind, setKind] = useState<"audio" | "video">(dm ? "video" : "audio");
   const [record, setRecord] = useState(!dm);
+  // meeting: everyone who joins can unmute and talk; otherwise people call in and the host brings them on air
+  const [meeting, setMeeting] = useState(true);
   const [startCam, setStartCam] = useState(true);
   const [priv, setPriv] = useState(false);
   const [review, setReview] = useState(false);
@@ -105,6 +107,7 @@ export default function Live() {
           {priv && <p className="muted small" style={{ margin: 0 }}>No notification goes out and it won't show on Home. After you go live, tap ⤴ Invite to send the private link.</p>}
           </>}
           {kind === "video" && <label className="pod-recopt"><input type="checkbox" checked={startCam} onChange={(e) => setStartCam(e.target.checked)} /> Start with my camera on</label>}
+          {!dm && <label className="pod-recopt"><input type="checkbox" checked={meeting} onChange={(e) => setMeeting(e.target.checked)} /> <b>Meeting:</b> everyone can unmute and talk {meeting ? "(they join muted)" : "(off: people call in and you bring them on air, like a radio show)"}</label>}
           {isStaff && <label className="pod-recopt"><input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} /> Record this session (saved as a draft in the Library{kind === "video" ? "; audio only" : ""})</label>}
           {formErr && <p className="err" role="alert" style={{ margin: 0 }}>{formErr}</p>}
           <button className="btn pod-golive-btn" disabled={busy}>Review and go live →</button>
@@ -139,7 +142,7 @@ export default function Live() {
           {record && isStaff && <p className="gl-warn">Make sure speakers are happy to be recorded. You can stop the recording any time from ⚙ Host tools.</p>}
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn primary" disabled={busy} onClick={async () => {
-              if (await L.goLiveNow({ title, topic, kind, record: record && isStaff, cam: startCam, private: priv, roomId: group?.id, dm })) { setTitle(""); setTopic(""); setPriv(false); navigate(".", { replace: true, state: null }); }
+              if (await L.goLiveNow({ title, topic, kind, record: record && isStaff, cam: startCam, private: priv, roomId: group?.id, dm, openMic: dm || meeting })) { setTitle(""); setTopic(""); setPriv(false); navigate(".", { replace: true, state: null }); }
               setReview(false);
             }}>{busy ? "Starting…" : "● Go live now"}</button>
             <button className="btn ghost" disabled={busy} onClick={() => setReview(false)}>← Go back and edit</button>

@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
-export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null };
+export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null; open_mic?: boolean };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number; screen?: boolean };
@@ -248,6 +248,9 @@ function useLiveEngine() {
     if (client.current) await leave();   // never keep two connections (that caused "already in this session")
     joining.current = true; setBusy(true); setError("");
     try {
+      // a meeting: everyone gets the microphone (they join muted and unmute when they want to talk)
+      const meetingGuest = !!sess.open_mic && sess.host_id !== me;
+      if (meetingGuest) await supabase.rpc("meeting_mic", { p_session: sess.id }).then(() => {}, () => {});
       const { data, error } = await supabase.functions.invoke("live-token", { body: { session_id: sess.id } });
       if (error) {
         const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
@@ -281,6 +284,7 @@ function useLiveEngine() {
       await c.join(data.appId, data.channel, data.token, data.uid);
       if (data.speaker) {
         mic.current = await (await rtc()).createMicrophoneAudioTrack();
+        if (meetingGuest) await mic.current.setEnabled(false).catch(() => {});
         await c.publish(mic.current);
         // after a reconnect, keep recording with the new microphone
         if (recRef.current) { recRef.current.remove("me"); recRef.current.add("me", mic.current.getMediaStreamTrack().clone()); }
@@ -302,7 +306,7 @@ function useLiveEngine() {
       setCanVideo(!!(data.canVideo ?? data.speaker));
       stayIn.current = true;
       startLiveService(sess.title, !!data.speaker);
-      setSpeaker(!!data.speaker); setMuted(false); setJoined(true); setJoinedId(sess.id);
+      setSpeaker(!!data.speaker); setMuted(meetingGuest && !!data.speaker); setJoined(true); setJoinedId(sess.id);
       try { sessionStorage.setItem(`bcil.joined.${sess.id}`, String(Date.now())); localStorage.setItem(`bcil.here.${sess.id}`, String(Date.now())); } catch { /* ignore */ }
       reconnectTries.current = 0;
       return true;
@@ -633,12 +637,13 @@ function useLiveEngine() {
       else { await navigator.clipboard.writeText(`${shareText}: ${url}`); setNotice("Link copied. Paste it in WhatsApp."); }
     } catch { /* cancelled */ }
   }
-  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string; dm?: boolean }) {
+  async function goLiveNow(opts: { title: string; topic: string; kind: "audio" | "video"; record: boolean; cam?: boolean; private?: boolean; roomId?: string; dm?: boolean; openMic?: boolean }) {
     if (opts.roomId) opts.private = true;   // a group session: only that group sees it and is notified
     const title = opts.title.trim() || `${opts.private ? "Private meeting" : "Live session"} · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const code = opts.private ? Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("") : null;
     const { data, error } = await supabase.from("live_sessions")
       .insert({ title, topic: opts.topic.trim() || null, starts_at: new Date().toISOString(), status: "live", host_id: me, kind: opts.kind,
+        ...(opts.openMic ? { open_mic: true } : {}),
         ...(opts.private ? { is_private: true, invite_code: code } : {}), ...(opts.roomId ? { room_id: opts.roomId } : {}) })
       .select("*").single();
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return false; }
