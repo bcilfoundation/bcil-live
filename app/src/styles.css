@@ -904,3 +904,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .bitecomments{display:flex;flex-direction:column;gap:6px;margin-top:10px;border-top:1px solid rgba(15,45,82,.1);padding-top:8px;text-align:left}
 .bitecomment{font-size:.92rem;line-height:1.4}
 .bitecommentform{gap:6px}.bitecommentform input{flex:1;min-width:0}
+.slotpicker{display:flex;flex-direction:column;gap:10px}
+.slotday{display:flex;flex-direction:column;gap:4px}
+.slotday .chips{flex-wrap:wrap}
+.availcard{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.availrow{gap:6px;align-items:center;flex-wrap:wrap}
+.availrow input[type=time],.availrow input[type=date],.availrow select{width:auto}
+.assignto select{width:auto;min-width:160px}

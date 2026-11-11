@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import AddAudioTalk from "../components/AddAudioTalk";
 import { docLink, fileName } from "../lib/docs";
+import { feedUrl, googleCalLink } from "../lib/calendar";
 
 const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
@@ -19,27 +20,30 @@ export default function Admin() {
   const navigate = useNavigate();
   // notifications link straight to a tab: /admin?tab=Meetings
   const [tab, setTab] = useState<Tab>(() => { const t = new URLSearchParams(location.search).get("tab"); return (TABS as readonly string[]).includes(t ?? "") ? (t as Tab) : "Engagement"; });
-  if (profile?.role !== "admin" && profile?.role !== "moderator")
+  if (profile?.role !== "admin" && profile?.role !== "moderator" && profile?.role !== "mentor")
     return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
   const isAdmin = profile.role === "admin";
-  const tabs = isAdmin ? TABS : (["Engagement", "Reports"] as const);
+  const isMentor = profile.role === "mentor";
+  // moderators and mentors only see the plans and meeting requests Solomon assigns to them (and their own mentees' plans)
+  const tabs: readonly Tab[] = isAdmin ? TABS : isMentor ? ["Plan 2027", "Meetings"] : ["Engagement", "Reports", "Plan 2027", "Meetings"];
+  const shown: Tab = tabs.includes(tab) ? tab : tabs[0];
   return (
     <section className="view">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}><h1>Admin</h1>
-        <span className="row" style={{ gap: 8 }}><button className="btn ghost" onClick={() => { setViewAsMember(true); navigate("/"); }}>👁 View as member</button>
-        <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></span></div>
-      <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === tab} onClick={() => setTab(t)}>{t}</button>)}</div>
-      {tab === "Daily Bite" && isAdmin && <QuotesAdmin />}
-      {tab === "Live sessions" && isAdmin && <LiveAdmin />}
-      {tab === "Talks" && isAdmin && <TalksAdmin />}
-      {tab === "Forms" && isAdmin && <FormsAdmin />}
-      {tab === "Mentorship" && isAdmin && <MentorshipAdmin />}
-      {tab === "Plan 2027" && isAdmin && <PlansAdmin />}
-      {tab === "Meetings" && isAdmin && <MeetingsAdmin />}
-      {tab === "Gifts" && isAdmin && <GiftsAdmin />}
-      {tab === "Engagement" && <EngagementAdmin />}
-      {(tab === "Reports" || (!isAdmin && tab !== "Engagement")) && <ReportsAdmin />}
-      {tab === "People" && isAdmin && <PeopleAdmin />}
+        {!isMentor && <span className="row" style={{ gap: 8 }}><button className="btn ghost" onClick={() => { setViewAsMember(true); navigate("/"); }}>👁 View as member</button>
+        <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></span>}</div>
+      <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === shown} onClick={() => setTab(t)}>{t}</button>)}</div>
+      {shown === "Daily Bite" && isAdmin && <QuotesAdmin />}
+      {shown === "Live sessions" && isAdmin && <LiveAdmin />}
+      {shown === "Talks" && isAdmin && <TalksAdmin />}
+      {shown === "Forms" && isAdmin && <FormsAdmin />}
+      {shown === "Mentorship" && isAdmin && <MentorshipAdmin />}
+      {shown === "Plan 2027" && <PlansAdmin isAdmin={isAdmin} />}
+      {shown === "Meetings" && <MeetingsAdmin isAdmin={isAdmin} />}
+      {shown === "Gifts" && isAdmin && <GiftsAdmin />}
+      {shown === "Engagement" && <EngagementAdmin />}
+      {shown === "Reports" && <ReportsAdmin />}
+      {shown === "People" && isAdmin && <PeopleAdmin />}
     </section>
   );
 }
@@ -623,9 +627,10 @@ function MentorshipAdmin() {
 }
 
 
-type PlanItem = PlanRow & { profiles: { full_name: string } | null; plan_goals: Goal[]; plan_checkins: { created_at: string; score: number | null }[] };
+type PlanItem = PlanRow & { assigned_to?: string | null; profiles: { full_name: string } | null; plan_goals: Goal[]; plan_checkins: { created_at: string; score: number | null }[] };
 // Plan 2027: every submitted plan, its progress and last check-in; open one to read it and give feedback
-function PlansAdmin() {
+function PlansAdmin({ isAdmin }: { isAdmin: boolean }) {
+  useHelpers();   // names for the "assigned to" labels
   const [rows, setRows] = useState<PlanItem[] | null>(null);
   const [drafts, setDrafts] = useState(0);
   const [open, setOpen] = useState<PlanItem | null>(null);
@@ -642,7 +647,10 @@ function PlansAdmin() {
     <button className="linkbtn" onClick={() => { setOpen(null); setMsg(""); }}>← All plans</button>
     <h2>{open.profiles?.full_name ?? "Member"}: {open.theme || "Plan 2027"}</h2>
     {open.vision && <p className="prewrap">{open.vision}</p>}
-    <button className="btn ghost sm" style={{ marginBottom: 8 }} onClick={() => downloadPlan(open, open.plan_goals, open.profiles?.full_name)}>⬇️ PDF</button>
+    <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+      <button className="btn ghost sm" onClick={() => downloadPlan(open, open.plan_goals, open.profiles?.full_name)}>⬇️ PDF</button>
+      {isAdmin && <AssignTo kind="plan" id={open.id} value={open.assigned_to ?? null} onDone={(u) => { setOpen({ ...open, assigned_to: u }); load(); }} />}
+    </div>
     <PlanTable goals={open.plan_goals} />
     <p className="muted small">{open.plan_checkins.length} check-in(s){last(open) ? `, last on ${fmt(last(open)!)}` : ""}</p>
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -656,19 +664,21 @@ function PlansAdmin() {
     </div>
   </>);
   return (<>
-    <ShareLink path="/plan" title="Plan 2027" note="People sign in (or create an account) first, then go straight to their plan." />
+    {isAdmin && <ShareLink path="/plan" title="Plan 2027" note="People sign in (or create an account) first, then go straight to their plan." />}
+    {!isAdmin && <p className="muted small">You see the plans Solomon has asked you to help with{rows?.length ? "" : ". None yet"}.</p>}
     <p className="muted">{rows?.length ?? 0} plans submitted{drafts ? ` · ${drafts} still in draft` : ""}. Members get a check-in reminder on the 1st of every month, and a quarterly review in April, July and October.</p>
     <div className="list">{(rows ?? []).map((p) => <div key={p.id}><div className="grow">
       <b>{p.profiles?.full_name ?? "Member"}</b> · {p.theme || "Plan 2027"} {p.feedback ? <span className="pill paid">Feedback given</span> : <span className="pill">Needs feedback</span>}
+      {p.assigned_to && <span className="pill">👤 {helperName(p.assigned_to)}</span>}
       <br /><small className="muted">{p.plan_goals.length} goals · {avg(p)}% progress · {p.plan_checkins.length} check-ins{last(p) ? ` (last ${fmt(last(p)!)})` : ""}</small>
     </div><button className="btn ghost sm" onClick={() => { setOpen(p); setFb(p.feedback ?? ""); }}>Open</button></div>)}
     {rows && !rows.length && <p className="muted">No plans submitted yet.</p>}</div>
   </>);
 }
 
-type MeetRow = { id: number; topic: string; message: string; mode: string | null; preferred: string | null; files: string[]; status: string; meet_at: string | null; reply: string | null; room_id: string | null; created_at: string; profiles: { full_name: string; phone?: string | null } | null };
+type MeetRow = { id: number; topic: string; message: string; mode: string | null; preferred: string | null; files: string[]; status: string; meet_at: string | null; slot_at?: string | null; minutes?: number; assigned_to?: string | null; reply: string | null; room_id: string | null; created_at: string; profiles: { full_name: string; phone?: string | null } | null };
 // Meet Solomon requests: confirm a time (opens a chat), decline, or mark done
-function MeetingsAdmin() {
+function MeetingsAdmin({ isAdmin }: { isAdmin: boolean }) {
   const [rows, setRows] = useState<MeetRow[]>([]);
   const [show, setShow] = useState<"open" | "all">("open");
   const load = () => supabase.from("meeting_requests").select("*, profiles!meeting_requests_user_id_fkey(full_name, phone)").order("created_at", { ascending: false }).limit(200)
@@ -676,17 +686,21 @@ function MeetingsAdmin() {
   useEffect(() => { load(); }, []);
   const list = rows.filter((r) => show === "all" || r.status === "pending" || (r.status === "confirmed" && (!r.meet_at || new Date(r.meet_at) > new Date(Date.now() - 864e5))));
   return (<>
+    {isAdmin && <Availability />}
+    <CalendarFeed />
+    {!isAdmin && <p className="muted small">You see the meeting requests Solomon has asked you to handle.</p>}
     <div className="chips" style={{ marginBottom: 8 }}>
       <button className="chip" aria-pressed={show === "open"} onClick={() => setShow("open")}>Pending and upcoming</button>
       <button className="chip" aria-pressed={show === "all"} onClick={() => setShow("all")}>All</button>
     </div>
     {list.length === 0 && <p className="muted">No requests here.</p>}
-    {list.map((r) => <MeetCard key={r.id} r={r} reload={load} />)}
+    {list.map((r) => <MeetCard key={r.id} r={r} reload={load} isAdmin={isAdmin} />)}
   </>);
 }
 
-function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
+function MeetCard({ r, reload, isAdmin }: { r: MeetRow; reload: () => void; isAdmin: boolean }) {
   const [at, setAt] = useState(""); const [reply, setReply] = useState(""); const [err, setErr] = useState("");
+  const [other, setOther] = useState(false);
   async function act(status: string) {
     setErr("");
     const { error } = await supabase.rpc("respond_meeting", { p_id: r.id, p_status: status, p_at: at ? new Date(at).toISOString() : null, p_reply: reply });
@@ -701,21 +715,27 @@ function MeetCard({ r, reload }: { r: MeetRow; reload: () => void }) {
         <span className={`pill ${r.status === "confirmed" ? "paid" : r.status === "done" ? "sent" : ""}`}>{r.status}{r.meet_at ? ` · ${fmt(r.meet_at)}` : ""}</span>
       </div>
       <p className="prewrap" style={{ margin: 0 }}>{r.message}</p>
+      {r.slot_at && r.status === "pending" && <div>🕒 Asked for <b>{fmt(r.slot_at)}</b> <small className="muted">(your time) · {r.minutes ?? 30} min</small></div>}
       <small className="muted">{[r.mode && `Prefers: ${r.mode}`, r.preferred && `When: ${r.preferred}`, r.profiles?.phone && `Phone: ${r.profiles.phone}`, `Sent ${fmt(r.created_at)}`].filter(Boolean).join(" · ")}</small>
+      {isAdmin && <AssignTo kind="meeting" id={r.id} value={r.assigned_to ?? null} onDone={() => reload()} />}
       {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{r.files.map((p) => <span key={p} className="row" style={{ gap: 4 }}><button className="btn ghost sm" onClick={() => open(p)}>📎 {fileName(p)}</button>
         <button className="btn primary sm" onClick={() => review(p, fileName(p), "meeting", r.id)}>💬 Review</button></span>)}</div>}
       {r.reply && <small>💬 Reply: {r.reply}</small>}
       {r.status === "pending" && <>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} aria-label="Meeting date and time" />
+          {(!r.slot_at || other) && <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} aria-label="Meeting date and time" />}
           <input placeholder="Message (e.g. I'll call you on WhatsApp)" value={reply} onChange={(e) => setReply(e.target.value)} style={{ flex: "1 1 220px" }} aria-label="Message to the member" />
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary sm" disabled={!at} onClick={() => act("confirmed")}>Confirm time</button>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {r.slot_at && !other
+            ? <><button className="btn primary sm" onClick={() => act("confirmed")}>Confirm {fmt(r.slot_at)}</button>
+                <button className="btn ghost sm" onClick={() => setOther(true)}>Offer another time</button></>
+            : <button className="btn primary sm" disabled={!at} onClick={() => act("confirmed")}>Confirm time</button>}
           <button className="btn ghost sm" onClick={() => act("declined")}>Decline</button>
         </div>
       </>}
-      {r.status === "confirmed" && <div className="row" style={{ gap: 8 }}>
+      {r.status === "confirmed" && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        {r.meet_at && new Date(r.meet_at) > new Date() && <a className="btn ghost sm" target="_blank" rel="noopener" href={googleCalLink({ title: `Meet: ${r.profiles?.full_name ?? "Member"} – ${r.topic}`, start: r.meet_at, minutes: r.minutes, details: [r.message, r.mode && `How: ${r.mode}`, r.profiles?.phone && `Phone: ${r.profiles.phone}`].filter(Boolean).join("\n"), location: r.mode ?? "" })}>📅 Add to Google Calendar</a>}
         {r.room_id && <Link className="btn ghost sm" to={`/chat?room=${r.room_id}`}>💬 Chat</Link>}
         <button className="btn ghost sm" onClick={() => act("done")}>Mark done</button></div>}
       {err && <p className="err">{err}</p>}
@@ -750,6 +770,119 @@ function ShareLink({ path, title, note }: { path: string; title: string; note?: 
           {"share" in navigator && <button className="btn ghost sm" onClick={() => navigator.share({ title: `${title} · BCIL Foundation`, text: `Write your one-year plan for 2027 with BCIL Foundation:`, url }).catch(() => {})}>⤴ Share</button>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// people Solomon can assign plans and meeting requests to: moderators and mentors
+type Helper = { id: string; full_name: string; role: string };
+let helperCache: Helper[] | null = null;
+const helperName = (id: string) => helperCache?.find((h) => h.id === id)?.full_name ?? "Assigned";
+function useHelpers() {
+  const [list, setList] = useState<Helper[]>(helperCache ?? []);
+  useEffect(() => {
+    if (helperCache) return;
+    supabase.from("profiles").select("id, full_name, role").in("role", ["moderator", "mentor"]).order("full_name")
+      .then(({ data }) => { helperCache = (data ?? []) as Helper[]; setList(helperCache); });
+  }, []);
+  return list;
+}
+function AssignTo({ kind, id, value, onDone }: { kind: "plan" | "meeting"; id: number; value: string | null; onDone: (u: string | null) => void }) {
+  const helpers = useHelpers();
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  return (
+    <label className="row assignto" style={{ gap: 6, alignItems: "center" }}>
+      <small className="muted">Assign to</small>
+      <select value={value ?? ""} disabled={busy} onChange={async (e) => {
+        const u = e.target.value || null; setBusy(true); setErr("");
+        const { error } = await supabase.rpc(kind === "plan" ? "assign_plan" : "assign_meeting", { p_id: id, p_user: u });
+        setBusy(false);
+        if (error) setErr(/function|does not exist/i.test(error.message) ? "Not switched on yet" : error.message); else onDone(u);
+      }} aria-label="Assign to a moderator or mentor">
+        <option value="">Only me</option>
+        {helpers.map((h) => <option key={h.id} value={h.id}>{h.full_name} ({h.role})</option>)}
+      </select>
+      {err && <small className="err">{err}</small>}
+    </label>
+  );
+}
+
+// Solomon's weekly availability for Meet Solomon bookings (times in his time zone)
+type Avail = { id?: number; weekday: number; start_time: string; end_time: string; tz: string; slot_minutes: number; valid_to: string | null; label: string | null; active: boolean };
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function Availability() {
+  const [rows, setRows] = useState<Avail[] | null>(null);
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState("");
+  const load = () => supabase.from("meeting_availability").select("*").order("weekday").order("start_time").then(({ data, error }) => setRows(error ? [] : (data ?? []) as Avail[]));
+  useEffect(() => { load(); }, []);
+  const set = (i: number, patch: Partial<Avail>) => setRows((r) => r!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  async function save() {
+    setMsg("");
+    for (const r of rows ?? []) {
+      const row = { weekday: r.weekday, start_time: r.start_time, end_time: r.end_time, tz: r.tz, slot_minutes: r.slot_minutes, valid_to: r.valid_to || null, label: r.label, active: r.active };
+      const { error } = r.id ? await supabase.from("meeting_availability").update(row).eq("id", r.id) : await supabase.from("meeting_availability").insert(row);
+      if (error) { setMsg(error.message); return; }
+    }
+    setMsg("Saved ✓"); load();
+  }
+  const summary = (rows ?? []).filter((r) => r.active).map((r) => `${WEEKDAYS[r.weekday].slice(0, 3)} ${r.start_time.slice(0, 5)}–${r.end_time.slice(0, 5)}`).join(", ");
+  return (
+    <div className="card availcard">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span><b>🗓 Your availability</b> <small className="muted">{rows === null ? "" : summary ? `${summary} (New York time)` : "None set"}</small></span>
+        <button className="btn ghost sm" onClick={() => setOpen((v) => !v)}>{open ? "Close" : "Edit"}</button>
+      </div>
+      {open && rows && <>
+        {rows.map((r, i) => (
+          <div key={r.id ?? `n${i}`} className="row availrow">
+            <select value={r.weekday} onChange={(e) => set(i, { weekday: Number(e.target.value) })} aria-label="Day">{WEEKDAYS.map((d, n) => <option key={d} value={n}>{d}</option>)}</select>
+            <input type="time" value={r.start_time.slice(0, 5)} onChange={(e) => set(i, { start_time: e.target.value })} aria-label="From" />
+            <span>to</span>
+            <input type="time" value={r.end_time.slice(0, 5)} onChange={(e) => set(i, { end_time: e.target.value })} aria-label="To" />
+            <select value={r.slot_minutes} onChange={(e) => set(i, { slot_minutes: Number(e.target.value) })} aria-label="Meeting length">{[15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}</select>
+            <label className="row" style={{ gap: 4 }}><small>until</small><input type="date" value={r.valid_to ?? ""} onChange={(e) => set(i, { valid_to: e.target.value || null })} aria-label="Until" /></label>
+            <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={r.active} onChange={(e) => set(i, { active: e.target.checked })} /><small>On</small></label>
+            {r.id ? null : <button className="linkbtn" onClick={() => setRows((x) => x!.filter((_, j) => j !== i))}>✕</button>}
+          </div>
+        ))}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn ghost sm" onClick={() => setRows((x) => [...(x ?? []), { weekday: 1, start_time: "12:00", end_time: "13:00", tz: "America/New_York", slot_minutes: 30, valid_to: null, label: null, active: true }])}>+ Add a time</button>
+          <button className="btn primary sm" onClick={save}>Save availability</button>
+        </div>
+        <small className="muted">Times are New York time. Members see them in their own time zone. To stop offering a time, untick “On”.</small>
+        {msg && <small className="muted">{msg}</small>}
+      </>}
+    </div>
+  );
+}
+
+// a private calendar link: confirmed meetings appear in Google Calendar by themselves
+function CalendarFeed() {
+  const [url, setUrl] = useState(""); const [open, setOpen] = useState(false); const [copied, setCopied] = useState(false); const [err, setErr] = useState("");
+  async function get() {
+    setOpen((v) => !v);
+    if (url) return;
+    const { data, error } = await supabase.rpc("my_calendar_token");
+    if (error || !data) setErr("Not switched on yet."); else setUrl(feedUrl(data as string));
+  }
+  return (
+    <div className="card availcard">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span><b>📆 Meetings in your Google Calendar</b> <small className="muted">Confirmed meetings appear there by themselves.</small></span>
+        <button className="btn ghost sm" onClick={get}>{open ? "Close" : "Set up"}</button>
+      </div>
+      {open && <>
+        {err && <small className="err">{err}</small>}
+        {url && <>
+          <ol className="small" style={{ margin: "4px 0", paddingLeft: 18 }}>
+            <li>Copy your private calendar link: <button className="btn primary sm" onClick={async () => { await navigator.clipboard.writeText(url).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? "Copied ✓" : "Copy link"}</button></li>
+            <li>On a computer, open <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Add calendar → From URL</a>.</li>
+            <li>Paste the link and click <b>Add calendar</b>. A calendar called “Meet Solomon (BCIL)” appears.</li>
+          </ol>
+          <small className="muted">Google refreshes it every few hours. For an instant add, use “Add to Google Calendar” on a confirmed meeting. Keep this link private: anyone with it can see your meeting times.</small>
+        </>}
+      </>}
     </div>
   );
 }

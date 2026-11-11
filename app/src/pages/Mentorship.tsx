@@ -15,7 +15,7 @@ const toLocalInput = (d: string | null) => { if (!d) return ""; const x = new Da
 
 // BCIL Academic Mentorship: my mentor or mentees, the next session, and how to join
 export default function Mentorship() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const me = session!.user.id;
   const [pairs, setPairs] = useState<Pair[] | null>(null);
   const [applied, setApplied] = useState<string[]>([]);
@@ -33,6 +33,8 @@ export default function Mentorship() {
   return (
     <section className="view">
       <h1>Mentorship</h1>
+      {profile?.role === "mentor" && <Link className="card planbar" to="/admin?tab=Plan%202027" style={{ textDecoration: "none", color: "inherit" }}>
+        <span>📋 <b>For mentors:</b> your mentees' 2027 plans, and anything Solomon asks you to help with</span><span className="btn ghost sm">Open</span></Link>}
       <p className="muted">BCIL Academic Mentorship pairs students with experienced mentors for support beyond our programmes: studies, career, leadership and personal growth.</p>
       <Link to="/plan" className="card plancta">
         <span className="eyebrow">New · free pilot</span>
