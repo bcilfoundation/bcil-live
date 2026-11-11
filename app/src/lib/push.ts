@@ -34,12 +34,23 @@ async function enableNative(userId: string): Promise<void> {
   try { localStorage.setItem(FCM_KEY, token); } catch { /* ignore */ }
 }
 
+// Taps on a notification are caught as soon as the app starts (even before sign-in finishes),
+// so a tap that opens a closed app still lands on the message. The page opens once the app is ready.
+let pendingUrl: string | null = null;
+let goTo: ((url: string) => void) | null = null;
+nativeCheck.then(async (on) => { if (on) await nativePush().then((P) => P.addListener("pushNotificationActionPerformed", (a) => {
+  const url = (a.notification.data as { url?: string })?.url;
+  if (!url) return;
+  if (goTo) goTo(url); else pendingUrl = url;
+})); }).catch(() => {});
+
 /** Android app: open the right page when someone taps a notification, and keep the token fresh. Call once at start-up. */
 export async function startNativePush(userId: string, go: (url: string) => void) {
   if (!(await nativeCheck)) return;
+  goTo = go;
+  if (pendingUrl) { const u = pendingUrl; pendingUrl = null; go(u); }
   try {
     const P = await nativePush();
-    P.addListener("pushNotificationActionPerformed", (a) => { const url = (a.notification.data as { url?: string })?.url; if (url) go(url); });
     const perm = await P.checkPermissions();
     // first time in the app: ask once; after that only when they switch it on in the menu
     let asked = false; try { asked = !!localStorage.getItem("bcil.fcm.asked"); localStorage.setItem("bcil.fcm.asked", "1"); } catch { /* ignore */ }
