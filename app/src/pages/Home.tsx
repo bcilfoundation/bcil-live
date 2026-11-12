@@ -175,10 +175,9 @@ function FollowBcil() {
   return (
     <>
       <h2 className="home-h follow-h">Follow BCIL Foundation</h2>
-      <div className="follow-grid">{SOCIALS.map(([name, handle, url, ic]) => (
-        <button key={name} className="follow-card" onClick={() => open(url)} aria-label={`${name}: ${handle}`}>
-          <span className={`follow-ic ic-${ic}`}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">{SOCIAL_ICON[ic]}</svg></span>
-          <span className="follow-txt"><b>{name}</b><small>{handle}</small></span>
+      <div className="follow-row">{SOCIALS.map(([name, , url, ic]) => (
+        <button key={name} className={`follow-ic ic-${ic}`} onClick={() => open(url)} aria-label={`BCIL Foundation on ${name}`} title={name}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">{SOCIAL_ICON[ic]}</svg>
         </button>
       ))}</div>
     </>
