@@ -6,7 +6,7 @@ import { isNative } from "../lib/native";
 // They move on by themselves every few seconds; people can also swipe or tap the dots.
 export type Slide = {
   key: string; eyebrow: string; title: string; sub?: string; image?: string | null; tone?: "navy" | "gold" | "live" | "green" | "purple";
-  cta?: { label: string; to: string }; cta2?: { label: string; to: string };
+  cta?: { label: string; to: string }; cta2?: { label: string; to: string }; quote?: boolean;
 };
 
 async function openUrl(url: string) {
@@ -54,7 +54,7 @@ export default function Spotlight({ slides }: { slides: Slide[] }) {
       onMouseEnter={() => { paused.current = true; }} onMouseLeave={() => { paused.current = false; }}>
       <div className="spot-track" ref={track} onScroll={onScroll}>
         {slides.map((s, k) => (
-          <div key={s.key} className={`spot-card tone-${s.tone ?? "navy"}`} role="group" aria-roledescription="slide" aria-label={`${k + 1} of ${n}`}>
+          <div key={s.key} className={`spot-card tone-${s.tone ?? "navy"}${s.quote ? " is-quote" : ""}`} role="group" aria-roledescription="slide" aria-label={`${k + 1} of ${n}`}>
             {s.image && <span className="spot-bg" style={{ backgroundImage: `url(${s.image})` }} />}
             <div className="spot-body">
               <span className="spot-eyebrow">{s.eyebrow}</span>

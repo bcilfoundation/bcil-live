@@ -66,7 +66,8 @@ export default function Home() {
 
   // the rolling Spotlight: live now, the next programmes, announcements, then Plan 2027 and Meet Solomon
   const stories = useStories();
-  const slides: Slide[] = [];
+  const slides: Slide[] = [{ key: "founder", tone: "green", quote: true, image: `${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`, eyebrow: "From our founder",
+    title: "“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”", sub: "Solomon Agbesi, Founder" }];
   if (next) slides.push(next.status === "live"
     ? { key: "live", tone: "live", eyebrow: "● Live now", title: next.title, sub: "Tap to listen, watch and join in", cta: { label: "Join now", to: "/live" } }
     : { key: "live", tone: "navy", eyebrow: "Next live session", title: next.title, sub: new Date(next.starts_at).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }), cta: { label: "Open Live", to: "/live" } });
@@ -87,12 +88,6 @@ export default function Home() {
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
-
-      {/* a short welcome from the founder */}
-      <div className="founder">
-        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
-        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
-      </div>
 
       <Spotlight slides={slides} />
       {isStaff && <button className="linkbtn hpost-add" onClick={() => setManage((m) => !m)}>{manage ? "Done with announcements" : "✏️ Add or edit announcements"}</button>}
@@ -143,12 +138,11 @@ function NeedBook() {
     <div className="needhex">
       <svg className="needhex-mark" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" fill="none" stroke="#fff" strokeWidth="7" /><polygon points="50,24 74,37 74,63 50,76 26,63 26,37" fill="none" stroke="#fff" strokeWidth="4" /></svg>
       <h2 className="need-h">What do you need?</h2>
-      <p className="need-sub">Grooming Generational Leaders</p>
       <div className="need-grid">
-        {NEEDS.map(([ic, label, sub, to]) => (
+        {NEEDS.map(([ic, label, , to]) => (
           <Link key={label} to={to} className="need-item">
             <span className="hex" aria-hidden="true">{ic}</span>
-            <span className="need-txt"><b>{label}</b><small>{sub}</small></span>
+            <b className="need-label">{label}</b>
           </Link>
         ))}
       </div>
