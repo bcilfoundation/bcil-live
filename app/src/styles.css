@@ -1093,3 +1093,4 @@ html,body{max-width:100%;overflow-x:hidden}
 [data-theme="dark"] .hx-btn{background:#1d2c45;color:#dbe7fb}
 @media (max-width:360px){.hx-content h2{font-size:1.3rem}.hx-btn{font-size:.82rem;padding:8px 4px}}
 .hx-content{padding:0 11%}
+.bday-opt input{width:auto;flex:none;margin:3px 0 0;min-height:0;padding:0}.bday-opt span{flex:1;text-align:left;min-width:0}
