@@ -52,7 +52,7 @@ export default function Plan() {
     <section className="view">
       <Link to="/mentorship" className="linkbtn">← Mentorship</Link>
       <div className="card planhero">
-        <span className="eyebrow">BCIL mentorship · free pilot</span>
+        <span className="eyebrow">BCIL mentorship</span>
         <h1>Plan {YEAR}</h1>
         <p>Start the year on purpose. Write a one-year plan for {YEAR}, get feedback from BCIL mentors, and keep going with monthly check-ins and quarterly reviews.</p>
         <ol className="plansteps">

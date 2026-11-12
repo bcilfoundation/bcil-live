@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { isNative } from "../lib/native";
 import HomePosts from "../components/HomePosts";
-import Stories from "../components/Stories";
+import { useStories } from "../components/Stories";
 import Spotlight, { type Slide } from "../components/Spotlight";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
@@ -65,11 +65,12 @@ export default function Home() {
     .sort((a, b) => +a.at - +b.at);
 
   // the rolling Spotlight: live now, the next programmes, announcements, then Plan 2027 and Meet Solomon
+  const stories = useStories();
   const slides: Slide[] = [];
   if (next) slides.push(next.status === "live"
     ? { key: "live", tone: "live", eyebrow: "● Live now", title: next.title, sub: "Tap to listen, watch and join in", cta: { label: "Join now", to: "/live" } }
     : { key: "live", tone: "navy", eyebrow: "Next live session", title: next.title, sub: new Date(next.starts_at).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }), cta: { label: "Open Live", to: "/live" } });
-  upcoming.slice(0, 3).forEach(({ e, at }) => {
+  upcoming.slice(0, 5).forEach(({ e, at }) => {
     const reg = !!e.form_slug && registered.has(e.form_slug), canReg = !!e.form_slug && openForms.has(e.form_slug);
     slides.push({ key: "ev-" + e.slug, tone: "navy", image: img(e.hero_url, bgFor(e.slug)), eyebrow: isOnNow(at) ? "● On now" : `Coming up · ${countdown(at)}`,
       title: e.title, sub: [when(at), e.venue].filter(Boolean).join(" · "),
@@ -78,12 +79,20 @@ export default function Home() {
   });
   posts.forEach((p) => slides.push({ key: "post-" + p.id, tone: "purple", image: p.image_url, eyebrow: "📢 Announcement", title: p.title, sub: p.body ?? undefined,
     cta: p.link_url ? { label: p.link_label || "Learn more", to: p.link_url } : undefined }));
-  slides.push({ key: "plan", tone: "gold", eyebrow: "New · free pilot", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL mentors.", cta: { label: "Start my plan", to: "/plan" } });
+  (stories ?? []).forEach((p) => slides.push({ key: "story-" + p.id, tone: "navy", image: p.image, eyebrow: `Story · ${new Date(p.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+    title: p.title, sub: p.excerpt, cta: { label: "Read the story", to: p.link } }));
+  slides.push({ key: "plan", tone: "gold", eyebrow: "New · BCIL mentorship", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL mentors.", cta: { label: "Start my plan", to: "/plan" } });
   slides.push({ key: "meet", tone: "green", image: `${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`, eyebrow: "Book a session", title: "Meet Solomon", sub: "Pick a time from his calendar and send your CV or plan for review.", cta: { label: "Book a time", to: "/meet" } });
 
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+
+      {/* a short welcome from the founder */}
+      <div className="founder">
+        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
+        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
+      </div>
 
       <Spotlight slides={slides} />
       {isStaff && <button className="linkbtn hpost-add" onClick={() => setManage((m) => !m)}>{manage ? "Done with announcements" : "✏️ Add or edit announcements"}</button>}
@@ -105,23 +114,6 @@ export default function Home() {
       {/* the essentials, so nobody has to dig through menus */}
       <NeedBook />
 
-      {/* coming up: every programme as a compact row with its buttons */}
-      {upcoming.length > 0 && <>
-        <h2 className="home-h">Coming up</h2>
-        <div className="prog-list">{upcoming.map(({ e, at }) => (
-          <ProgrammeRow key={e.slug} e={e} at={at} registered={!!e.form_slug && registered.has(e.form_slug)} canRegister={!!e.form_slug && openForms.has(e.form_slug)} />
-        ))}</div>
-      </>}
-      {events && !upcoming.length && <Link to="/events" className="card"><b>Programmes</b><br /><small className="muted">See past and upcoming BCIL programmes</small></Link>}
-
-      {/* a short welcome from the founder */}
-      <div className="founder">
-        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
-        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
-      </div>
-
-      <Stories />
-
       {/* new books and talks this week */}
       {fresh.length > 0 && <>
         <h2 className="home-h">New this week</h2>
@@ -139,29 +131,27 @@ export default function Home() {
   );
 }
 
-// "What do you need?": the essential places, laid out like an open book
-const NEEDS: [string, string, string][] = [
-  ["📝", "Plan 2027", "/plan"], ["📅", "Meet Solomon", "/meet"],
-  ["🎓", "Find a mentor", "/forms?form=mentorship-mentee"], ["🤝", "Become a mentor", "/forms?form=mentorship-mentor"],
-  ["👥", "Groups", "/groups"], ["🏫", "Campus Sync", "/campus"],
-  ["🙋", "Volunteer for FCB", "/forms?form=fcb27-volunteer"], ["🎁", "Give", "/donate"],
+// "What do you need?": the essential places, on a card marked with the hexagon from the BCIL logo
+const NEEDS: [string, string, string, string][] = [
+  ["📝", "Plan 2027", "Write your one-year plan", "/plan"], ["📅", "Meet Solomon", "Book a session", "/meet"],
+  ["🎓", "Find a mentor", "Get paired with a mentor", "/forms?form=mentorship-mentee"], ["🤝", "Become a mentor", "Guide a student", "/forms?form=mentorship-mentor"],
+  ["🎧", "Watch and listen", "Talks and recordings", "/library"], ["🏫", "Campus Sync", "BCIL on your campus", "/campus"],
+  ["🙋", "Volunteer for FCB", "Serve at FCB 2027", "/forms?form=fcb27-volunteer"], ["🎁", "Give", "Support the work", "/donate"],
 ];
 function NeedBook() {
-  const curve = (flip: boolean) => (
-    <svg className={`book-edge${flip ? " flip" : ""}`} viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M2 30 Q100 2 190 8 Q196 10 199 36" /><path d="M398 30 Q300 2 210 8 Q204 10 201 36" />
-    </svg>
-  );
   return (
-    <div className="needbook">
+    <div className="needhex">
+      <svg className="needhex-mark" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" fill="none" stroke="#fff" strokeWidth="7" /><polygon points="50,24 74,37 74,63 50,76 26,63 26,37" fill="none" stroke="#fff" strokeWidth="4" /></svg>
       <h2 className="need-h">What do you need?</h2>
-      {curve(false)}
-      <div className="need-pages">
-        {NEEDS.map(([ic, label, to]) => (
-          <Link key={label} to={to} className="need-item"><span aria-hidden="true">{ic}</span><b>{label}</b><span className="need-arrow" aria-hidden="true">›</span></Link>
+      <p className="need-sub">Grooming Generational Leaders</p>
+      <div className="need-grid">
+        {NEEDS.map(([ic, label, sub, to]) => (
+          <Link key={label} to={to} className="need-item">
+            <span className="hex" aria-hidden="true">{ic}</span>
+            <span className="need-txt"><b>{label}</b><small>{sub}</small></span>
+          </Link>
         ))}
       </div>
-      {curve(true)}
     </div>
   );
 }
@@ -190,7 +180,7 @@ function FollowBcil() {
   }
   return (
     <>
-      <h2 className="home-h follow-h">Follow BCIL</h2>
+      <h2 className="home-h follow-h">Follow BCIL Foundation</h2>
       <div className="follow-grid">{SOCIALS.map(([name, handle, url, ic]) => (
         <button key={name} className="follow-card" onClick={() => open(url)} aria-label={`${name}: ${handle}`}>
           <span className={`follow-ic ic-${ic}`}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">{SOCIAL_ICON[ic]}</svg></span>
@@ -228,28 +218,6 @@ function BiteCard({ q }: { q: Quote }) {
         <button className="btn ghost sm light" onClick={() => shareBite(q)}>Share</button>
         <Link to="/quotes" className="bite-past">Past bites</Link>
       </div>
-    </div>
-  );
-}
-
-function ProgrammeRow({ e, at, registered, canRegister }: { e: Ev; at: Date; registered: boolean; canRegister: boolean }) {
-  const n = sessions(e).length, idx = sessions(e).findIndex((d) => +d === +at) + 1;
-  const now = isOnNow(at);
-  const soon = now || +at - Date.now() < 30 * 60e3;
-  return (
-    <div className="prog-row">
-      <span className="prog-thumb" style={{ backgroundImage: `url(${img(e.hero_url, bgFor(e.slug))})` }} />
-      <div className="grow">
-        <b>{e.title}</b>
-        <small className="muted">{when(at)}{n > 1 ? ` · session ${idx} of ${n}` : ""}</small>
-        <div className="prog-acts">
-          <Link className="btn ghost sm" to={`/events/${e.slug}`}>Details</Link>
-          {e.online_url && soon && <a className="btn primary sm" href={e.online_url} target="_blank" rel="noreferrer">Join now</a>}
-          {registered ? <Link className="btn primary sm" to={`/events/${e.slug}`}>🎟 My ticket</Link>
-            : canRegister && <Link className="btn primary sm" to={`/forms?form=${e.form_slug}`}>Register · free</Link>}
-        </div>
-      </div>
-      <span className={`prog-count${now ? " now" : ""}`}>{now ? "● On now" : countdown(at)}</span>
     </div>
   );
 }

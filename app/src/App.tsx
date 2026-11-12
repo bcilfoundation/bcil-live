@@ -46,6 +46,9 @@ import { paymentsOn } from "./lib/pay";
 const NAV = ([
   ["/", "Home"], ["/live", "Live"], ["/library", "Library"], ["/chat", "Chats"], ["/donate", "Donate"],
 ] as const);
+// the main tabs: every other page gets a back button in the top bar
+const TOP_LEVEL = new Set(["/", "/live", "/library", "/chat", "/donate", "/more"]);
+
 const NAV_MORE = ([
   ["/about", "About us"], ["/events", "Programmes"], ["/mentorship", "Mentorship"], ["/meet", "Meet Solomon"], ["/forms?form=join-campus-sync", "Join us"], ["/forms?form=fcb27-volunteer", "Volunteer for FCB 27"],
 ] as const);
@@ -105,6 +108,8 @@ export default function App() {
         {viewAsMember && <div className="viewasbar" role="status">👁 You're viewing BCIL Foundation as a member. Staff buttons are hidden.
           <button onClick={() => setViewAsMember(false)}>Back to admin view</button></div>}
         <header className="top">
+          {(!TOP_LEVEL.has(pathname) || (!!search && pathname !== "/chat")) && <button className="topback" aria-label="Back" onClick={() => ((window.history.state?.idx ?? 0) > 0 ? go(-1) : go("/"))}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}
           <span className="org"><img className="toplogo" src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" />BCIL Foundation</span>
           <span className="sp" />
           <TopBar />

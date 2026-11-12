@@ -10,8 +10,8 @@ async function open(url: string) {
   window.open(url, "_blank", "noopener");
 }
 
-// The newest posts from the Stories page on bcilfoundation.org
-export default function Stories() {
+/** The newest posts from the Stories page on bcilfoundation.org */
+export function useStories() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   useEffect(() => {
     fetch(API).then((r) => r.json()).then((list: { id: number; link: string; date: string; title: { rendered: string }; excerpt: { rendered: string };
@@ -22,6 +22,11 @@ export default function Stories() {
           image: m?.media_details?.sizes?.medium_large?.source_url ?? m?.media_details?.sizes?.medium?.source_url ?? m?.source_url ?? null };
       }))).catch(() => setPosts([]));
   }, []);
+  return posts;
+}
+
+export default function Stories() {
+  const posts = useStories();
   if (!posts?.length) return null;
   return (<>
     <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>

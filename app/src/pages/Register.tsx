@@ -61,7 +61,7 @@ export default function Register({ slug }: { slug: string }) {
 
   return (
     <div className="regpage">
-      <header className="reghead"><img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
+      <header className="reghead">{(window.history.state?.idx ?? 0) > 0 && <button className="topback regback" aria-label="Back" onClick={() => history.back()}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}<img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
       {form === undefined ? <p className="muted">Loading…</p>
         : form === null ? <div className="card"><b>This form is closed or the link is not valid.</b><p className="muted">Check the link with the BCIL team.</p></div>
         : done && !isEvent ? (
@@ -110,7 +110,7 @@ export function TicketPage({ ticket }: { ticket: string }) {
   }, [ticket]);
   return (
     <div className="regpage">
-      <header className="reghead"><img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
+      <header className="reghead">{(window.history.state?.idx ?? 0) > 0 && <button className="topback regback" aria-label="Back" onClick={() => history.back()}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}<img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
       {info === undefined ? <p className="muted">Loading…</p> : info === null ? <div className="card"><b>Ticket not found.</b></div> : (
         <div className="card regdone">
           <h2>{info.name}</h2>
@@ -145,7 +145,7 @@ export function CertificateCheck({ ticket }: { ticket: string }) {
   useEffect(() => { if (!/^[0-9a-f-]{36}$/i.test(ticket)) { setC(null); return; } certificateInfo(ticket).then(setC); }, [ticket]);
   return (
     <div className="regpage">
-      <header className="reghead"><img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
+      <header className="reghead">{(window.history.state?.idx ?? 0) > 0 && <button className="topback regback" aria-label="Back" onClick={() => history.back()}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}<img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
       {c === undefined ? <p className="muted">Checking…</p> : c?.ok ? (
         <div className="card regdone">
           <h2>✅ Genuine certificate</h2>
