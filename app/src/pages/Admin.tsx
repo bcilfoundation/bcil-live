@@ -1,5 +1,6 @@
 import type { Field } from "./Forms";
 import CelebrationsAdmin from "../components/CelebrationsAdmin";
+import FcbHub from "../components/FcbHub";
 import FormBuilder from "../components/FormBuilder";
 import { useEffect, useState } from "react";
 import { PlanTable, downloadPlan, type Goal, type PlanRow } from "./Plan";
@@ -10,7 +11,7 @@ import AddAudioTalk from "../components/AddAudioTalk";
 import { docLink, fileName } from "../lib/docs";
 import { feedUrl, googleCalLink } from "../lib/calendar";
 
-const TABS = ["Engagement", "Celebrations", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
+const TABS = ["FCB 2027", "Engagement", "Celebrations", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
@@ -20,13 +21,13 @@ export default function Admin() {
   const { profile, setViewAsMember } = useAuth();
   const navigate = useNavigate();
   // notifications link straight to a tab: /admin?tab=Meetings
-  const [tab, setTab] = useState<Tab>(() => { const t = new URLSearchParams(location.search).get("tab"); return (TABS as readonly string[]).includes(t ?? "") ? (t as Tab) : "Engagement"; });
+  const [tab, setTab] = useState<Tab>(() => { const t = new URLSearchParams(location.search).get("tab"); return (TABS as readonly string[]).includes(t ?? "") ? (t as Tab) : "FCB 2027"; });
   if (profile?.role !== "admin" && profile?.role !== "moderator" && profile?.role !== "mentor")
     return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
   const isAdmin = profile.role === "admin";
   const isMentor = profile.role === "mentor";
   // moderators and mentors only see the plans and meeting requests Solomon assigns to them (and their own mentees' plans)
-  const tabs: readonly Tab[] = isAdmin ? TABS : isMentor ? ["Plan 2027", "Meetings"] : ["Engagement", "Celebrations", "Reports", "Plan 2027", "Meetings"];
+  const tabs: readonly Tab[] = isAdmin ? TABS : isMentor ? ["Plan 2027", "Meetings"] : ["FCB 2027", "Engagement", "Celebrations", "Reports", "Plan 2027", "Meetings"];
   const shown: Tab = tabs.includes(tab) ? tab : tabs[0];
   return (
     <section className="view">
@@ -37,7 +38,8 @@ export default function Admin() {
       {shown === "Daily Bite" && isAdmin && <QuotesAdmin />}
       {shown === "Live sessions" && isAdmin && <LiveAdmin />}
       {shown === "Talks" && isAdmin && <TalksAdmin />}
-      {shown === "Forms" && isAdmin && <FormsAdmin />}
+      {shown === "FCB 2027" && <FcbHub isAdmin={isAdmin} />}
+      {shown === "Forms" && isAdmin && <FormsAdmin initial={new URLSearchParams(location.search).get("form") ?? undefined} />}
       {shown === "Mentorship" && isAdmin && <MentorshipAdmin />}
       {shown === "Plan 2027" && <PlansAdmin isAdmin={isAdmin} />}
       {shown === "Meetings" && <MeetingsAdmin isAdmin={isAdmin} />}
@@ -243,7 +245,7 @@ function Review({ r, reload }: { r: RespRow; reload: () => void }) {
   </div>);
 }
 
-function FormsAdmin() {
+function FormsAdmin({ initial }: { initial?: string }) {
   const review = useReview();
   const [forms, setForms] = useState<FormRow[]>([]);
   const [formId, setFormId] = useState("");
@@ -253,7 +255,7 @@ function FormsAdmin() {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const loadForms = () => supabase.from("forms").select("id, slug, title, subtitle, description, sensitive, fields, is_open, fee_pesewas, fee_label, fee_required").order("created_at")
-    .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.[0]?.id || ""); });
+    .then(({ data }) => { setForms((data ?? []) as FormRow[]); setFormId((cur) => cur || data?.find((f) => f.slug === initial)?.id || data?.[0]?.id || ""); });
   useEffect(() => { loadForms(); }, []);
   const load = async () => {
     if (!formId) return;

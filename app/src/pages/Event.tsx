@@ -26,6 +26,13 @@ export default function Event() {
   const [payMsg, setPayMsg] = useState("");
   const [flyer, setFlyer] = useState(false);
   const [volTicket, setVolTicket] = useState<string | null>(null);
+  // FCB 2027: the other forms that belong to it (volunteering, mentorship, evaluation), shown together when open
+  const [extras, setExtras] = useState<{ slug: string; title: string }[]>([]);
+  useEffect(() => {
+    if (slug !== "fcb2027") return;
+    supabase.from("forms").select("slug, title").in("slug", ["fcb27-evaluation", "fcb27-volunteer", "fcb27-mentorship"]).eq("is_open", true)
+      .then(({ data }) => setExtras(((data ?? []) as { slug: string; title: string }[]).sort((a, b) => (a.slug === "fcb27-evaluation" ? -1 : b.slug === "fcb27-evaluation" ? 1 : 0))));
+  }, [slug]);
 
   const load = async () => {
     const { data: e } = await supabase.from("event_pages").select(EVENT_COLS).eq("slug", slug).maybeSingle();
@@ -97,6 +104,15 @@ export default function Event() {
         <Link className="btn primary evreg" to={`/forms?form=${ev.form_slug}`}>Register for {ev.title}{form.fee_pesewas && form.fee_required ? ` · ${form.fee_label || "fee"} ${cedis(form.fee_pesewas)}` : " · free"}</Link>
       ) : null}
 
+      {extras.length > 0 && <div className="card fcbextras">
+        <b>Everything for {ev.title}</b>
+        {extras.map((x) => (
+          <Link key={x.slug} className={`btn ${x.slug === "fcb27-evaluation" ? "primary" : "ghost"} sm`} to={`/forms?form=${x.slug}`}>
+            {x.slug === "fcb27-evaluation" ? "⭐ Evaluate FCB 2027" : x.slug === "fcb27-volunteer" ? "🙋 Volunteer" : "🤝 Sign up for a mentor"}
+          </Link>
+        ))}
+        <Link className="btn ghost sm" to="/events/fcb27-volunteer-training">Volunteer training</Link>
+      </div>}
       {volTicket && <CertificateBox ticket={volTicket} />}
       {ev.online_url && at && <a className="btn primary evreg" href={ev.online_url} target="_blank" rel="noreferrer">{now ? "● Join now" : "Join link"} ({ev.online_url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]})</a>}
       {all.length > 1 && <div className="card evdates"><b>Sessions</b>{all.map((d, i) => (

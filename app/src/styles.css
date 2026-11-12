@@ -1094,3 +1094,15 @@ html,body{max-width:100%;overflow-x:hidden}
 @media (max-width:360px){.hx-content h2{font-size:1.3rem}.hx-btn{font-size:.82rem;padding:8px 4px}}
 .hx-content{padding:0 11%}
 .bday-opt input{width:auto;flex:none;margin:3px 0 0;min-height:0;padding:0}.bday-opt span{flex:1;text-align:left;min-width:0}
+/* Admin → FCB 2027 */
+.fcbhub-head{background:linear-gradient(135deg,#0f2d52,#1e3f78);color:#fff;border:0}
+.fcbhub-head .eyebrow{color:#ffd77a}.fcbhub-head .muted{color:#cfe0fb}
+.fcbhub-head .btn.ghost{color:#fff;border-color:rgba(255,255,255,.45);background:rgba(255,255,255,.08)}
+.fcbform{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.evrank{margin:0 0 14px;padding-left:22px}.evrank li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.evq{margin:12px 0}.evbars{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.evbar{display:grid;grid-template-columns:minmax(110px,40%) 1fr 34px;gap:8px;align-items:center;font-size:.85rem}
+.evbar-t{height:10px;background:var(--navy-soft);border-radius:9px;overflow:hidden}.evbar-t span{display:block;height:100%;background:var(--navy);border-radius:9px}
+.evbar-n{text-align:right;color:var(--muted)}
+.evtext{margin:8px 0}.evtext summary{cursor:pointer;font-weight:700}.evtext li{margin:4px 0}
+.fcbextras{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fcbextras>b{flex-basis:100%}
