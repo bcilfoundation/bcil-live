@@ -4,9 +4,10 @@ import { isNative } from "../lib/native";
 
 // Rolling cards at the top of Home: live now, programmes coming up, announcements and the key programmes.
 // They move on by themselves every few seconds; people can also swipe or tap the dots.
+type Act = { label: string; to?: string; onClick?: () => void };
 export type Slide = {
   key: string; eyebrow: string; title: string; sub?: string; image?: string | null; tone?: "navy" | "gold" | "live" | "green" | "purple";
-  cta?: { label: string; to: string }; cta2?: { label: string; to: string }; quote?: boolean;
+  cta?: Act; cta2?: Act; quote?: boolean;
 };
 
 async function openUrl(url: string) {
@@ -14,10 +15,11 @@ async function openUrl(url: string) {
   window.open(url, "_blank", "noopener");
 }
 
-function Cta({ c, primary }: { c: { label: string; to: string }; primary?: boolean }) {
+function Cta({ c, primary }: { c: Act; primary?: boolean }) {
   const cls = `btn sm ${primary ? "spot-btn" : "spot-btn ghost"}`;
+  if (c.onClick || !c.to) return <button className={cls} onClick={c.onClick}>{c.label}</button>;
   return c.to.startsWith("/") ? <Link className={cls} to={c.to}>{c.label}</Link>
-    : <button className={cls} onClick={() => openUrl(c.to)}>{c.label}</button>;
+    : <button className={cls} onClick={() => openUrl(c.to!)}>{c.label}</button>;
 }
 
 export default function Spotlight({ slides }: { slides: Slide[] }) {

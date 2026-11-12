@@ -1,4 +1,5 @@
 import type { Field } from "./Forms";
+import CelebrationsAdmin from "../components/CelebrationsAdmin";
 import FormBuilder from "../components/FormBuilder";
 import { useEffect, useState } from "react";
 import { PlanTable, downloadPlan, type Goal, type PlanRow } from "./Plan";
@@ -9,7 +10,7 @@ import AddAudioTalk from "../components/AddAudioTalk";
 import { docLink, fileName } from "../lib/docs";
 import { feedUrl, googleCalLink } from "../lib/calendar";
 
-const TABS = ["Engagement", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
+const TABS = ["Engagement", "Celebrations", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
@@ -25,7 +26,7 @@ export default function Admin() {
   const isAdmin = profile.role === "admin";
   const isMentor = profile.role === "mentor";
   // moderators and mentors only see the plans and meeting requests Solomon assigns to them (and their own mentees' plans)
-  const tabs: readonly Tab[] = isAdmin ? TABS : isMentor ? ["Plan 2027", "Meetings"] : ["Engagement", "Reports", "Plan 2027", "Meetings"];
+  const tabs: readonly Tab[] = isAdmin ? TABS : isMentor ? ["Plan 2027", "Meetings"] : ["Engagement", "Celebrations", "Reports", "Plan 2027", "Meetings"];
   const shown: Tab = tabs.includes(tab) ? tab : tabs[0];
   return (
     <section className="view">
@@ -42,6 +43,7 @@ export default function Admin() {
       {shown === "Meetings" && <MeetingsAdmin isAdmin={isAdmin} />}
       {shown === "Gifts" && isAdmin && <GiftsAdmin />}
       {shown === "Engagement" && <EngagementAdmin />}
+      {shown === "Celebrations" && <CelebrationsAdmin />}
       {shown === "Reports" && <ReportsAdmin />}
       {shown === "People" && isAdmin && <PeopleAdmin />}
     </section>

@@ -6,6 +6,8 @@ import { isNative } from "../lib/native";
 import HomePosts from "../components/HomePosts";
 import { useStories } from "../components/Stories";
 import Spotlight, { type Slide } from "../components/Spotlight";
+import PersonSheet from "../components/PersonSheet";
+import type { SpotlightRow } from "../components/CelebrationsAdmin";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
@@ -17,7 +19,11 @@ const NEW_FOR_DAYS = 7;   // new books and talks stay on Home this long
 
 
 export default function Home() {
-  const { profile, isStaff } = useAuth();
+  const { profile, isStaff, session } = useAuth();
+  const [bdays, setBdays] = useState<{ id: string; full_name: string; avatar_url: string | null }[]>([]);
+  const [stars, setStars] = useState<SpotlightRow[]>([]);
+  const [person, setPerson] = useState<string | null>(null);     // birthday: open their profile to send wishes
+  const [star, setStar] = useState<SpotlightRow | null>(null);   // spotlight: read their story
   const [posts, setPosts] = useState<Post[]>([]);
   const [manage, setManage] = useState(false);   // staff: show the announcements list to add or edit
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -38,6 +44,8 @@ export default function Home() {
     const today = new Date().toISOString().slice(0, 10);
     supabase.from("home_posts").select("id, title, body, image_url, link_url, link_label, ends_on, published").eq("published", true).order("sort").order("created_at", { ascending: false })
       .then(({ data }) => setPosts(((data ?? []) as Post[]).filter((p) => !p.ends_on || p.ends_on >= today)));
+    supabase.rpc("birthdays_today").then(({ data }) => setBdays((data ?? []) as typeof bdays));
+    supabase.rpc("current_spotlights").then(({ data }) => setStars((data ?? []) as SpotlightRow[]));
     supabase.from("forms").select("slug").eq("is_open", true).then(({ data }) => setOpenForms(new Set(((data ?? []) as { slug: string }[]).map((f) => f.slug))));
     supabase.from("form_responses").select("forms(slug)").then(({ data }) =>
       setRegistered(new Set(((data ?? []) as unknown as { forms: { slug: string } | null }[]).map((r) => r.forms?.slug ?? "").filter(Boolean))));
@@ -68,6 +76,15 @@ export default function Home() {
   const stories = useStories();
   const slides: Slide[] = [{ key: "founder", tone: "green", quote: true, image: `${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`, eyebrow: "From our founder",
     title: "“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”", sub: "Solomon Agbesi, Founder" }];
+  // birthdays today and this week's Spotlight come right after the founder's message
+  bdays.slice(0, 5).forEach((b) => {
+    const mine = b.id === session?.user.id, first = b.full_name.split(" ")[0];
+    slides.push(mine
+      ? { key: "bday-" + b.id, tone: "gold", image: b.avatar_url, eyebrow: "🎂 Happy birthday", title: `Happy birthday, ${first}!`, sub: "Everyone at BCIL Foundation is celebrating you today. Have a wonderful year." }
+      : { key: "bday-" + b.id, tone: "gold", image: b.avatar_url, eyebrow: "🎂 Birthday today", title: `It's ${b.full_name}'s birthday!`, sub: `Send ${first} a birthday wish.`, cta: { label: "🎉 Send wishes", onClick: () => setPerson(b.id) } });
+  });
+  stars.forEach((st) => slides.push({ key: "star-" + st.id, tone: "purple", image: st.photo_url, eyebrow: "⭐ Spotlight of the week", title: st.name,
+    sub: [st.role, st.headline].filter(Boolean).join(" · "), cta: st.story ? { label: "Read their story", onClick: () => setStar(st) } : st.link_url ? { label: "Read more", to: st.link_url } : undefined }));
   if (next) slides.push(next.status === "live"
     ? { key: "live", tone: "live", eyebrow: "● Live now", title: next.title, sub: "Tap to listen, watch and join in", cta: { label: "Join now", to: "/live" } }
     : { key: "live", tone: "navy", eyebrow: "Next live session", title: next.title, sub: new Date(next.starts_at).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }), cta: { label: "Open Live", to: "/live" } });
@@ -119,6 +136,18 @@ export default function Home() {
           </Link>
         ))}</div>
       </>}
+
+      {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
+      {star && <div className="lightbox starsheet" role="dialog" aria-label={`Spotlight: ${star.name}`} onClick={() => setStar(null)}>
+        <div className="card" onClick={(e) => e.stopPropagation()}>
+          {star.photo_url && <img src={star.photo_url} alt="" />}
+          <span className="eyebrow">⭐ Spotlight of the week</span>
+          <h2>{star.name}</h2>{star.role && <p className="muted">{star.role}</p>}
+          <p><b>{star.headline}</b></p>{star.story && <p className="prewrap">{star.story}</p>}
+          <div className="row" style={{ gap: 8 }}>{star.link_url && <button className="btn ghost sm" onClick={() => window.open(star.link_url!, "_blank", "noopener")}>Read more</button>}
+            <button className="btn primary sm" onClick={() => setStar(null)}>Close</button></div>
+        </div>
+      </div>}
 
       <FollowBcil />
       <p className="home-tag">Grooming Generational Leaders · #BCILFoundation</p>

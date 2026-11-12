@@ -168,7 +168,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
         <div className="grow"><b>{profile?.full_name || "Your name"}</b><small className="muted">{session?.user.email ?? session?.user.phone}</small></div>
         <span className="tick"><Icon name="check" size={20} /></span>
       </div>
-      <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />Edit name and photo</button>
+      <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />Edit profile and birthday</button>
       <button className="menubtn" onClick={() => { onClose(); nav("/friends"); }}><Icon name="users" size={18} />Friends</button>
       {realStaff && <button className="menubtn" onClick={() => { setViewAsMember(!viewAsMember); onClose(); nav("/"); }}><Icon name="star" size={18} />{viewAsMember ? "Back to admin view" : "View as member"}</button>}
       <div className="menurow"><span>Appearance</span>
@@ -194,6 +194,13 @@ function EditProfile({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const file = useRef<HTMLInputElement>(null);
+  // birthday: day and month only, so BCIL can celebrate it (loaded separately so older databases still work)
+  const [bd, setBd] = useState({ m: "", d: "", show: true, ok: false });
+  useEffect(() => {
+    supabase.from("profiles").select("birthday_month, birthday_day, show_birthday").eq("id", session!.user.id).single()
+      .then(({ data, error }) => { if (!error && data) { const r = data as { birthday_month: number | null; birthday_day: number | null; show_birthday: boolean };
+        setBd({ m: r.birthday_month ? String(r.birthday_month) : "", d: r.birthday_day ? String(r.birthday_day) : "", show: r.show_birthday, ok: true }); } });
+  }, []);
 
   async function pick(f?: File) {
     if (!f) return;
@@ -206,14 +213,16 @@ function EditProfile({ onDone }: { onDone: () => void }) {
     e.preventDefault();
     if (!name.trim()) { setErr("Please enter your name."); return; }
     setBusy(true);
-    const { error } = await supabase.from("profiles").update({ full_name: name.trim(), bio: bio.trim() || null, avatar_url: photo }).eq("id", session!.user.id);
+    if ((bd.m && !bd.d) || (!bd.m && bd.d)) { setBusy(false); setErr("Choose both the day and the month of your birthday."); return; }
+    const { error } = await supabase.from("profiles").update({ full_name: name.trim(), bio: bio.trim() || null, avatar_url: photo,
+      ...(bd.ok ? { birthday_month: bd.m ? Number(bd.m) : null, birthday_day: bd.d ? Number(bd.d) : null, show_birthday: bd.show } : {}) }).eq("id", session!.user.id);
     setBusy(false);
     if (error) { setErr("Could not save. Check your connection and try again."); return; }
     await refreshProfile(); onDone();
   }
   return (
-    <form className="pop memenu" onSubmit={save} aria-label="Edit name and photo">
-      <div className="pophead"><b>Edit name and photo</b><button type="button" className="iconbtn sm" onClick={onDone} aria-label="Close"><Icon name="x" size={18} /></button></div>
+    <form className="pop memenu" onSubmit={save} aria-label="Edit profile">
+      <div className="pophead"><b>Edit profile</b><button type="button" className="iconbtn sm" onClick={onDone} aria-label="Close"><Icon name="x" size={18} /></button></div>
       <div className="photoedit">
         <Avatar name={name} url={photo} size={84} />
         <div className="col">
@@ -225,6 +234,14 @@ function EditProfile({ onDone }: { onDone: () => void }) {
       <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
       <label className="field">About you <small className="muted">(optional)</small>
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} placeholder="e.g. Level 200, KNUST · BCIL Campus Sync" style={{ minHeight: 70 }} /></label>
+      {bd.ok && <fieldset className="field bdayfield">
+        <legend>Birthday <small className="muted">(optional · day and month only)</small></legend>
+        <div className="row" style={{ gap: 8 }}>
+          <select aria-label="Birthday day" value={bd.d} onChange={(e) => setBd({ ...bd, d: e.target.value })}><option value="">Day</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select>
+          <select aria-label="Birthday month" value={bd.m} onChange={(e) => setBd({ ...bd, m: e.target.value })}><option value="">Month</option>{["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>
+        </div>
+        {bd.m && bd.d && <label className="row small" style={{ gap: 8, marginTop: 6 }}><input type="checkbox" checked={bd.show} onChange={(e) => setBd({ ...bd, show: e.target.checked })} /> Celebrate my birthday on Home so others can wish me well</label>}
+      </fieldset>}
       {err && <p className="err">{err}</p>}
       <button className="btn primary" disabled={busy}>Save</button>
     </form>
