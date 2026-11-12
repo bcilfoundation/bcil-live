@@ -157,24 +157,21 @@ export default function Home() {
   );
 }
 
-// "What do you need?": six options in a honeycomb around the BCIL mark, one for each of our six core values
+// "What do you need?": a hexagon card, like the hexagon in the BCIL logo
 const NEEDS: [string, string][] = [
   ["Plan 2027", "/plan"], ["Meet Solomon", "/meet"],
   ["Mentorship", "/mentorship"], ["Campus Sync", "/campus"],
   ["Volunteer for FCB", "/forms?form=fcb27-volunteer"], ["Give", "/donate"],
 ];
-const VALUES = ["Integrity", "Mentorship", "Persistence", "Responsibility", "Excellence", "Impact"];
 function NeedBook() {
-  const tile = ([label, to]: [string, string]) => <Link key={label} to={to} className="hx hx-opt"><span>{label}</span></Link>;
   return (
-    <div className="needhex">
-      <h2 className="need-h">What do you need?</h2>
-      <div className="honey">
-        <div className="hrow">{NEEDS.slice(0, 2).map(tile)}</div>
-        <div className="hrow">{tile(NEEDS[2])}<span className="hx hx-core" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" /></span>{tile(NEEDS[3])}</div>
-        <div className="hrow">{NEEDS.slice(4).map(tile)}</div>
+    <div className="needhex2">
+      <span className="hx-out" aria-hidden="true" /><span className="hx-in" aria-hidden="true" />
+      <div className="hx-content">
+        <span className="hx-bar" aria-hidden="true" />
+        <h2>What do you need?</h2>
+        <div className="hx-grid">{NEEDS.map(([label, to]) => <Link key={label} to={to} className="hx-btn">{label}</Link>)}</div>
       </div>
-      <p className="need-values" aria-label="Our core values">{VALUES.join(" · ")}</p>
     </div>
   );
 }
