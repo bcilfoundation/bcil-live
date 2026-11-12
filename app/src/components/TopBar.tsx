@@ -215,7 +215,7 @@ function EditProfile({ onDone }: { onDone: () => void }) {
     setBusy(true);
     if ((bd.m && !bd.d) || (!bd.m && bd.d)) { setBusy(false); setErr("Choose both the day and the month of your birthday."); return; }
     const { error } = await supabase.from("profiles").update({ full_name: name.trim(), bio: bio.trim() || null, avatar_url: photo,
-      ...(bd.ok ? { birthday_month: bd.m ? Number(bd.m) : null, birthday_day: bd.d ? Number(bd.d) : null, show_birthday: bd.show } : {}) }).eq("id", session!.user.id);
+      ...(bd.ok ? { birthday_month: bd.m ? Number(bd.m) : null, birthday_day: bd.d ? Number(bd.d) : null, show_birthday: bd.show, ...(bd.m && bd.d ? { birthday_choice: bd.show ? "celebrate" : "private" } : {}) } : {}) }).eq("id", session!.user.id);
     setBusy(false);
     if (error) { setErr("Could not save. Check your connection and try again."); return; }
     await refreshProfile(); onDone();

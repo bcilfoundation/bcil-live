@@ -7,6 +7,7 @@ import HomePosts from "../components/HomePosts";
 import { useStories } from "../components/Stories";
 import Spotlight, { type Slide } from "../components/Spotlight";
 import PersonSheet from "../components/PersonSheet";
+import BirthdayAsk from "../components/BirthdayAsk";
 import type { SpotlightRow } from "../components/CelebrationsAdmin";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
@@ -137,6 +138,7 @@ export default function Home() {
         ))}</div>
       </>}
 
+      <BirthdayAsk />
       {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
       {star && <div className="lightbox starsheet" role="dialog" aria-label={`Spotlight: ${star.name}`} onClick={() => setStar(null)}>
         <div className="card" onClick={(e) => e.stopPropagation()}>
@@ -155,26 +157,24 @@ export default function Home() {
   );
 }
 
-// "What do you need?": the essential places, on a card marked with the hexagon from the BCIL logo
-const NEEDS: [string, string, string, string][] = [
-  ["📝", "Plan 2027", "Write your one-year plan", "/plan"], ["📅", "Meet Solomon", "Book a session", "/meet"],
-  ["🎓", "Find a mentor", "Get paired with a mentor", "/forms?form=mentorship-mentee"], ["🤝", "Become a mentor", "Guide a student", "/forms?form=mentorship-mentor"],
-  ["🎧", "Watch and listen", "Talks and recordings", "/library"], ["🏫", "Campus Sync", "BCIL on your campus", "/campus"],
-  ["🙋", "Volunteer for FCB", "Serve at FCB 2027", "/forms?form=fcb27-volunteer"], ["🎁", "Give", "Support the work", "/donate"],
+// "What do you need?": six options in a honeycomb around the BCIL mark, one for each of our six core values
+const NEEDS: [string, string][] = [
+  ["Plan 2027", "/plan"], ["Meet Solomon", "/meet"],
+  ["Mentorship", "/mentorship"], ["Campus Sync", "/campus"],
+  ["Volunteer for FCB", "/forms?form=fcb27-volunteer"], ["Give", "/donate"],
 ];
+const VALUES = ["Integrity", "Mentorship", "Persistence", "Responsibility", "Excellence", "Impact"];
 function NeedBook() {
+  const tile = ([label, to]: [string, string]) => <Link key={label} to={to} className="hx hx-opt"><span>{label}</span></Link>;
   return (
     <div className="needhex">
-      <svg className="needhex-mark" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" fill="none" stroke="#fff" strokeWidth="7" /><polygon points="50,24 74,37 74,63 50,76 26,63 26,37" fill="none" stroke="#fff" strokeWidth="4" /></svg>
       <h2 className="need-h">What do you need?</h2>
-      <div className="need-grid">
-        {NEEDS.map(([ic, label, , to]) => (
-          <Link key={label} to={to} className="need-item">
-            <span className="hex" aria-hidden="true">{ic}</span>
-            <b className="need-label">{label}</b>
-          </Link>
-        ))}
+      <div className="honey">
+        <div className="hrow">{NEEDS.slice(0, 2).map(tile)}</div>
+        <div className="hrow">{tile(NEEDS[2])}<span className="hx hx-core" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="" /></span>{tile(NEEDS[3])}</div>
+        <div className="hrow">{NEEDS.slice(4).map(tile)}</div>
       </div>
+      <p className="need-values" aria-label="Our core values">{VALUES.join(" · ")}</p>
     </div>
   );
 }

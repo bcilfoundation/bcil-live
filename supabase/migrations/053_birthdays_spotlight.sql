@@ -4,6 +4,8 @@
 alter table public.profiles add column if not exists birthday_month smallint check (birthday_month between 1 and 12);
 alter table public.profiles add column if not exists birthday_day smallint check (birthday_day between 1 and 31);
 alter table public.profiles add column if not exists show_birthday boolean not null default true;
+-- the answer to "When is your birthday?": celebrate (on Home + a wish), private (a wish only), none (no date kept)
+alter table public.profiles add column if not exists birthday_choice text check (birthday_choice in ('celebrate', 'private', 'none'));
 
 -- today's birthdays in Ghana time; under-18s are never listed
 create or replace function public.birthdays_today() returns table (id uuid, full_name text, avatar_url text)
