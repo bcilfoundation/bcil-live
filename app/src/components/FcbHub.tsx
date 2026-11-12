@@ -81,15 +81,17 @@ function EvalResults({ form, total }: { form: F; total: number }) {
   }, [form.id]);
   if (!total) return <div className="card"><h2 style={{ marginTop: 0 }}>Evaluation results</h2><p className="muted">No evaluations yet. Results appear here as people send them, with the highest ratings first.</p></div>;
   if (!tally) return <div className="card"><p className="muted">Loading results…</p></div>;
-  const rated = form.fields.filter((f) => f.type === "radio" && f.options?.some((o) => /^\d ·/.test(o)));
-  const scaled = form.fields.filter((f) => f.type === "radio" && f.options && !rated.includes(f) && ["useful", "recommend", "mentorship"].includes(f.key));
   const count = (k: string, o: string) => tally.find((t) => t.field === k && t.answer === o)?.n ?? 0;
+  const SKIP = /^(Did not attend|Not applicable)$/;
+  // choices are listed highest first, so the first choice scores 5 and the last scores 1
   const avg = (f: Field) => {
+    const opts = (f.options ?? []).filter((o) => !SKIP.test(o));
     let s = 0, n = 0;
-    for (const o of f.options ?? []) { const m = /^(\d) ·/.exec(o); if (m) { const c = count(f.key, o); s += +m[1] * c; n += c; } }
+    opts.forEach((o, i) => { const c = count(f.key, o); s += (opts.length - i) * c; n += c; });
     return n ? s / n : 0;
   };
-  const ranking = [...rated].map((f) => ({ f, a: avg(f) })).filter((x) => x.a > 0).sort((x, y) => y.a - x.a);
+  const GROUPS: [string, string][] = [["rate_", "Sessions"], ["use_", "How useful each activity was"], ["agree_", "Learning and outcomes (agreement)"], ["exp_", "Experience"]];
+  const fieldsOf = (pre: string) => form.fields.filter((f) => f.type === "radio" && f.key.startsWith(pre));
   const bars = (f: Field) => {
     const opts = f.options ?? [];
     const n = opts.reduce((s, o) => s + count(f.key, o), 0) || 1;
@@ -97,20 +99,33 @@ function EvalResults({ form, total }: { form: F; total: number }) {
       <div key={o} className="evbar"><span className="evbar-l">{o}</span><span className="evbar-t"><span style={{ width: `${(c / n) * 100}%` }} /></span><span className="evbar-n">{c}</span></div>
     ); })}</div>;
   };
+  const single = (k: string) => form.fields.find((f) => f.key === k);
   const list = (k: string, title: string) => {
-    const xs = texts.filter((t) => (t[k] || "").trim()).slice(0, 30).map((t) => k === "testimonial" ? `${t[k].trim()} (sharing: ${t.share_ok || "not answered"})` : t[k].trim());
+    const xs = texts.map((t) => (t[k] || "").trim()).filter(Boolean).slice(0, 40);
     return xs.length ? <details className="evtext"><summary>{title} ({xs.length})</summary><ul>{xs.map((x, i) => <li key={i}>{x}</li>)}</ul></details> : null;
   };
+  const overall = single("overall"), rec = single("recommend"), mv = single("most_valuable");
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>Evaluation results · {total} {total === 1 ? "response" : "responses"}</h2>
-      <h3>Ranked from highest to lowest (average out of 5)</h3>
-      <ol className="evrank">{ranking.map(({ f, a }) => <li key={f.key}><span>{f.label.replace(/^Overall, how would you rate FCB 2027\?$/, "Overall")}</span><b>{a.toFixed(1)}</b></li>)}</ol>
-      {[...rated, ...scaled].map((f) => <div key={f.key} className="evq"><b>{f.label}</b>{bars(f)}</div>)}
-      {list("valuable", "Most valuable thing learned")}
+      <div className="evtop">
+        {overall && <div><span className="muted small">Overall rating</span><b>{avg(overall).toFixed(1)} / 5</b></div>}
+        {rec && <div><span className="muted small">Would recommend</span><b>{avg(rec).toFixed(1)} / 5</b></div>}
+      </div>
+      {GROUPS.map(([pre, title]) => {
+        const rows = fieldsOf(pre).map((f) => ({ f, a: avg(f) })).sort((x, y) => y.a - x.a);
+        return rows.length ? <div key={pre}>
+          <h3>{title}: highest to lowest</h3>
+          <ol className="evrank">{rows.map(({ f, a }) => <li key={f.key}><span>{f.label}</span><b>{a ? a.toFixed(1) : "–"}</b></li>)}</ol>
+          <details className="evtext"><summary>See every answer</summary>{rows.map(({ f }) => <div key={f.key} className="evq"><b>{f.label}</b>{bars(f)}</div>)}</details>
+        </div> : null;
+      })}
+      {overall && <div className="evq"><b>{overall.label}</b>{bars(overall)}</div>}
+      {rec && <div className="evq"><b>{rec.label}</b>{bars(rec)}</div>}
+      {mv && <div className="evq"><b>{mv.label}</b>{bars({ ...mv, options: [...(mv.options ?? [])].sort((x, y) => count(mv.key, y) - count(mv.key, x)) })}</div>}
+      {list("learned", "Most important thing learned")}
       {list("improve", "What to improve")}
-      {list("topics", "Topics for next time")}
-      {list("testimonial", "Testimonials")}
+      {list("anything_else", "Anything else")}
       <small className="muted">Download every answer as a spreadsheet from Responses.</small>
     </div>
   );

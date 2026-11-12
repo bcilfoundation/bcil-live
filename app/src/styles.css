@@ -1106,3 +1106,4 @@ html,body{max-width:100%;overflow-x:hidden}
 .evbar-n{text-align:right;color:var(--muted)}
 .evtext{margin:8px 0}.evtext summary{cursor:pointer;font-weight:700}.evtext li{margin:4px 0}
 .fcbextras{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fcbextras>b{flex-basis:100%}
+.evtop{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}.evtop>div{flex:1;min-width:140px;background:var(--navy-soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}.evtop b{font-size:1.4rem;color:var(--navy)}
