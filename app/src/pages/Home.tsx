@@ -2,19 +2,24 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { isNative } from "../lib/native";
 import HomePosts from "../components/HomePosts";
 import Stories from "../components/Stories";
+import Spotlight, { type Slide } from "../components/Spotlight";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
 
 type Quote = { id: number; body: string; author: string; show_on: string };
 type Session = { id: string; title: string; starts_at: string; status: string };
+type Post = { id: string; title: string; body: string | null; image_url: string | null; link_url: string | null; link_label: string | null; ends_on: string | null; published: boolean };
 type NewItem = { id: string; title: string; sub: string; cover: string | null; to: string; at: string; icon: string };
 const NEW_FOR_DAYS = 7;   // new books and talks stay on Home this long
 
 
 export default function Home() {
-  const { profile } = useAuth();
+  const { profile, isStaff } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [manage, setManage] = useState(false);   // staff: show the announcements list to add or edit
   const [quote, setQuote] = useState<Quote | null>(null);
   const [next, setNext] = useState<Session | null>(null);
   const [events, setEvents] = useState<Ev[] | null>(null);
@@ -30,6 +35,9 @@ export default function Home() {
     supabase.from("live_sessions").select("id, title, starts_at, status").neq("status", "ended")
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
     supabase.from("event_pages").select(EVENT_COLS).eq("listed", true).then(({ data }) => setEvents((data ?? []) as Ev[]));
+    const today = new Date().toISOString().slice(0, 10);
+    supabase.from("home_posts").select("id, title, body, image_url, link_url, link_label, ends_on, published").eq("published", true).order("sort").order("created_at", { ascending: false })
+      .then(({ data }) => setPosts(((data ?? []) as Post[]).filter((p) => !p.ends_on || p.ends_on >= today)));
     supabase.from("forms").select("slug").eq("is_open", true).then(({ data }) => setOpenForms(new Set(((data ?? []) as { slug: string }[]).map((f) => f.slug))));
     supabase.from("form_responses").select("forms(slug)").then(({ data }) =>
       setRegistered(new Set(((data ?? []) as unknown as { forms: { slug: string } | null }[]).map((r) => r.forms?.slug ?? "").filter(Boolean))));
@@ -56,21 +64,30 @@ export default function Home() {
   const upcoming = (events ?? []).map((e) => ({ e, at: nextSession(e) })).filter((x): x is { e: Ev; at: Date } => !!x.at)
     .sort((a, b) => +a.at - +b.at);
 
+  // the rolling Spotlight: live now, the next programmes, announcements, then Plan 2027 and Meet Solomon
+  const slides: Slide[] = [];
+  if (next) slides.push(next.status === "live"
+    ? { key: "live", tone: "live", eyebrow: "● Live now", title: next.title, sub: "Tap to listen, watch and join in", cta: { label: "Join now", to: "/live" } }
+    : { key: "live", tone: "navy", eyebrow: "Next live session", title: next.title, sub: new Date(next.starts_at).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }), cta: { label: "Open Live", to: "/live" } });
+  upcoming.slice(0, 3).forEach(({ e, at }) => {
+    const reg = !!e.form_slug && registered.has(e.form_slug), canReg = !!e.form_slug && openForms.has(e.form_slug);
+    slides.push({ key: "ev-" + e.slug, tone: "navy", image: img(e.hero_url, bgFor(e.slug)), eyebrow: isOnNow(at) ? "● On now" : `Coming up · ${countdown(at)}`,
+      title: e.title, sub: [when(at), e.venue].filter(Boolean).join(" · "),
+      cta: reg ? { label: "🎟 My ticket", to: `/events/${e.slug}` } : canReg ? { label: "Register · free", to: `/forms?form=${e.form_slug}` } : { label: "Details", to: `/events/${e.slug}` },
+      cta2: reg || canReg ? { label: "Details", to: `/events/${e.slug}` } : undefined });
+  });
+  posts.forEach((p) => slides.push({ key: "post-" + p.id, tone: "purple", image: p.image_url, eyebrow: "📢 Announcement", title: p.title, sub: p.body ?? undefined,
+    cta: p.link_url ? { label: p.link_label || "Learn more", to: p.link_url } : undefined }));
+  slides.push({ key: "plan", tone: "gold", eyebrow: "New · free pilot", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL mentors.", cta: { label: "Start my plan", to: "/plan" } });
+  slides.push({ key: "meet", tone: "green", image: `${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`, eyebrow: "Book a session", title: "Meet Solomon", sub: "Pick a time from his calendar and send your CV or plan for review.", cta: { label: "Book a time", to: "/meet" } });
+
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
 
-      {/* a short welcome from the founder */}
-      <div className="founder">
-        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
-        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
-      </div>
-
-      {/* announcements with flyers (staff add and edit them here) */}
-      <HomePosts />
-
-      {/* today's Daily Bite: first thing on Home; like and share right here */}
-      {quote && <BiteCard q={quote} />}
+      <Spotlight slides={slides} />
+      {isStaff && <button className="linkbtn hpost-add" onClick={() => setManage((m) => !m)}>{manage ? "Done with announcements" : "✏️ Add or edit announcements"}</button>}
+      {isStaff && manage && <HomePosts />}
 
       {/* nudge: add a profile photo so chats and live rooms feel personal */}
       {profile && !profile.avatar_url && !photoLater && (
@@ -82,15 +99,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* live now / next live session */}
-      {next && (
-        <Link to="/live" className="card row">
-          <span className={`pill ${next.status === "live" ? "live" : "soon"}`}>{next.status === "live" ? "LIVE" : "Next live"}</span>
-          <div className="grow"><b>{next.title}</b><br /><small className="muted">{new Date(next.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
-        </Link>
-      )}
+      {/* today's Daily Bite: like, comment and share right here */}
+      {quote && <BiteCard q={quote} />}
 
-      {/* coming up: every programme as a compact row with its buttons (fits on one screen) */}
+      {/* the essentials, so nobody has to dig through menus */}
+      <NeedBook />
+
+      {/* coming up: every programme as a compact row with its buttons */}
       {upcoming.length > 0 && <>
         <h2 className="home-h">Coming up</h2>
         <div className="prog-list">{upcoming.map(({ e, at }) => (
@@ -98,6 +113,12 @@ export default function Home() {
         ))}</div>
       </>}
       {events && !upcoming.length && <Link to="/events" className="card"><b>Programmes</b><br /><small className="muted">See past and upcoming BCIL programmes</small></Link>}
+
+      {/* a short welcome from the founder */}
+      <div className="founder">
+        <img src={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} alt="" loading="lazy" />
+        <p>“Welcome to BCIL Foundation. Learn, grow and connect here. We want you to do better than us and impact those after you.”<small>Solomon Agbesi, Founder</small></p>
+      </div>
 
       <Stories />
 
@@ -112,8 +133,71 @@ export default function Home() {
         ))}</div>
       </>}
 
-
+      <FollowBcil />
+      <p className="home-tag">Grooming Generational Leaders · #BCILFoundation</p>
     </section>
+  );
+}
+
+// "What do you need?": the essential places, laid out like an open book
+const NEEDS: [string, string, string][] = [
+  ["📝", "Plan 2027", "/plan"], ["📅", "Meet Solomon", "/meet"],
+  ["🎓", "Find a mentor", "/forms?form=mentorship-mentee"], ["🤝", "Become a mentor", "/forms?form=mentorship-mentor"],
+  ["👥", "Groups", "/groups"], ["🏫", "Campus Sync", "/campus"],
+  ["🙋", "Volunteer for FCB", "/forms?form=fcb27-volunteer"], ["🎁", "Give", "/donate"],
+];
+function NeedBook() {
+  const curve = (flip: boolean) => (
+    <svg className={`book-edge${flip ? " flip" : ""}`} viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M2 30 Q100 2 190 8 Q196 10 199 36" /><path d="M398 30 Q300 2 210 8 Q204 10 201 36" />
+    </svg>
+  );
+  return (
+    <div className="needbook">
+      <h2 className="need-h">What do you need?</h2>
+      {curve(false)}
+      <div className="need-pages">
+        {NEEDS.map(([ic, label, to]) => (
+          <Link key={label} to={to} className="need-item"><span aria-hidden="true">{ic}</span><b>{label}</b><span className="need-arrow" aria-hidden="true">›</span></Link>
+        ))}
+      </div>
+      {curve(true)}
+    </div>
+  );
+}
+
+// our social media, right on Home so people find it without going to About
+const SOCIALS: [string, string, string, string][] = [
+  ["Facebook", "BCIL Foundation LBG", "https://www.facebook.com/share/1AXRApBrbN/", "f"],
+  ["Instagram", "@bcilfoundation", "https://www.instagram.com/bcilfoundation", "ig"],
+  ["TikTok", "@bcil_foundation", "https://www.tiktok.com/@bcil_foundation", "tt"],
+  ["YouTube", "@BCILFoundation", "https://youtube.com/@bcilfoundation", "yt"],
+  ["LinkedIn", "BCIL FOUNDATION", "https://www.linkedin.com/company/102104920", "in"],
+  ["Website", "bcilfoundation.org", "https://bcilfoundation.org", "web"],
+];
+const SOCIAL_ICON: Record<string, JSX.Element> = {
+  f: <path d="M14 8h3V4h-3c-2.8 0-4 1.8-4 4.3V10H7v4h3v8h4v-8h3l1-4h-4V8.6c0-.4.3-.6.6-.6z" fill="currentColor" />,
+  ig: <><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" strokeWidth="2" /><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" /><circle cx="17.3" cy="6.7" r="1.2" fill="currentColor" /></>,
+  tt: <path d="M14 3h3c.3 2 1.6 3.4 4 3.6v3.2c-1.5 0-2.9-.4-4-1.2v6.6A5.8 5.8 0 1 1 11 9.6v3.3a2.6 2.6 0 1 0 3 2.6z" fill="currentColor" />,
+  yt: <><rect x="2.5" y="5.5" width="19" height="13" rx="4" fill="currentColor" /><path d="M10 9v6l5-3z" fill="var(--panel, #fff)" /></>,
+  in: <><rect x="3" y="9" width="4" height="12" fill="currentColor" /><circle cx="5" cy="5" r="2.2" fill="currentColor" /><path d="M10 9h4v1.8c.7-1.2 2-2.1 4-2.1 3 0 4 2 4 5V21h-4v-6.4c0-1.5-.5-2.5-1.9-2.5-1.5 0-2.1 1.1-2.1 2.5V21h-4z" fill="currentColor" /></>,
+  web: <><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="currentColor" strokeWidth="2" /></>,
+};
+function FollowBcil() {
+  async function open(url: string) {
+    if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
+    window.open(url, "_blank", "noopener");
+  }
+  return (
+    <>
+      <h2 className="home-h follow-h">Follow BCIL</h2>
+      <div className="follow-grid">{SOCIALS.map(([name, handle, url, ic]) => (
+        <button key={name} className="follow-card" onClick={() => open(url)} aria-label={`${name}: ${handle}`}>
+          <span className={`follow-ic ic-${ic}`}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">{SOCIAL_ICON[ic]}</svg></span>
+          <span className="follow-txt"><b>{name}</b><small>{handle}</small></span>
+        </button>
+      ))}</div>
+    </>
   );
 }
 
