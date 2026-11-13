@@ -128,7 +128,7 @@ function PairDocs({ pairId }: { pairId: number }) {
         <b>📄 Documents for review</b>
         <label className="btn ghost sm">{busy ? "Uploading…" : "＋ Share a document"}<input type="file" hidden disabled={busy} accept="application/pdf,image/*,.docx" onChange={(e) => { share(e.target.files?.[0]); e.target.value = ""; }} /></label>
       </div>
-      {docs && docs.length === 0 && <small className="muted">Share a CV, essay, plan or application and get comments on it, like in Google Docs.</small>}
+      {docs && docs.length === 0 && <small className="muted">Share a CV, essay, plan or application and get comments on it.</small>}
       {docs?.map((d) => (
         <Link key={d.id} to={`/doc/${d.id}`} className="pairdoc">
           <span className="grow"><b>{d.name}</b>{(d.version ?? 1) > 1 && <span className="pill">v{d.version}</span>}<small className="muted">{d.owner_id === me ? "You" : "Shared with you"} · {new Date(d.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small></span>

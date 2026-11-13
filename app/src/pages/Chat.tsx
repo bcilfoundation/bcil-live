@@ -17,6 +17,7 @@ type ListRow = { room_id: string; kind: string; category: string | null; name: s
   last_body: string | null; last_type: string | null; last_user: string | null; last_name: string | null; last_at: string | null; unread: number };
 const byRecent = (a: Conv, b: Conv) => (b.at ? Date.parse(b.at) : 0) - (a.at ? Date.parse(a.at) : 0);
 type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
+  edited_at?: string | null; deleted_at?: string | null; mentions?: string[] | null; mention_all?: boolean | null;
   attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
 export default function Chat() {
@@ -74,6 +75,12 @@ export default function Chat() {
   };
   const clearFile = () => { if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(null); };
   const [person, setPerson] = useState<string | null>(null);
+  // group members (for @mentions and "who read it"), editing, and message info
+  const [members, setMembers] = useState<{ id: string; name: string; avatar: string | null; role: string }[]>([]);
+  const [editing, setEditing] = useState<Msg | null>(null);
+  const [infoFor, setInfoFor] = useState<Msg | null>(null);
+  const [tags, setTags] = useState<string[]>([]);          // people tagged in the message being written
+  const [mentionQ, setMentionQ] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -142,6 +149,14 @@ export default function Chat() {
     setReacts({}); setPickFor(null); setReads({});
     supabase.from("room_members").select("user_id, last_read_at").eq("room_id", roomId).neq("user_id", me).limit(500)
       .then(({ data }) => setReads(Object.fromEntries(((data ?? []) as { user_id: string; last_read_at: string }[]).map((r) => [r.user_id, r.last_read_at]))));
+    setMembers([]); setEditing(null); setTags([]); setMentionQ(null);
+    supabase.from("room_members").select("user_id, role").eq("room_id", roomId).limit(1000).then(async ({ data }) => {
+      const rows = (data ?? []) as { user_id: string; role: string }[];
+      if (!rows.length) return;
+      const { data: ps } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", rows.map((r) => r.user_id));
+      const byId = new Map(((ps ?? []) as { id: string; full_name: string; avatar_url: string | null }[]).map((p) => [p.id, p]));
+      setMembers(rows.map((r) => ({ id: r.user_id, role: r.role, name: byId.get(r.user_id)?.full_name || "Member", avatar: byId.get(r.user_id)?.avatar_url ?? null })));
+    });
     supabase.from("message_reactions").select("message_id, emoji, user_id").eq("room_id", roomId).then(({ data }) => {
       const m: Record<number, { emoji: string; user_id: string }[]> = {};
       for (const r of (data ?? []) as { message_id: number; emoji: string; user_id: string }[]) (m[r.message_id] ??= []).push({ emoji: r.emoji, user_id: r.user_id });
@@ -163,6 +178,10 @@ export default function Chat() {
           setMsgs((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, { ...m, profiles: data }]));
           markRead(roomId);
         })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (p) => {
+        const m = p.new as Msg;
+        setMsgs((cur) => cur.map((x) => (x.id === m.id ? { ...x, ...m, profiles: x.profiles } : x)));
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` }, (p) => {
         const r = p.new as { user_id: string; last_read_at: string };
         if (r.user_id && r.user_id !== me) setReads((cur) => ({ ...cur, [r.user_id]: r.last_read_at }));
@@ -185,6 +204,18 @@ export default function Chat() {
     e.preventDefault();
     if (!room || (!text.trim() && !file) || sending) return;
     const body = text.trim();
+    if (editing) {
+      const m = editing; setSending(true);
+      const { error } = await supabase.rpc("edit_message", { p_id: m.id, p_body: body });
+      setSending(false);
+      if (error) { setError(error.message || "Could not edit the message."); return; }
+      setMsgs((cur) => cur.map((x) => (x.id === m.id ? { ...x, body, edited_at: new Date().toISOString() } : x)));
+      setEditing(null); setText(""); return;
+    }
+    // who is tagged: the people picked from the list whose @name is still in the text, and @everyone
+    const mentions = members.filter((p) => tags.includes(p.id) && body.includes("@" + p.name)).map((p) => p.id);
+    const mentionAll = canTagAll && /@everyone\b/i.test(body);
+    const tagCols = mentions.length || mentionAll ? { mentions, mention_all: mentionAll } : {};
     const reply = replyTo;
     let att: Record<string, unknown> = {};
     if (file) {
@@ -200,10 +231,30 @@ export default function Chat() {
           attachment_type: isImg || file.type.startsWith("image/") ? "image" : "file", attachment_size: blob.size };
       } catch (e) { setSending(false); setError("Could not send the file: " + ((e as Error).message || "try again")); return; }
     }
-    setText(""); setReplyTo(null); clearFile();
-    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body, ...att, ...(reply ? { reply_to: reply.id } : {}) });
+    setText(""); setReplyTo(null); clearFile(); setTags([]); setMentionQ(null);
+    const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body, ...att, ...tagCols, ...(reply ? { reply_to: reply.id } : {}) });
     setSending(false);
     if (error) { setError("Message not sent. Check your connection and try again."); setText(body); setReplyTo(reply); }
+  }
+  async function remove(m: Msg) {
+    if (!confirm(m.user_id === me ? "Delete this message for everyone?" : "Delete this message for everyone in the group?")) return;
+    const { error } = await supabase.rpc("delete_message", { p_id: m.id });
+    if (error) { alert(error.message || "Could not delete the message."); return; }
+    setMsgs((cur) => cur.map((x) => (x.id === m.id ? { ...x, body: "This message was deleted", deleted_at: new Date().toISOString(), attachment_url: null, attachment_type: null } : x)));
+    setSel(null);
+  }
+  function startEdit(m: Msg) { setEditing(m); setReplyTo(null); setText(m.body); setSel(null); setTimeout(() => inputRef.current?.focus(), 0); }
+  // typing "@" opens the list of group members to tag
+  function onType(v: string) {
+    setText(v);
+    if (room?.kind === "dm") return;
+    const mt = /(?:^|\s)@([^@\n]{0,30})$/.exec(v);
+    setMentionQ(mt ? mt[1].toLowerCase() : null);
+  }
+  function pickTag(id: string | "everyone", name: string) {
+    setText((t) => t.replace(/@([^@\n]{0,30})$/, "@" + name + " "));
+    if (id !== "everyone") setTags((x) => (x.includes(id) ? x : [...x, id]));
+    setMentionQ(null); setTimeout(() => inputRef.current?.focus(), 0);
   }
   async function report(m: Msg) {
     await supabase.from("reports").insert({ reporter: me, target_type: "message", target_id: String(m.id) });
@@ -211,6 +262,22 @@ export default function Chat() {
   }
 
   const canPost = room && (!room.read_only || isStaff);
+  const amLeader = isStaff || members.some((p) => p.id === me && p.role === "leader");
+  const canTagAll = !!room && room.kind !== "dm" && amLeader;
+  const canEdit = (m: Msg) => m.user_id === me && !m.deleted_at && Date.now() - Date.parse(m.created_at) < 24 * 3600e3;
+  const canDelete = (m: Msg) => !m.deleted_at && (m.user_id === me || amLeader);
+  const tagList = mentionQ === null ? [] : [
+    ...(canTagAll && "everyone".startsWith(mentionQ) ? [{ id: "everyone", name: "everyone", avatar: null as string | null, role: "" }] : []),
+    ...members.filter((p) => p.id !== me && p.name.toLowerCase().includes(mentionQ)).slice(0, 6),
+  ];
+  // show @names of tagged people (and @everyone) in bold
+  const withTags = (m: Msg) => {
+    const names = members.filter((p) => m.mentions?.includes(p.id)).map((p) => "@" + p.name);
+    if (m.mention_all) names.push("@everyone");
+    if (!names.length) return m.body;
+    const esc = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    return m.body.split(new RegExp(`(${esc.join("|")})`, "g")).map((part, i) => names.includes(part) ? <b key={i} className="tagged">{part}</b> : part);
+  };
   const seenBy = (m: Msg) => Object.values(reads).filter((t) => Date.parse(t) >= Date.parse(m.created_at)).length;
   const lastMine = [...msgs].reverse().find((m) => m.user_id === me)?.id;
   const startReply = (m: Msg) => { if (!canPost) return; setReplyTo(m); setTimeout(() => inputRef.current?.focus(), 0); };
@@ -281,15 +348,19 @@ export default function Chat() {
                             <span className="msgfile-ico" aria-hidden="true">{fileIcon(m.attachment_name)}</span>
                             <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
                           </button>)}
-                        {m.body && <p className="prewrap">{m.body}</p>}
-                        <small className="mtime">{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
+                        {m.deleted_at ? <p className="msgdeleted">🚫 {m.user_id === me ? "You deleted this message" : "This message was deleted"}</p>
+                          : m.body && <p className="prewrap">{withTags(m)}</p>}
+                        <small className="mtime">{m.edited_at && !m.deleted_at ? "edited · " : ""}{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
                           {mine && room.kind === "dm" && (seenBy(m) > 0 ? <span className="tick seen" title="Seen" aria-label="Seen"> ✓✓</span> : <span className="tick" title="Sent" aria-label="Sent"> ✓</span>)}</small>
-                        {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <small className="seenby">Seen by {seenBy(m)}</small>}
-                        <span className="msgacts">
+                        {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <button className="plainbtn seenby" onClick={() => setInfoFor(m)}>Seen by {seenBy(m)} ›</button>}
+                        {!m.deleted_at && <span className="msgacts">
                         {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
                         <button className="linkbtn" onClick={() => setPickFor(pickFor === m.id ? null : m.id)} aria-label="React">☺︎+</button>
+                        {canEdit(m) && <button className="linkbtn" onClick={() => startEdit(m)}>Edit</button>}
+                        {mine && room.kind !== "dm" && <button className="linkbtn" onClick={() => setInfoFor(m)}>Info</button>}
+                        {canDelete(m) && <button className="linkbtn danger" onClick={() => remove(m)}>Delete</button>}
                         {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
-                        </span>
+                        </span>}
                         {pickFor === m.id && <span className="reactpick">{EMOJIS.map((e) => <button key={e} onClick={() => react(m, e)} aria-label={`React ${e}`}>{e}</button>)}</span>}
                         {(reacts[m.id]?.length ?? 0) > 0 && <span className="reactrow">{Object.entries((reacts[m.id] ?? []).reduce<Record<string, number>>((a, r) => ((a[r.emoji] = (a[r.emoji] ?? 0) + 1), a), {})).map(([e, n]) => (
                           <button key={e} className={`reactchip${(reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === e) ? " mine" : ""}`} onClick={() => react(m, e)}>{e}{n > 1 ? ` ${n}` : ""}</button>))}</span>}
@@ -300,6 +371,17 @@ export default function Chat() {
               })}
               <div ref={end} />
             </div>
+            {editing && (
+              <div className="replybar"><div className="grow"><b>✏️ Editing message</b><span>{editing.body}</span></div>
+                <button className="linkbtn" onClick={() => { setEditing(null); setText(""); }} aria-label="Cancel editing">✕</button></div>
+            )}
+            {tagList.length > 0 && (
+              <div className="taglist" role="listbox" aria-label="Tag someone">{tagList.map((p) => (
+                <button key={p.id} role="option" aria-selected="false" className="tagopt" onMouseDown={(e) => e.preventDefault()} onClick={() => pickTag(p.id, p.name)}>
+                  {p.id === "everyone" ? <span className="tagall" aria-hidden="true">@</span> : <Avatar name={p.name} url={p.avatar} size={28} />}
+                  <span><b>{p.id === "everyone" ? "@everyone" : p.name}</b>{p.id === "everyone" && <small className="muted"> · tag all {members.length - 1} members</small>}</span>
+                </button>))}</div>
+            )}
             {replyTo && (
               <div className="replybar"><div className="grow"><b>Replying to {nameOf(replyTo)}</b><span>{replyTo.body}</span></div>
                 <button className="linkbtn" onClick={() => setReplyTo(null)} aria-label="Cancel reply">✕</button></div>
@@ -312,13 +394,34 @@ export default function Chat() {
             <form className="composer" onSubmit={send}>
               {canPost && <label className="attachbtn" aria-label="Add a photo or document" title="Add a photo or document">📎
                 <input type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} /></label>}
-              <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} disabled={!canPost}
+              <input ref={inputRef} value={text} onChange={(e) => onType(e.target.value)} disabled={!canPost}
                 placeholder={canPost ? "Write a message" : "Only admins can post here"} aria-label="Message" />
-              <button className="btn primary" disabled={!canPost || sending || (!text.trim() && !file)}>{sending ? "…" : "Send"}</button>
+              <button className="btn primary" disabled={!canPost || sending || (!text.trim() && !file)}>{sending ? "…" : editing ? "Save" : "Send"}</button>
             </form>
             {error && <p className="err pad" role="alert">{error}</p>}
           </>}
           {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
+          {infoFor && (() => {
+            const others = members.filter((p) => p.id !== me);
+            const readers = others.filter((p) => reads[p.id] && Date.parse(reads[p.id]) >= Date.parse(infoFor.created_at))
+              .sort((a, b) => Date.parse(reads[a.id]) - Date.parse(reads[b.id]));
+            const notYet = others.filter((p) => !readers.includes(p));
+            const t = (iso: string) => new Date(iso).toLocaleString("en-GB", { weekday: "short", hour: "numeric", minute: "2-digit" });
+            return (
+              <div className="sheet-back" role="dialog" aria-modal="true" aria-label="Message info" onClick={() => setInfoFor(null)}>
+                <div className="sheet msginfo" onClick={(e) => e.stopPropagation()}>
+                  <h2>Message info</h2>
+                  <div className="msginfo-msg">{infoFor.body}<small className="muted"> · sent {t(infoFor.created_at)}</small></div>
+                  <h3>✓✓ Read by {readers.length}</h3>
+                  {readers.length ? readers.map((p) => <div key={p.id} className="row msginfo-row"><Avatar name={p.name} url={p.avatar} size={32} /><span className="grow">{p.name}</span><small className="muted">{t(reads[p.id])}</small></div>)
+                    : <p className="muted small">No one has read it yet.</p>}
+                  <h3>✓ Not read yet · {notYet.length}</h3>
+                  {notYet.slice(0, 100).map((p) => <div key={p.id} className="row msginfo-row"><Avatar name={p.name} url={p.avatar} size={32} /><span className="grow">{p.name}</span></div>)}
+                  <button className="btn ghost block" onClick={() => setInfoFor(null)}>Close</button>
+                </div>
+              </div>
+            );
+          })()}
           {viewImg && <div className="lightbox" role="dialog" aria-label="Photo" onClick={() => setViewImg(null)}>
             <img src={viewImg} alt="" /><button className="lightbox-x" aria-label="Close">✕</button>
             <a className="lightbox-dl" href={`${viewImg}?download=`} onClick={(e) => e.stopPropagation()}>⬇ Save</a></div>}

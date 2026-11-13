@@ -1107,3 +1107,16 @@ html,body{max-width:100%;overflow-x:hidden}
 .evtext{margin:8px 0}.evtext summary{cursor:pointer;font-weight:700}.evtext li{margin:4px 0}
 .fcbextras{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fcbextras>b{flex-basis:100%}
 .evtop{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}.evtop>div{flex:1;min-width:140px;background:var(--navy-soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}.evtop b{font-size:1.4rem;color:var(--navy)}
+/* chats: deleted, edited, tags, message info */
+.msgdeleted{font-style:italic;color:var(--muted);margin:0}
+.linkbtn.danger{color:#c0392b}
+.tagged{color:var(--navy);font-weight:700}
+.msg.mine .tagged{color:#0a5c36}
+.taglist{display:flex;flex-direction:column;max-height:240px;overflow:auto;border-top:1px solid var(--line);background:var(--panel)}
+.tagopt{display:flex;align-items:center;gap:10px;padding:8px 14px;border:0;background:none;text-align:left;cursor:pointer;color:var(--text)}
+.tagopt:hover{background:var(--navy-soft)}
+.tagall{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800}
+button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--muted);font-size:.72rem;text-decoration:underline}
+.msginfo{max-height:85vh;overflow:auto}.msginfo h2{margin:0}.msginfo h3{margin:10px 0 4px;font-size:.95rem}
+.msginfo-msg{background:var(--navy-soft);border-radius:12px;padding:10px 12px;white-space:pre-wrap}
+.msginfo-row{gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
