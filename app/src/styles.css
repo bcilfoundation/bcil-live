@@ -1120,3 +1120,22 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .msginfo{max-height:85vh;overflow:auto}.msginfo h2{margin:0}.msginfo h3{margin:10px 0 4px;font-size:.95rem}
 .msginfo-msg{background:var(--navy-soft);border-radius:12px;padding:10px 12px;white-space:pre-wrap}
 .msginfo-row{gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+/* live setup (design A) */
+.glA{display:flex;flex-direction:column;gap:10px;padding:18px 16px;border-radius:22px;background:var(--card,#fff);border:1px solid var(--line,#e3e8f0);box-shadow:0 8px 24px rgba(15,45,82,.08)}
+.glA-h{margin:0 0 4px;font:800 1.35rem var(--display);color:var(--navy-deep)}
+.glA-title{font-size:1.05rem;font-weight:600;padding:12px;border-radius:12px}
+.glA-cap{font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:4px 0 -4px}
+.glA-seg{display:flex;background:var(--navy-soft);border-radius:12px;padding:4px;gap:4px}
+.glA-seg button{flex:1;border:0;background:transparent;padding:10px 0;border-radius:9px;font-weight:700;font-size:.95rem;color:var(--muted);cursor:pointer}
+.glA-seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.glA-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px 2px;border-top:1px solid var(--line,#edf0f5);cursor:pointer;font-size:.95rem}
+.glA-row small{display:block;color:var(--muted);font-size:.78rem}
+.glA-sw{appearance:none;-webkit-appearance:none;width:44px!important;height:26px;border-radius:13px;background:#cfd7e3;position:relative;flex:none;margin:0;padding:0;border:0;cursor:pointer;transition:background .15s}
+.glA-sw:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.glA-sw:checked{background:var(--good)}.glA-sw:checked:after{left:21px}
+.glA-go{margin-top:6px;background:var(--live);color:#fff;border:0;border-radius:14px;padding:14px;font-weight:800;font-size:1.05rem;cursor:pointer}
+.glA-go:disabled{opacity:.6}
+.glA-hint{color:var(--muted);text-align:center;font-size:.8rem}
+.glA-note{margin:0;padding:8px 12px;border-radius:10px;background:var(--navy-soft);font-size:.9rem}
+[data-theme="dark"] .glA-seg button.on{background:#2a426b;color:#fff}
+[data-theme="dark"] .glA-h{color:#fff}
