@@ -25,6 +25,13 @@ const bgCss = (bg?: string | null) => {
   if (preset) return preset.css;
   return `linear-gradient(rgba(5,10,25,.55),rgba(5,10,25,.85)), url("${bg}") center/cover`;
 };
+// a Google Calendar "add event" link for a scheduled session (opens in the signed-in Google account)
+const gstamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+function gcalLink(s: { title: string; starts_at: string; is_private?: boolean | null; invite_code?: string | null }) {
+  const start = new Date(s.starts_at), end = new Date(start.getTime() + 3600e3);
+  const link = `https://live.bcilfoundation.org/live${s.is_private && s.invite_code ? `?join=${s.invite_code}` : ""}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(s.title)}&dates=${gstamp(start)}/${gstamp(end)}&details=${encodeURIComponent("Join in the BCIL Foundation app: " + link)}&location=${encodeURIComponent(link)}`;
+}
 const SLOTS = 9;          // call-in spots shown at first
 export const MAX_STAGE = 20; // most people who can talk at once (besides the host); more spots appear as people come on
 
@@ -176,12 +183,13 @@ export default function Live() {
             {isStaff || s.host_id === me ? <div className="upnext-btns">
               <button className="btn live-go" onClick={() => { if (window.confirm(`Go live now with “${s.title}”?\n\n${s.is_private ? "The people you invited will be notified." : "Everyone with the app will be notified."}`)) L.startScheduled(s); }}>● Go live</button>
               <button className="btn ghost" onClick={() => setInviteFor({ id: s.id, title: s.title })}>Invite</button>
+              <a className="btn ghost" href={gcalLink(s)} target="_blank" rel="noopener">📆 Add to calendar</a>
               <button className="btn ghost" onClick={() => { const d = new Date(s.starts_at); const pad = (n: number) => String(n).padStart(2, "0");
                 setEditId(s.id); setMode("later"); setTitle(s.title); setKind(s.kind === "video" ? "video" : "audio"); setPriv(!!s.is_private); setRecord(!!s.record_planned); setPicks(noPicks());
                 setDay(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`); setAt(`${pad(d.getHours())}:${pad(d.getMinutes())}`); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Edit</button>
               <button className="btn ghost danger" onClick={async () => { if (!window.confirm(`Cancel “${s.title}”?\n\nAnyone invited is told it's cancelled.`)) return;
                 const { error } = await supabase.rpc("cancel_live", { p_id: s.id }); if (error) alert("Could not cancel: " + error.message); else L.refreshUpcoming(); }}>Cancel</button>
-            </div> : <div className="upnext-btns"><button className="btn primary" onClick={() => L.remind(s)}>Remind me</button></div>}
+            </div> : <div className="upnext-btns"><button className="btn primary" onClick={() => L.remind(s)}>Remind me</button><a className="btn ghost" href={gcalLink(s)} target="_blank" rel="noopener">📆 Add to calendar</a></div>}
           </div>
         )) : <div className="muted">No sessions scheduled yet.</div>}
       </div>
