@@ -222,14 +222,14 @@ export default function Live() {
       {live.kind === "video" ? (
         <div className={`vgrid n${Math.min(tiles, 4)}${tiles > 4 ? " many" : ""}`}>
           <VideoTile name={amHost ? "You" : L.hostName} label="Host" talking={live.host_id ? isTalking(live.host_id) : false}
-            track={amHost ? myVideo : (live.host_id ? L.remoteVideo[String(agoraUid(live.host_id))] ?? null : null)} mirror={amHost && !L.sharing} screen={isScreen(live.host_id)} />
+            track={amHost ? myVideo : (live.host_id ? L.remoteVideo[String(agoraUid(live.host_id))] ?? null : null)} mirror={amHost && !L.sharing && L.facing === "user"} screen={isScreen(live.host_id)} />
           {onStage.map((r) => (
             <VideoTile key={r.id} name={r.user_id === me ? "You" : r.profiles?.full_name ?? "Caller"} label={r.muted_by_host ? "Muted" : "Caller"} talking={isTalking(r.user_id)} muted={r.muted_by_host}
-              track={r.user_id === me ? myVideo : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me && !L.sharing} screen={isScreen(r.user_id)}>
+              track={r.user_id === me ? myVideo : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me && !L.sharing && L.facing === "user"} screen={isScreen(r.user_id)}>
               {amHost && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
             </VideoTile>
           ))}
-          {meGuestCam && <VideoTile name="You" label={L.sharing ? "Sharing screen" : "Camera on"} talking={false} track={myVideo} mirror={!L.sharing} screen={L.sharing} />}
+          {meGuestCam && <VideoTile name="You" label={L.sharing ? "Sharing screen" : "Camera on"} talking={false} track={myVideo} mirror={!L.sharing && L.facing === "user"} screen={L.sharing} />}
           {guestCams.map((g) => { const p = people.find((x) => String(agoraUid(x.id)) === g.uid); return <VideoTile key={g.uid} name={g.name} label={p?.screen ? "Sharing screen" : "Guest"} talking={false} track={g.track} screen={!!p?.screen} />; })}
         </div>
       ) : (
@@ -272,6 +272,7 @@ export default function Live() {
         <button onClick={() => setSheet("people")}><span>👥</span>People <em>{Math.max(people.length, joined ? 1 : 0)}</em></button>
         <button onClick={() => setSheet("gifts")} disabled={!joined}><span>🎁</span>Gifts</button>
         {joined && live.kind === "video" && !L.sharing && <button onClick={L.toggleCam} className={L.camOn ? "on" : ""}><span>📷</span>{L.camOn ? "Cam off" : "Cam on"}</button>}
+        {joined && live.kind === "video" && L.camOn && !L.sharing && L.canFlip && <button onClick={L.flipCam}><span>🔄</span>{L.facing === "user" ? "Back cam" : "Front cam"}</button>}
         {joined && live.kind === "video" && L.canShare && (speaker || L.canVideo) && (!sharer || L.sharing) && <button onClick={L.toggleShare} className={L.sharing ? "on" : ""}><span>🖥</span>{L.sharing ? "Stop sharing" : "Share screen"}</button>}
         {L.camOn && live.kind === "video" && <button onClick={() => setSheet("cambg")} className={L.camBg.type !== "none" ? "on" : ""}><span>🖼</span>Background</button>}
       </div>
@@ -382,7 +383,6 @@ function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: 
         {L.speaker && (L.recording
           ? <button onClick={L.saveRecording} disabled={L.savingRec}>■<span>Stop &amp; save recording</span></button>
           : <button onClick={L.startRecording} disabled={L.savingRec}>⏺<span>{L.savingRec ? "Saving…" : "Record"}</span></button>)}
-        {L.camOn && live.kind === "video" && <button onClick={L.flipCam}>🔄<span>Switch camera</span></button>}
         <button className="danger" onClick={L.endSession}>⏹<span>End session</span></button>
       </div>
       {L.speaker && (
@@ -487,12 +487,13 @@ function PreJoin({ openBg, label }: { openBg: () => void; label: string }) {
     <div className="prejoin">
       <div className="prejoin-view">
         {L.previewOn && L.cam.current
-          ? <VideoTile track={L.cam.current} name="You" label="Preview" mirror />
+          ? <VideoTile track={L.cam.current} name="You" label="Preview" mirror={L.facing === "user"} />
           : <div className="prejoin-off"><div className="ava">{initials(L.myName)}</div><small>Camera is off</small></div>}
       </div>
       <div className="prejoin-ctl">
         <button className={L.previewOn ? "on" : ""} onClick={() => (L.previewOn ? L.stopPreview() : L.startPreview())}>
           <span>📷</span>{L.previewOn ? "Camera on" : "Camera off"}</button>
+        {L.previewOn && L.canFlip && <button onClick={L.flipCam}><span>🔄</span>{L.facing === "user" ? "Back cam" : "Front cam"}</button>}
         {L.previewOn && <button onClick={openBg}><span>🖼</span>Background</button>}
       </div>
       <p className="muted small">{L.previewOn ? "People will see you when you join." : "You can turn your camera on later."} Your microphone stays off until you call in.</p>

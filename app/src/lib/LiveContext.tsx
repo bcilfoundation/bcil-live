@@ -57,7 +57,11 @@ function useLiveEngine() {
   const [canVideo, setCanVideo] = useState(false);
   const [camBg, setCamBgState] = useState<CamBg>(savedCamBg);
   const camBgRef = useRef(camBg); camBgRef.current = camBg;
-  const [previewOn, setPreviewOn] = useState(false);   // camera preview before joining a video session
+  const [previewOn, setPreviewOn] = useState(false);
+  // which camera is in use: "user" = front (selfie), "environment" = back
+  const [facing, setFacing] = useState<"user" | "environment">("user");
+  const facingRef = useRef<"user" | "environment">("user");
+  const [canFlip, setCanFlip] = useState(false);   // camera preview before joining a video session
   const camOnRef = useRef(false);   // video sessions: anyone may turn on their camera
   const [musicName, setMusicName] = useState("");
   const [musicPlaying, setMusicPlaying] = useState(false);
@@ -296,7 +300,7 @@ function useLiveEngine() {
       if (sess.kind === "video" && opts.cam && (data.speaker || data.canVideo)) {
         try {
           if (!data.speaker) await c.setClientRole("host");
-          if (!cam.current) { cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: data.speaker ? "480p_1" : "360p_1", facingMode: "user" }); withBg(cam.current); }
+          if (!cam.current) { cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: data.speaker ? "480p_1" : "360p_1", facingMode: facingRef.current }); withBg(cam.current); checkFlip(); }
           await c.publish(cam.current); setCamOn(true);
         } catch {
           cam.current?.close(); cam.current = null;
@@ -433,7 +437,7 @@ function useLiveEngine() {
       try {
         // listeners become video senders only (their microphone stays off unless the host brings them on air)
         if (guest) await c.setClientRole("host");
-        cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: guest ? "360p_1" : "480p_1", facingMode: "user" });
+        cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: guest ? "360p_1" : "480p_1", facingMode: facingRef.current }); checkFlip();
         await c.publish(cam.current); setCamOn(true); withBg(cam.current);
       } catch (e) {
         cam.current?.close(); cam.current = null;
@@ -490,7 +494,7 @@ function useLiveEngine() {
   async function startPreview() {
     if (cam.current) { setPreviewOn(true); return; }
     try {
-      cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: "user" });
+      cam.current = await (await rtc()).createCameraVideoTrack({ encoderConfig: "480p_1", facingMode: facingRef.current }); checkFlip();
       withBg(cam.current); setPreviewOn(true);
     } catch (e) { setError(/NotAllowed|Permission|denied/i.test(String(e)) ? "Allow camera access for this app, then try again." : "Could not start the camera."); }
   }
@@ -507,13 +511,27 @@ function useLiveEngine() {
       return ok;
     } catch { setError("Could not set that background."); return false; }
   }
-  async function flipCam() {
-    if (!cam.current) return;
+  // phones: switch between the front and back camera while the camera is on
+  async function checkFlip() {
     const cams = await (await rtc()).getCameras().catch(() => []);
-    if (cams.length < 2) return;
-    const cur = cam.current.getTrackLabel();
-    const next = cams.find((d) => d.label !== cur) ?? cams[0];
-    await cam.current.setDevice(next.deviceId).catch(() => {});
+    setCanFlip(cams.length > 1 || window.matchMedia("(pointer: coarse)").matches);
+  }
+  async function flipCam() {
+    const t = cam.current;
+    if (!t) return;
+    const next = facingRef.current === "user" ? "environment" : "user";
+    let ok = false;
+    try { await t.setDevice({ facingMode: next }); ok = true; } catch { /* fall back to picking the camera by its name */ }
+    if (!ok) {
+      const cams = await (await rtc()).getCameras().catch(() => []);
+      const isBack = (l: string) => /back|rear|environment|facing back/i.test(l);
+      const cur = t.getTrackLabel();
+      const pick = cams.find((d) => d.label !== cur && (next === "environment" ? isBack(d.label) : !isBack(d.label)))
+        ?? cams.find((d) => d.label !== cur);
+      if (pick) { try { await t.setDevice(pick.deviceId); ok = true; } catch { /* keep the current camera */ } }
+    }
+    if (ok) { facingRef.current = next; setFacing(next); }
+    else setNotice("Couldn't switch camera on this device.");
   }
   async function toggleMute() {
     if (!mic.current) return;
@@ -712,7 +730,7 @@ function useLiveEngine() {
     me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn, sharing, screen, canShare, toggleShare,
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
-    join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
+    join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, facing, canFlip, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind, joinWithCode,
   };
