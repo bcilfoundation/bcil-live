@@ -11,7 +11,7 @@ import AddAudioTalk from "../components/AddAudioTalk";
 import { docLink, fileName } from "../lib/docs";
 import { feedUrl, googleCalLink } from "../lib/calendar";
 
-const TABS = ["FCB 2027", "Engagement", "Celebrations", "Daily Bite", "Live sessions", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
+const TABS = ["FCB 2027", "Engagement", "Celebrations", "Daily Bite", "Talks", "Forms", "Mentorship", "Plan 2027", "Meetings", "Gifts", "Reports", "People"] as const;
 type Tab = (typeof TABS)[number];
 const PROGRAMS = ["Finding Campus Balance", "Operation 4.0", "Beyond Junior High", "Academic Mentorship", "Daily Bites", "Live sessions"];
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
@@ -36,7 +36,6 @@ export default function Admin() {
         <Link className="btn primary" to="/checkin">📷 Scan tickets</Link></span>}</div>
       <div className="chips">{tabs.map((t) => <button key={t} className="chip" aria-pressed={t === shown} onClick={() => setTab(t)}>{t}</button>)}</div>
       {shown === "Daily Bite" && isAdmin && <QuotesAdmin />}
-      {shown === "Live sessions" && isAdmin && <LiveAdmin />}
       {shown === "Talks" && isAdmin && <TalksAdmin />}
       {shown === "FCB 2027" && <FcbHub isAdmin={isAdmin} />}
       {shown === "Forms" && isAdmin && <FormsAdmin initial={new URLSearchParams(location.search).get("form") ?? undefined} />}
@@ -152,41 +151,6 @@ function SocialBites() {
       {msg && <p className="muted small">{msg}</p>}
     </div>
   );
-}
-
-function LiveAdmin() {
-  const { session } = useAuth();
-  const navigate = useNavigate();
-  const [rows, setRows] = useState<{ id: string; title: string; starts_at: string; status: string }[]>([]);
-  const [f, setF] = useState({ title: "", topic: "", starts_at: "" });
-  const load = () => supabase.from("live_sessions").select("id, title, starts_at, status").order("starts_at", { ascending: false }).limit(30).then(({ data }) => setRows(data ?? []));
-  useEffect(() => { load(); }, []);
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    if (!f.title || !f.starts_at) return;
-    await supabase.from("live_sessions").insert({ title: f.title, topic: f.topic || null, starts_at: new Date(f.starts_at).toISOString(), host_id: session!.user.id });
-    setF({ title: "", topic: "", starts_at: "" }); load();
-  }
-  const set = async (id: string, status: string) => {
-    if (status === "live" && !window.confirm("Go live now?\n\nEveryone with the app will be notified and the room opens straight away.")) return;
-    const patch = status === "live" ? { status, starts_at: new Date().toISOString(), host_id: session!.user.id } : { status };
-    const { error } = await supabase.from("live_sessions").update(patch).eq("id", id);
-    if (error) { alert("Could not update the session: " + error.message); return; }
-    if (status === "live") navigate("/live", { state: { autostart: true } }); else load();
-  };
-  return (<>
-    <form className="card" onSubmit={add}>
-      <h3>Schedule a live session</h3>
-      <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Mentorship hour: Planning your semester" /></label>
-      <label className="field">Topic (optional)<input value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value })} /></label>
-      <label className="field">Starts<input type="datetime-local" value={f.starts_at} onChange={(e) => setF({ ...f, starts_at: e.target.value })} /></label>
-      <button className="btn primary">Schedule</button>
-    </form>
-    <div className="list">{rows.map((r) => <div key={r.id}><div className="grow"><b>{r.title}</b><br /><small className="muted">{fmt(r.starts_at)} · {r.status}</small></div>
-      {r.status === "scheduled" && <button className="btn primary" onClick={() => set(r.id, "live")}>Go live</button>}
-      {r.status === "live" && <button className="btn ghost" onClick={() => set(r.id, "ended")}>End</button>}</div>)}</div>
-    <p className="muted">Tip: you can also go live straight from the Live tab without scheduling.</p>
-  </>);
 }
 
 function youtubeId(link: string) {
@@ -881,16 +845,30 @@ function Availability() {
 // a private calendar link: confirmed meetings appear in Google Calendar by themselves
 function CalendarFeed() {
   const [url, setUrl] = useState(""); const [open, setOpen] = useState(false); const [copied, setCopied] = useState(false); const [err, setErr] = useState("");
+  const [added, setAdded] = useState<string | null | undefined>(undefined);
+  useEffect(() => { supabase.rpc("my_calendar_added").then(({ data, error }) => setAdded(error ? null : (data as string | null))); }, []);
   async function get() {
     setOpen((v) => !v);
     if (url) return;
     const { data, error } = await supabase.rpc("my_calendar_token");
     if (error || !data) setErr("Not switched on yet."); else setUrl(feedUrl(data as string));
   }
+  async function mark(v: boolean) {
+    const { error } = await supabase.rpc("calendar_added", { p_added: v });
+    if (error) { setErr("Could not save: " + error.message); return; }
+    setAdded(v ? new Date().toISOString() : null); if (v) setOpen(false);
+  }
+  if (added === undefined) return null;
+  if (added && !open) return (
+    <div className="card availcard calok">
+      <span>✓ <b>Meetings go to your Google Calendar</b> <small className="muted">Confirmed meetings appear in “Meet Solomon (BCIL)” within a few hours.</small></span>
+      <button className="linkbtn" onClick={get}>Calendar link</button>
+    </div>
+  );
   return (
     <div className="card availcard">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span><b>📆 Meetings in your Google Calendar</b> <small className="muted">Confirmed meetings appear there by themselves.</small></span>
+        <span><b>📆 Send meetings to your Google Calendar</b> <small className="muted">One-time setup.</small></span>
         <button className="btn ghost sm" onClick={get}>{open ? "Close" : "Set up"}</button>
       </div>
       {open && <>
@@ -902,6 +880,10 @@ function CalendarFeed() {
             <li>Paste the link and click <b>Add calendar</b>. A calendar called “Meet Solomon (BCIL)” appears.</li>
           </ol>
           <small className="muted">Google refreshes it every few hours. For an instant add, use “Add to Google Calendar” on a confirmed meeting. Keep this link private: anyone with it can see your meeting times.</small>
+          <div className="row" style={{ gap: 8, marginTop: 6 }}>
+            {added ? <button className="btn ghost sm" onClick={() => mark(false)}>I removed it from Google Calendar</button>
+              : <button className="btn primary sm" onClick={() => mark(true)}>✓ Done, I've added it</button>}
+          </div>
         </>}
       </>}
     </div>

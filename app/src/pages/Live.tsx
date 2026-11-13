@@ -8,6 +8,7 @@ import { CAM_BGS, photoToBg, type CamBg } from "../lib/camBackground";
 import { PAID_GIFTS, PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 import { useLive, agoraUid, REACTIONS, GIFTS, type Line } from "../lib/LiveContext";
 import PersonSheet from "../components/PersonSheet";
+import { InvitePicker, InviteSheet, noPicks, pickCount, sendInvites, type Picks } from "../components/LiveInvite";
 
 // Room backgrounds the host can pick (or upload a photo)
 export const BACKGROUNDS: { id: string; label: string; css: string }[] = [
@@ -44,6 +45,17 @@ export default function Live() {
   const [startCam, setStartCam] = useState(true);
   const [priv, setPriv] = useState(false);
   const [formErr, setFormErr] = useState("");
+  // schedule for later + invites
+  const [mode, setMode] = useState<"now" | "later">("now");
+  const [day, setDay] = useState("");
+  const [at, setAt] = useState("");
+  const [picks, setPicks] = useState<Picks>(noPicks());
+  const [editId, setEditId] = useState<string | null>(null);
+  const [inviteFor, setInviteFor] = useState<{ id: string; title: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [schedMsg, setSchedMsg] = useState("");
+  const canSchedule = isStaff && !group;
+  const later = canSchedule && mode === "later";
   const [text, setText] = useState("");
   const [asQuestion, setAsQuestion] = useState(false);
   const [sheet, setSheet] = useState<"" | "people" | "gifts" | "host" | "bg" | "cambg">("");
@@ -89,11 +101,38 @@ export default function Live() {
         <form className="glA" onSubmit={async (e) => {
           e.preventDefault();
           if (title.trim().length < 3) { setFormErr("Add a title so people know what the session is about."); document.getElementById("golive-title")?.focus(); return; }
-          setFormErr("");
-          if (await L.goLiveNow({ title, topic: "", kind, record: record && isStaff, cam: kind === "video" && startCam, private: priv, roomId: group?.id, dm, openMic: dm || kind === "video" })) { setTitle(""); setPriv(false); navigate(".", { replace: true, state: null }); }
+          setFormErr(""); setSchedMsg("");
+          if (later) {
+            if (!day || !at) { setFormErr("Pick a date and a time."); return; }
+            const starts = new Date(`${day}T${at}`);
+            if (starts.getTime() < Date.now() - 60e3) { setFormErr("Pick a time in the future."); return; }
+            setSaving(true);
+            const r = editId
+              ? await supabase.rpc("update_live", { p_id: editId, p_title: title, p_starts: starts.toISOString(), p_kind: kind, p_private: priv, p_record: record && isStaff }).then((x) => ({ ...x, data: editId }))
+              : await supabase.rpc("schedule_live", { p_title: title, p_starts: starts.toISOString(), p_kind: kind, p_private: priv, p_record: record && isStaff });
+            if (r.error) { setSaving(false); setFormErr("Could not save: " + r.error.message); return; }
+            const m = await sendInvites(r.data as string, picks);
+            setSaving(false);
+            setSchedMsg(`${editId ? "Saved" : "Scheduled"} for ${starts.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}. ${m}`);
+            setTitle(""); setDay(""); setAt(""); setPicks(noPicks()); setEditId(null); setPriv(false); L.refreshUpcoming();
+            return;
+          }
+          const id = await L.goLiveNow({ title, topic: "", kind, record: record && isStaff, cam: kind === "video" && startCam, private: priv, roomId: group?.id, dm, openMic: dm || kind === "video" });
+          if (id) {
+            if (priv && pickCount(picks)) { const m = await sendInvites(id, picks); if (m) L.setNotice(m); }
+            setTitle(""); setPriv(false); setPicks(noPicks()); navigate(".", { replace: true, state: null });
+          }
         }}>
-          <h2 className="glA-h">{dm ? `Live with ${group!.name}` : "Start a live session"}</h2>
+          {canSchedule && <div className="glA-seg glA-mode" role="tablist" aria-label="When">
+            <button type="button" role="tab" aria-selected={!later} className={!later ? "on" : ""} onClick={() => { setMode("now"); setEditId(null); }}>● Go live now</button>
+            <button type="button" role="tab" aria-selected={later} className={later ? "on" : ""} onClick={() => setMode("later")}>📅 Schedule</button>
+          </div>}
+          <h2 className="glA-h">{dm ? `Live with ${group!.name}` : editId ? "Edit scheduled session" : later ? "Schedule a session" : "Start a live session"}</h2>
           <input id="golive-title" className="glA-title" value={title} onChange={(e) => { setTitle(e.target.value); setFormErr(""); }} placeholder="Title" aria-label="Session title" aria-required="true" maxLength={90} />
+          {later && <div className="glA-when">
+            <label><span>Date</span><input type="date" value={day} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setDay(e.target.value)} /></label>
+            <label><span>Time</span><input type="time" value={at} onChange={(e) => setAt(e.target.value)} /></label>
+          </div>}
           <div className="glA-cap">Type</div>
           <div className="glA-seg" role="radiogroup" aria-label="Session type">
             <button type="button" role="radio" aria-checked={kind === "audio"} className={kind === "audio" ? "on" : ""} onClick={() => setKind("audio")}>🎙 Audio</button>
@@ -105,14 +144,21 @@ export default function Live() {
               <div className="glA-cap">Who can join</div>
               <div className="glA-seg" role="radiogroup" aria-label="Who can join">
                 <button type="button" role="radio" aria-checked={!priv} className={!priv ? "on" : ""} onClick={() => setPriv(false)}>🌍 Everyone</button>
-                <button type="button" role="radio" aria-checked={priv} className={priv ? "on" : ""} onClick={() => setPriv(true)}>🔒 Link only</button>
+                <button type="button" role="radio" aria-checked={priv} className={priv ? "on" : ""} onClick={() => setPriv(true)}>🔒 Invited only</button>
               </div>
+              {(priv || later) && <InvitePicker value={picks} onChange={setPicks} label={priv ? "Invite" : "Invite (optional)"} />}
             </>}
-          {kind === "video" && <label className="glA-row"><span>Camera on when I start</span><input type="checkbox" className="glA-sw" checked={startCam} onChange={(e) => setStartCam(e.target.checked)} /></label>}
+          {!later && kind === "video" && <label className="glA-row"><span>Camera on when I start</span><input type="checkbox" className="glA-sw" checked={startCam} onChange={(e) => setStartCam(e.target.checked)} /></label>}
           {isStaff && <label className="glA-row"><span>Record session<small>Saved to the Library as a draft{kind === "video" ? " (audio only)" : ""}</small></span><input type="checkbox" className="glA-sw" checked={record} onChange={(e) => setRecord(e.target.checked)} /></label>}
           {formErr && <p className="err" role="alert" style={{ margin: 0 }}>{formErr}</p>}
-          <button className="glA-go" disabled={busy}>{busy ? "Starting…" : "● Go live"}</button>
-          {!dm && !group && <small className="glA-hint">{priv ? "No one is notified. After you go live, tap ⤴ Invite to share the link." : "Everyone with the app is notified when you go live."}</small>}
+          {later
+            ? <button className="glA-go navy" disabled={saving}>{saving ? "Saving…" : editId ? "Save changes" : pickCount(picks) ? "📅 Schedule and send invites" : "📅 Schedule"}</button>
+            : <button className="glA-go" disabled={busy}>{busy ? "Starting…" : "● Go live"}</button>}
+          {editId && <button type="button" className="btn ghost" onClick={() => { setEditId(null); setTitle(""); setDay(""); setAt(""); setPicks(noPicks()); }}>Stop editing</button>}
+          {!dm && !group && <small className="glA-hint">{later
+            ? (priv ? "Only the people you invite can see and join it. They're reminded 15 minutes before." : "Everyone can see it under Coming up and tap Remind me. Anyone you invite is notified now and reminded 15 minutes before.")
+            : (priv ? "Only the people you invite are notified. You can invite more from inside the session." : "Everyone with the app is notified when you go live.")}</small>}
+          {schedMsg && <p className="ok small" role="status" style={{ margin: 0 }}>{schedMsg}</p>}
         </form>
       ) : (
         <div className="pod-empty">
@@ -122,14 +168,25 @@ export default function Live() {
       )}
       {error && <p className="err" role="alert">{error}</p>}
       <h2>Coming up</h2>
-      <div className="list">
+      <div className="upnext">
         {L.upcoming.length ? L.upcoming.map((s) => (
-          <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
-            {isStaff ? <button className="btn primary" onClick={() => { if (window.confirm(`Go live now with “${s.title}”?\n\nEveryone with the app will be notified.`)) L.startScheduled(s); }}>● Go live</button>
-              : <button className="btn primary" onClick={() => L.remind(s)}>Remind me</button>}</div>
+          <div key={s.id} className="upnext-item">
+            <b>{s.title}</b> <span className="upnext-pill">{s.is_private ? "🔒 Invited only" : "🌍 Everyone"}</span>
+            <small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })} · {s.kind === "video" ? "Video" : "Audio"}</small>
+            {isStaff || s.host_id === me ? <div className="upnext-btns">
+              <button className="btn live-go" onClick={() => { if (window.confirm(`Go live now with “${s.title}”?\n\n${s.is_private ? "The people you invited will be notified." : "Everyone with the app will be notified."}`)) L.startScheduled(s); }}>● Go live</button>
+              <button className="btn ghost" onClick={() => setInviteFor({ id: s.id, title: s.title })}>Invite</button>
+              <button className="btn ghost" onClick={() => { const d = new Date(s.starts_at); const pad = (n: number) => String(n).padStart(2, "0");
+                setEditId(s.id); setMode("later"); setTitle(s.title); setKind(s.kind === "video" ? "video" : "audio"); setPriv(!!s.is_private); setRecord(!!s.record_planned); setPicks(noPicks());
+                setDay(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`); setAt(`${pad(d.getHours())}:${pad(d.getMinutes())}`); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Edit</button>
+              <button className="btn ghost danger" onClick={async () => { if (!window.confirm(`Cancel “${s.title}”?\n\nAnyone invited is told it's cancelled.`)) return;
+                const { error } = await supabase.rpc("cancel_live", { p_id: s.id }); if (error) alert("Could not cancel: " + error.message); else L.refreshUpcoming(); }}>Cancel</button>
+            </div> : <div className="upnext-btns"><button className="btn primary" onClick={() => L.remind(s)}>Remind me</button></div>}
+          </div>
         )) : <div className="muted">No sessions scheduled yet.</div>}
       </div>
       {notice && <p className="ok">{notice}</p>}
+      {inviteFor && <InviteSheet session={inviteFor.id} title={inviteFor.title} onClose={() => setInviteFor(null)} />}
     </section>
   );
 
@@ -149,7 +206,7 @@ export default function Live() {
       {L.upcoming.length > 0 && <>
         <h2>Coming up</h2>
         <div className="list">{L.upcoming.map((s) => (
-          <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>
+          <div key={s.id}><div className="grow"><b>{s.title}</b><br /><small className="muted">{new Date(s.starts_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}</small></div>
             {!isStaff && <button className="btn primary" onClick={() => L.remind(s)}>Remind me</button>}</div>
         ))}</div>
       </>}
@@ -332,11 +389,12 @@ export default function Live() {
         <GiftSheet close={() => setSheet("")} />
       )}
       {sheet === "host" && (
-        <HostTools waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} close={() => setSheet("")} />
+        <HostTools waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} openInvite={() => { setSheet(""); setInviteFor({ id: live.id, title: live.title }); }} close={() => setSheet("")} />
       )}
       {sheet === "bg" && <BackgroundPicker close={() => setSheet("")} />}
       {sheet === "cambg" && <CamBgPicker close={() => setSheet("")} />}
       {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
+      {inviteFor && <InviteSheet session={inviteFor.id} title={inviteFor.title} onClose={() => setInviteFor(null)} />}
     </section>
   );
 }
@@ -359,7 +417,7 @@ function ChatLine({ c, me, canPin, pinned, onPin, quoted, onReply, onPerson }: {
   );
 }
 
-function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: ReturnType<typeof useLive>["requests"]; onStageCount: number; openBackground: () => void; close: () => void }) {
+function HostTools({ waiting, onStageCount, openBackground, openInvite, close }: { waiting: ReturnType<typeof useLive>["requests"]; onStageCount: number; openBackground: () => void; openInvite: () => void; close: () => void }) {
   const L = useLive();
   const live = L.live!;
   return (
@@ -379,6 +437,7 @@ function HostTools({ waiting, onStageCount, openBackground, close }: { waiting: 
       <div className="toolgrid">
         {onStageCount > 0 && <button onClick={L.muteAll}>🔇<span>Mute all callers</span></button>}
         <button onClick={L.toggleLock}>{live.chat_locked ? "🔓" : "🔒"}<span>{live.chat_locked ? "Unlock chat" : "Lock chat"}</span></button>
+        {live.is_private && !live.room_id && <button onClick={openInvite}>✉️<span>Invite people</span></button>}
         <button onClick={openBackground}>🖼<span>Room background</span></button>
         {L.speaker && (L.recording
           ? <button onClick={L.saveRecording} disabled={L.savingRec}>■<span>Stop &amp; save recording</span></button>

@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
-export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null; open_mic?: boolean };
+export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null; open_mic?: boolean; record_planned?: boolean };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number; screen?: boolean };
@@ -93,6 +93,10 @@ function useLiveEngine() {
   const liveRef = useRef<Session | null>(null);
 
   // ---------- sessions ----------
+  async function refreshUpcoming() {
+    const { data } = await supabase.from("live_sessions").select("*").eq("status", "scheduled").order("starts_at");
+    setUpcoming((data ?? []) as Session[]);
+  }
   useEffect(() => {
     supabase.from("live_sessions").select("*").neq("status", "ended").order("starts_at").then(({ data }) => {
       const list = (data ?? []) as Session[];
@@ -105,6 +109,8 @@ function useLiveEngine() {
     const ch = supabase.channel("live-sessions")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (p) => {
         const s = p.new as Session;
+        if (p.eventType === "DELETE" || s?.status === "scheduled" || (p.eventType === "UPDATE" && s?.status === "live")) refreshUpcoming();
+        if (!s?.status) return;
         // a second session going live doesn't pull you out of the one you're in (unless you're its host)
         if (s.status === "live") setLive((cur) => (cur && cur.id === s.id ? { ...cur, ...s } : !cur || s.host_id === me || (cur.is_private && !s.is_private && !joinedRef.current) ? s : cur));
         else if (s.status === "ended") { setLive((cur) => (cur?.id === s.id ? null : cur)); leave(); }
@@ -675,7 +681,7 @@ function useLiveEngine() {
     if (ok && opts.record) await startRecording();
     if (ok && opts.roomId) setNotice(opts.dm ? "📞 Calling… they've been notified and can join and talk straight away." : "👥 Group session. Only members of the group can see it and have been notified.");
     else if (ok && opts.private) setNotice("🔒 Private session. Only people with the link can join. Tap ⤴ at the top to copy and send the link.");
-    return ok;
+    return ok ? (data.id as string) : false;
   }
   async function startScheduled(s: Session) {
     const { data, error } = await supabase.from("live_sessions")
@@ -683,7 +689,8 @@ function useLiveEngine() {
     if (error || !data) { setError("Could not go live: " + (error?.message ?? "unknown error")); return; }
     setLive(data as Session); setUpcoming((u) => u.filter((x) => x.id !== s.id));
     left.current.delete(s.id);
-    await join(data as Session);
+    const ok = await join(data as Session, { cam: data.kind === "video" });
+    if (ok && data.record_planned) await startRecording();
   }
   /** Opening a private session link: get on the guest list, then show that session. */
   async function joinWithCode(code: string) {
@@ -732,7 +739,7 @@ function useLiveEngine() {
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, facing, canFlip, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
-    goLiveNow, startScheduled, remind, joinWithCode,
+    goLiveNow, startScheduled, remind, joinWithCode, refreshUpcoming,
   };
   return value;
 }
