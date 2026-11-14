@@ -4,13 +4,17 @@
 // Hands a Daily Bite card image to the scheduling page that opened this window (Meta Business Suite or LinkedIn),
 // because those pages can't download it themselves. The images are public anyway.
 (function () {
-  var p = new URLSearchParams(location.search), day = p.get("day") || "", to = p.get("to") || "";
+  // ?day=2026-11-14 for one image, or ?days=2026-11-14,2026-11-15 for several at once
+  var p = new URLSearchParams(location.search), to = p.get("to") || "";
+  var days = (p.get("days") || p.get("day") || "").split(",").filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); }).slice(0, 31);
   var ok = ["https://business.facebook.com", "https://www.linkedin.com", "https://www.facebook.com"];
   var target = window.opener || (window.parent !== window ? window.parent : null);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || ok.indexOf(to) < 0 || !target) return;
-  fetch("https://jvfqvbmebfzhenbiklyy.supabase.co/storage/v1/object/public/social/bites/" + day + ".png?t=" + Date.now())
-    .then(function (r) { if (!r.ok) throw new Error("missing"); return r.blob(); })
-    .then(function (b) { target.postMessage({ bcilBite: day, blob: b }, to); if (window.opener) setTimeout(function () { window.close(); }, 500); })
-    .catch(function () { target.postMessage({ bcilBite: day, error: true }, to); });
+  if (!days.length || ok.indexOf(to) < 0 || !target) return;
+  Promise.all(days.map(function (day) {
+    return fetch("https://jvfqvbmebfzhenbiklyy.supabase.co/storage/v1/object/public/social/bites/" + day + ".png?t=" + Date.now())
+      .then(function (r) { if (!r.ok) throw new Error("missing"); return r.blob(); })
+      .then(function (b) { target.postMessage({ bcilBite: day, blob: b }, to); })
+      .catch(function () { target.postMessage({ bcilBite: day, error: true }, to); });
+  })).then(function () { if (window.opener) setTimeout(function () { window.close(); }, 800); });
 })();
 </script>
