@@ -45,6 +45,13 @@ export default function Team() {
         <h1>About us</h1>
         <p>BCIL Foundation is a youth-focused non-profit organization with the mantra; <b className="about-mantra">Grooming Generational Leaders</b>. Our work centers on youth empowerment, personal development and positive social impact.</p>
       </div>
+      <div className="card npo-card">
+        <span className="npo-badge">✅</span>
+        <div className="grow"><span className="eyebrow">Licensed non-profit</span>
+          <p style={{ margin: "4px 0 0" }}>BCIL Foundation is licensed as a <b>National Non-Profit Organisation</b> in Ghana by the Non-Profit Organisation Secretariat, Department of Social Welfare, Ministry of Gender, Children and Social Protection.</p>
+          <small className="muted">Licence No. NPOS/CR02/LN04364/26</small></div>
+        <button className="btn sm" onClick={() => openUrl("https://live.bcilfoundation.org/npo-licence.jpg")}>View licence</button>
+      </div>
       <div className="about-vm">
         <div className="card"><span className="eyebrow">Our vision</span><p>To become a globally recognized leader in youth empowerment by enabling the next generation to discover and fulfill their purpose, realize their full potential and make a meaningful and positive impact in society.</p></div>
         <div className="card"><span className="eyebrow">Our mission</span><p>To empower young people, particularly students, through conferences, mentorship, and guidance, enabling them to fulfil their purpose and nurture future leaders who make positive contributions to society.</p></div>

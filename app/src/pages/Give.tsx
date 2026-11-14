@@ -46,6 +46,7 @@ export default function Give() {
     <section className="view">
       <h1>Donate to BCIL Foundation</h1>
       <p className="muted">Your gift helps students through Finding Campus Balance, mentorship, Campus Sync and more. 100% goes to BCIL Foundation. GH₵ 20 covers one student's refreshment at FCB, and GH₵ 5,000 buys a laptop for a student.</p>
+      <p className="npo-line">✅ Licensed National Non-Profit Organisation in Ghana · Licence No. NPOS/CR02/LN04364/26 · <a href="https://live.bcilfoundation.org/npo-licence.jpg" target="_blank" rel="noopener">View licence</a></p>
       {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
       {MOMO && <MomoCard />}
       {!canPay ? (
