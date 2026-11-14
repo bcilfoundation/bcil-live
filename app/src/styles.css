@@ -291,7 +291,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .vnocam{position:absolute;inset:0;display:grid;place-items:center}
 .vname{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;font-weight:700;font-size:.85rem;padding:4px 10px;border-radius:999px}
 .vname small{font-weight:500;opacity:.85}
-.vctl{position:absolute;right:8px;top:8px;display:flex;gap:6px}.vctl .chip{background:rgba(255,255,255,.92)}
+.vctl{position:absolute;right:8px;top:8px;display:flex;gap:6px}.vctl .chip{background:rgba(10,22,48,.72);color:#fff;border-color:rgba(255,255,255,.35);font-weight:600;backdrop-filter:blur(4px)}.vctl .chip:hover{background:rgba(10,22,48,.9)}
 .kindpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .kindpick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-weight:800;text-align:left;cursor:pointer}
 .kindpick button small{font-weight:500;color:#cfdcf0}

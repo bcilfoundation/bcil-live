@@ -185,6 +185,30 @@ function useLiveEngine() {
   function presence() { return { name: myName, role: liveRef.current?.host_id === me ? "host" as const : "listener" as const, staff: isStaff, hand: handRef.current, screen: sharingRef.current }; }
   useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp, sharing]);
   useEffect(() => { setHandUp(0); }, [live?.id]);
+  // Callers who left the room (closed the app, lost signal, tapped Leave) stop showing on the stage after a few
+  // seconds, and the host's app ends their turn after 20 seconds so the spot is freed for everyone.
+  const [gone, setGone] = useState<Set<string>>(new Set());
+  const absentSince = useRef<Record<string, number>>({});
+  useEffect(() => {
+    if (!joined || !live) { absentSince.current = {}; setGone(new Set()); return; }
+    const tick = () => {
+      const here = new Set(people.map((p) => p.id));
+      const now = Date.now(); const g = new Set<string>();
+      for (const r of requests) {
+        if (r.status !== "on_air" || r.user_id === me) continue;
+        if (here.has(r.user_id)) { delete absentSince.current[r.user_id]; continue; }
+        const since = absentSince.current[r.user_id] ??= now;
+        if (now - since > 6000) g.add(r.user_id);
+        if (now - since > 20000 && live.host_id === me) {
+          delete absentSince.current[r.user_id];
+          supabase.from("call_requests").update({ status: "done" }).eq("id", r.id).then(() => {});
+        }
+      }
+      setGone((old) => (old.size === g.size && [...g].every((x) => old.has(x)) ? old : g));
+    };
+    tick(); const t = setInterval(tick, 3000);
+    return () => clearInterval(t);
+  }, [joined, live?.id, live?.host_id, people, requests]);
   const toggleHand = () => setHandUp((h) => (h ? 0 : Date.now()));
   const lowerHand = (user: string) => room.current?.send({ type: "broadcast", event: "lower-hand", payload: { user } });
 
@@ -735,7 +759,7 @@ function useLiveEngine() {
 
   const value = {
     me, myName, isStaff, live, setLive, hostName, upcoming, joined, joinedId, speaker, muted, busy, people, talking, remoteVideo, camOn, sharing, screen, canShare, toggleShare,
-    musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, chat, floats, likes, elapsed, error, setError, notice, setNotice,
+    musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, gone, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, facing, canFlip, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
     makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,

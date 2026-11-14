@@ -222,7 +222,7 @@ export default function Live() {
   );
 
   // ---------- the live room ----------
-  const onStage = requests.filter((r) => r.status === "on_air");
+  const onStage = requests.filter((r) => r.status === "on_air" && !L.gone.has(r.user_id));
   const waiting = requests.filter((r) => r.status === "waiting");
   // listeners who switched their camera on (video sessions work like Zoom)
   const stageUids = new Set([live?.host_id, ...onStage.map((r) => r.user_id)].filter(Boolean).map((id) => String(agoraUid(id as string))));
