@@ -37,11 +37,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Please sign in" }, 401);
 
-    const { data: session } = await supabase.from("live_sessions").select("id, channel, status, kind, host_id").eq("id", session_id).single();
+    const { data: session } = await supabase.from("live_sessions").select("id, channel, status, kind, host_id, cohosts").eq("id", session_id).single();
     if (!session || session.status !== "live") return json({ error: "This session is not live" }, 400);
 
     // one host per session: the person in host_id (other admins join as listeners and can call in, or take over)
-    const isHost = session.host_id === user.id;
+    const isHost = session.host_id === user.id || ((session.cohosts ?? []) as string[]).includes(user.id);
     const { data: onAir } = await supabase.from("call_requests").select("id")
       .eq("session_id", session_id).eq("user_id", user.id).eq("status", "on_air").maybeSingle();
     const speaker = isHost || !!onAir;

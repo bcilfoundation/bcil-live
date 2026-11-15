@@ -200,6 +200,10 @@ export default function Live() {
 
   // ---------- something is live, but you haven't joined: a simple card, the room opens when you join ----------
   const amHost = live.host_id === me;
+  const cohosts = live.cohosts ?? [];
+  const amCohost = !amHost && cohosts.includes(me);
+  const canManage = amHost || amCohost;
+  const canReclaim = !amHost && joined && (live.started_by === me) ;
   if (!joined && !amHost && !entering) return (
     <section className="view">
       <h1>Live</h1>
@@ -266,7 +270,7 @@ export default function Live() {
           {(L.recording || live.recording) && <span className="pill rec" title="Being recorded">● REC</span>}
           <span>{L.elapsed}</span>
           <button className="room-pillbtn" onClick={L.share} aria-label={live.is_private ? "Copy the private invite link" : "Share"}>{live.is_private ? "🔒 Invite" : "⤴ Share"}</button>
-          {amHost && joined && <button className="room-pillbtn" onClick={() => setSheet("host")} aria-label="Host tools">⚙</button>}
+          {canManage && joined && <button className="room-pillbtn" onClick={() => setSheet("host")} aria-label={amHost ? "Host tools" : "Co-host tools"}>⚙</button>}
           {joined && <button className="room-pillbtn leave" onClick={L.leaveRoom}>Leave</button>}
         </div>
       </div>
@@ -280,7 +284,11 @@ export default function Live() {
         <button className="room-tap" onClick={L.tapToHear}>🔊 Tap to hear the room</button>
       ) : null}
 
-      {isStaff && !amHost && joined && !people.some((p) => p.id === live.host_id) && (
+      {canReclaim && (
+        <div className="room-takeover">You started this session. <button className="chip" onClick={L.reclaimHost}>Take back host</button></div>
+      )}
+      {amCohost && <div className="room-takeover">🎙 You are a co-host. You can bring people on, mute and lower hands.</div>}
+      {isStaff && !amHost && !canReclaim && joined && !people.some((p) => p.id === live.host_id) && (
         <div className="room-takeover">The host has left the room. <button className="chip" onClick={L.takeOver}>Take over as host</button></div>
       )}
       {/* stage: host + call-in spots */}
@@ -291,11 +299,11 @@ export default function Live() {
           {onStage.map((r) => (
             <VideoTile key={r.id} name={r.user_id === me ? "You" : r.profiles?.full_name ?? "Caller"} label={r.muted_by_host ? "Muted" : "Caller"} talking={isTalking(r.user_id)} muted={r.muted_by_host}
               track={r.user_id === me ? myVideo : L.remoteVideo[String(agoraUid(r.user_id))] ?? null} mirror={r.user_id === me && !L.sharing && L.facing === "user"} screen={isScreen(r.user_id)}>
-              {amHost && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
+              {canManage && r.user_id !== me && <div className="vctl"><button className="chip" onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button className="chip" onClick={() => L.setStatus(r.id, "done")}>End</button></div>}
             </VideoTile>
           ))}
-          {meGuestCam && <VideoTile name="You" label={L.sharing ? "Sharing screen" : "Camera on"} talking={false} track={myVideo} mirror={!L.sharing && L.facing === "user"} screen={L.sharing} />}
-          {guestCams.map((g) => { const p = people.find((x) => String(agoraUid(x.id)) === g.uid); return <VideoTile key={g.uid} name={g.name} label={p?.screen ? "Sharing screen" : "Guest"} talking={false} track={g.track} screen={!!p?.screen} />; })}
+          {meGuestCam && <VideoTile name="You" label={L.sharing ? "Sharing screen" : amCohost ? "Co-host" : "Camera on"} talking={false} track={myVideo} mirror={!L.sharing && L.facing === "user"} screen={L.sharing} />}
+          {guestCams.map((g) => { const p = people.find((x) => String(agoraUid(x.id)) === g.uid); return <VideoTile key={g.uid} name={g.name} label={p?.screen ? "Sharing screen" : cohosts.includes(p?.id ?? "") ? "Co-host" : "Guest"} talking={false} track={g.track} screen={!!p?.screen} />; })}
         </div>
       ) : (
         <div className="slots">
@@ -303,13 +311,18 @@ export default function Live() {
             <div className="ava">{initials(amHost ? (session?.user ? L.myName : L.hostName) : L.hostName)}</div>
             <b>{amHost ? "You" : L.hostName.split(" ")[0]}</b><span className="tag">HOST</span>
           </div>
+          {cohosts.filter((id) => id !== live.host_id).map((id) => { const p = people.find((x) => x.id === id); if (!p && id !== me) return null; return (
+            <div key={`co${id}`} className={`slot host${isTalking(id) ? " talking" : ""}`}>
+              <div className="ava">{initials(id === me ? L.myName : p?.name ?? "")}</div>
+              <b>{id === me ? "You" : (p?.name ?? "").split(" ")[0]}</b><span className="tag">CO-HOST</span>
+            </div>); })}
           {Array.from({ length: Math.min(MAX_STAGE, Math.max(SLOTS, onStage.length + 1)) }).map((_, i) => {
             const r = onStage[i];
             if (r) return (
               <div key={r.id} className={`slot${isTalking(r.user_id) ? " talking" : ""}`}>
                 <div className="ava">{initials(r.profiles?.full_name ?? "")}{r.muted_by_host && <span className="mutedot">🔇</span>}</div>
                 <b>{r.user_id === me ? "You" : (r.profiles?.full_name ?? "Caller").split(" ")[0]}</b>
-                {amHost && <span className="slotctl"><button onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button onClick={() => L.setStatus(r.id, "done")}>End</button></span>}
+                {canManage && r.user_id !== me && <span className="slotctl"><button onClick={() => L.hostMute(r.id, !r.muted_by_host)}>{r.muted_by_host ? "Unmute" : "Mute"}</button><button onClick={() => L.setStatus(r.id, "done")}>End</button></span>}
               </div>
             );
             return (
@@ -387,7 +400,9 @@ export default function Live() {
           {hands.length > 0 && <p className="muted small">✋ {hands.length} raised hand{hands.length > 1 ? "s" : ""}, in the order they were raised</p>}
           <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0) || ((a.hand || 9e15) - (b.hand || 9e15))).map((p) => (
             <div key={p.id} className="row"><button className="plainbtn row" style={{ gap: 10, flex: 1, minWidth: 0 }} onClick={() => setPerson(p.id)}><div className="ava sm">{initials(p.name)}</div><span className="grow" style={{ textAlign: "left" }}>{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}</span></button>{p.role === "host" && <span className="tag">HOST</span>}
-              {amHost && !!p.hand && p.id !== me && <button className="chip" onClick={() => L.lowerHand(p.id)}>Lower</button>}
+              {canManage && !!p.hand && p.id !== me && <button className="chip" onClick={() => L.lowerHand(p.id)}>Lower</button>}
+              {cohosts.includes(p.id) && p.role !== "host" && <span className="tag">CO-HOST</span>}
+              {amHost && p.id !== me && p.role !== "host" && <button className="chip" onClick={() => L.setCohost(p.id, !cohosts.includes(p.id))}>{cohosts.includes(p.id) ? "Remove co-host" : "Make co-host"}</button>}
               {amHost && p.id !== me && p.staff && <button className="chip" onClick={() => { setSheet(""); L.makeHost(p.id); }}>Make host</button>}</div>
           ))}{!listeners.length && people.length <= 1 && <p className="muted">Share the link so others can join.</p>}</div>
           <button className="btn primary" onClick={L.share}>{live.is_private ? "🔒 Send the private link" : "Invite people"}</button>
@@ -397,7 +412,7 @@ export default function Live() {
         <GiftSheet close={() => setSheet("")} />
       )}
       {sheet === "host" && (
-        <HostTools waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} openInvite={() => { setSheet(""); setInviteFor({ id: live.id, title: live.title }); }} close={() => setSheet("")} />
+        <HostTools cohost={amCohost} waiting={waiting} onStageCount={onStage.length} openBackground={() => setSheet("bg")} openInvite={() => { setSheet(""); setInviteFor({ id: live.id, title: live.title }); }} close={() => setSheet("")} />
       )}
       {sheet === "bg" && <BackgroundPicker close={() => setSheet("")} />}
       {sheet === "cambg" && <CamBgPicker close={() => setSheet("")} />}
@@ -425,12 +440,12 @@ function ChatLine({ c, me, canPin, pinned, onPin, quoted, onReply, onPerson }: {
   );
 }
 
-function HostTools({ waiting, onStageCount, openBackground, openInvite, close }: { waiting: ReturnType<typeof useLive>["requests"]; onStageCount: number; openBackground: () => void; openInvite: () => void; close: () => void }) {
+function HostTools({ cohost, waiting, onStageCount, openBackground, openInvite, close }: { cohost: boolean; waiting: ReturnType<typeof useLive>["requests"]; onStageCount: number; openBackground: () => void; openInvite: () => void; close: () => void }) {
   const L = useLive();
   const live = L.live!;
   return (
     <div className="sheet tall">
-      <div className="row" style={{ justifyContent: "space-between" }}><h3>Host tools</h3><button className="linkbtn" onClick={close}>Done</button></div>
+      <div className="row" style={{ justifyContent: "space-between" }}><h3>{cohost ? "Co-host tools" : "Host tools"}</h3><button className="linkbtn" onClick={close}>Done</button></div>
       <h4>Call-in queue <span className="pill soon">{waiting.length} waiting</span></h4>
       <div className="sheet-list">
         {waiting.map((r) => (
@@ -444,15 +459,15 @@ function HostTools({ waiting, onStageCount, openBackground, openInvite, close }:
       </div>
       <div className="toolgrid">
         {onStageCount > 0 && <button onClick={L.muteAll}>🔇<span>Mute all callers</span></button>}
-        <button onClick={L.toggleLock}>{live.chat_locked ? "🔓" : "🔒"}<span>{live.chat_locked ? "Unlock chat" : "Lock chat"}</span></button>
+        {!cohost && <button onClick={L.toggleLock}>{live.chat_locked ? "🔓" : "🔒"}<span>{live.chat_locked ? "Unlock chat" : "Lock chat"}</span></button>}
         {live.is_private && !live.room_id && <button onClick={openInvite}>✉️<span>Invite people</span></button>}
-        <button onClick={openBackground}>🖼<span>Room background</span></button>
-        {L.speaker && (L.recording
+        {!cohost && <button onClick={openBackground}>🖼<span>Room background</span></button>}
+        {!cohost && L.speaker && (L.recording
           ? <button onClick={L.saveRecording} disabled={L.savingRec}>■<span>Stop &amp; save recording</span></button>
           : <button onClick={L.startRecording} disabled={L.savingRec}>⏺<span>{L.savingRec ? "Saving…" : "Record"}</span></button>)}
-        <button className="danger" onClick={L.endSession}>⏹<span>End session</span></button>
+        {!cohost && <button className="danger" onClick={L.endSession}>⏹<span>End session</span></button>}
       </div>
-      {L.speaker && (
+      {!cohost && L.speaker && (
         <div className="musicbox">
           <div className="row" style={{ justifyContent: "space-between" }}><h4>🎵 Background music</h4>{L.musicName && <span className={`pill ${L.musicPlaying ? "live" : ""}`}>{L.musicPlaying ? "Playing" : "Paused"}</span>}</div>
           {L.musicName && <>

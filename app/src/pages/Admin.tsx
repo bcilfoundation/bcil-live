@@ -651,7 +651,7 @@ function PlansAdmin({ isAdmin }: { isAdmin: boolean }) {
   return (<>
     {isAdmin && <ShareLink path="/plan" title="Plan 2027" note="People sign in (or create an account) first, then go straight to their plan." />}
     {!isAdmin && <p className="muted small">You see the plans Solomon has asked you to help with{rows?.length ? "" : ". None yet"}.</p>}
-    <p className="muted">{rows?.length ?? 0} plans submitted{drafts ? ` · ${drafts} still in draft` : ""}. Members get a check-in reminder on the 1st of every month, and a quarterly review in April, July and October.</p>
+    <p className="muted">{rows?.length ?? 0} plans shared for mentorship. Members can also plan privately; private plans are not shown here. Members get a check-in reminder on the 1st of every month, and a quarterly review in April, July and October.</p>
     <div className="list">{(rows ?? []).map((p) => <div key={p.id}><div className="grow">
       <b>{p.profiles?.full_name ?? "Member"}</b> · {p.theme || "Plan 2027"} {p.feedback ? <span className="pill paid">Feedback given</span> : <span className="pill">Needs feedback</span>}
       {p.assigned_to && <span className="pill">👤 {helperName(p.assigned_to)}</span>}

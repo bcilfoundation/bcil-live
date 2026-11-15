@@ -7,7 +7,7 @@ import Avatar from "../components/Avatar";
 import { dayKey, googleCalLink, icsFile, timeOf, tzName, type Slot } from "../lib/calendar";
 
 const TOPICS = ["Mentorship", "My 2027 plan", "Career or studies", "Partnership or programme", "Speaking invitation", "Something else"];
-const MODES = ["Phone call", "WhatsApp call", "Video call", "In person (Cape Coast)"];
+const MODES = ["In the app (video)", "In the app (audio)", "WhatsApp"];
 type Req = { id: number; topic: string; message: string; mode: string | null; preferred: string | null; files: string[]; status: string; meet_at: string | null; slot_at?: string | null; minutes?: number; reply: string | null; room_id: string | null; created_at: string };
 const STATUS: Record<string, [string, string]> = { pending: ["Waiting for a reply", ""], confirmed: ["Confirmed", "paid"], declined: ["Not this time", ""], done: ["Done", "sent"] };
 export const when = (d: string) => new Date(d).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });

@@ -9,7 +9,7 @@ export const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "
 export type Goal = { id?: number; plan_id?: number; area: string | null; title: string; description?: string | null; start_month?: number | null; end_month?: number | null; remark?: string | null; progress: number; sort: number;
   // from the first version of the planner (shown if filled in)
   success?: string | null; q1?: string | null; q2?: string | null; q3?: string | null; q4?: string | null; first_actions?: string | null };
-export type PlanRow = { id: number; user_id: string; year: number; theme: string | null; vision: string | null; habits_build: string | null; habits_drop: string | null; status: "draft" | "submitted"; submitted_at: string | null; feedback: string | null; feedback_at: string | null; updated_at: string };
+export type PlanRow = { shared?: boolean; id: number; user_id: string; year: number; theme: string | null; vision: string | null; habits_build: string | null; habits_drop: string | null; status: "draft" | "submitted"; submitted_at: string | null; feedback: string | null; feedback_at: string | null; updated_at: string };
 type Checkin = { id: number; note: string; score: number | null; created_at: string };
 const blankGoal = (sort: number): Goal => ({ area: null, title: "", description: "", start_month: null, end_month: null, remark: "", progress: 0, sort });
 const mon = (m?: number | null) => (m ? MONTHS[m - 1] : "");
@@ -54,15 +54,15 @@ export default function Plan() {
       <div className="card planhero">
         <span className="eyebrow">BCIL mentorship</span>
         <h1>Plan {YEAR}</h1>
-        <p>Start the year on purpose. Write a one-year plan for {YEAR}, get feedback from BCIL mentors, and keep going with monthly check-ins and quarterly reviews.</p>
+        <p>Start the year on purpose. Write a one-year plan for {YEAR} and keep going with monthly check-ins and quarterly reviews. Keep it to yourself, or share it with BCIL for mentorship and feedback. You choose.</p>
         <ol className="plansteps">
           <li><b>Choose a theme</b> or a word for your year.</li>
           <li><b>Set your goals</b> across your life: studies, career, faith, health, money, relationships, leadership and personal growth. As many as you need, habits included.</li>
           <li><b>For each goal,</b> describe it and choose the month you'll start and the month you'll finish.</li>
-          <li><b>Submit it</b> for feedback, then update your progress every month.</li>
+          <li><b>Keep it private</b>, or <b>share it</b> with BCIL mentors for feedback. Then update your progress every month.</li>
         </ol>
         <button className="btn primary" onClick={start}>Start my {YEAR} plan</button>
-        <small className="muted">Only you can see your plan until you submit it. Once submitted, BCIL mentors and staff can read it to give you feedback.</small>
+        <small className="muted">🔒 Your plan is private. Only you can see it unless you choose to share it for mentorship. You can make it private again at any time.</small>
       </div>
     </section>
   );
@@ -82,14 +82,19 @@ export default function Plan() {
       </div>
       {plan.vision && <p className="prewrap">{plan.vision}</p>}
 
-      {plan.status === "draft" ? (
+      {!plan.shared ? (
         <div className="card planbar">
-          <span><b>Draft.</b> When it's ready, submit it to get feedback from BCIL mentors.</span>
-          <button className="btn primary sm" disabled={!goals.length} onClick={async () => { await supabase.rpc("submit_plan", { p_id: plan.id }); load(); }}>Submit for feedback</button>
+          <span><b>🔒 Private.</b> Only you can see this plan. Want a BCIL mentor to read it and give you feedback?</span>
+          <button className="btn primary sm" disabled={!goals.length} title={!goals.length ? "Add at least one goal first" : undefined}
+            onClick={async () => { if (!window.confirm("Share your plan with BCIL mentors and staff so they can give you feedback?")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: true }); load(); }}>Share for mentorship</button>
         </div>
-      ) : plan.feedback ? (
-        <div className="card planfeedback"><span className="eyebrow">💬 Feedback from your mentor</span><p className="prewrap">{plan.feedback}</p></div>
-      ) : <div className="card planbar"><span>✅ Submitted. Feedback will appear here.</span></div>}
+      ) : (
+        <div className="card planbar">
+          <span>{plan.feedback ? "💬 Shared with BCIL for mentorship." : "✅ Shared with BCIL for mentorship. Feedback will appear here."}</span>
+          <button className="btn ghost sm" onClick={async () => { if (!window.confirm("Make your plan private? BCIL mentors and staff will no longer be able to see it.")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: false }); load(); }}>🔒 Make private</button>
+        </div>
+      )}
+      {plan.feedback && <div className="card planfeedback"><span className="eyebrow">💬 Feedback from your mentor</span><p className="prewrap">{plan.feedback}</p></div>}
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 14, gap: 8, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>Goals and targets</h2>

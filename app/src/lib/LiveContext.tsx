@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 
 // The live room runs here, at app level, so audio keeps playing while people move around the app.
-export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null; open_mic?: boolean; record_planned?: boolean };
+export type Session = { id: string; title: string; topic: string | null; starts_at: string; status: string; chat_locked: boolean; host_id: string | null; recording?: boolean; kind?: string; background?: string | null; pinned_chat_id?: number | null; is_private?: boolean; invite_code?: string | null; room_id?: string | null; open_mic?: boolean; record_planned?: boolean; started_by?: string | null; cohosts?: string[] };
 export type Req = { id: number; user_id: string; topic: string | null; status: string; muted_by_host: boolean; profiles?: { full_name: string } | null };
 export type Line = { id: number; user_id: string; body: string; kind?: string; created_at?: string; reply_to?: number | null; profiles?: { full_name: string } | null };
 export type Person = { id: string; name: string; role: "host" | "listener"; staff?: boolean; hand?: number; screen?: boolean };
@@ -186,6 +186,18 @@ function useLiveEngine() {
   useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp, sharing]);
   useEffect(() => { setHandUp(0); }, [live?.id]);
   useEffect(() => { (window as unknown as { __inLive?: boolean }).__inLive = joined; }, [joined]);
+  // Watch the full picture only where it matters: a shared screen, or when there are just one or two cameras.
+  // Otherwise take the small copy of each camera.
+  const videoKey = Object.keys(remoteVideo).sort().join(",") + "|" + people.filter((p) => p.screen).map((p) => p.id).join(",");
+  useEffect(() => {
+    const c = client.current; if (!c || !joined) return;
+    const uids = Object.keys(remoteVideo);
+    const sharers = new Set(people.filter((p) => p.screen).map((p) => String(agoraUid(p.id))));
+    for (const uid of uids) {
+      const full = sharers.has(uid) || (uids.length <= 2 && sharers.size === 0);
+      c.setRemoteVideoStreamType(Number(uid), full ? 0 : 1).catch(() => {});
+    }
+  }, [videoKey, joined]);
   // Callers who left the room (closed the app, lost signal, tapped Leave) stop showing on the stage after a few
   // seconds, and the host's app ends their turn after 20 seconds so the spot is freed for everyone.
   const [gone, setGone] = useState<Set<string>>(new Set());
@@ -242,9 +254,9 @@ function useLiveEngine() {
   const mine = requests.find((r) => r.user_id === me);
   useEffect(() => {
     if (!joined) return;
-    const shouldSpeak = live?.host_id === me || mine?.status === "on_air";
+    const shouldSpeak = live?.host_id === me || !!live?.cohosts?.includes(me) || mine?.status === "on_air";
     if (shouldSpeak !== speakerRef.current) { const keep = camOnRef.current; leave().then(() => join(undefined, { cam: keep })); }
-  }, [mine?.status, live?.host_id]);
+  }, [mine?.status, live?.host_id, live?.cohosts?.includes(me)]);
 
   // Every listener's app silences callers the host has muted, so a muted caller is never heard
   const silenced = useRef<Set<number>>(new Set());
@@ -297,6 +309,12 @@ function useLiveEngine() {
       // if the connection drops (phone slept, network switched), get back in automatically
       c.on("connection-state-change", (cur) => { if (cur === "DISCONNECTED" && stayIn.current) reconnectRef.current(); });
       client.current = c;
+      // video sessions: each camera also sends a small copy, so people watching a grid of cameras
+      // receive the small copies (less data for them, and far fewer billed video minutes)
+      if (sess.kind === "video") {
+        c.setLowStreamParameter({ width: 320, height: 180, framerate: 15, bitrate: 200 });
+        await c.enableDualStream().catch(() => {});
+      }
       c.on("user-published", async (user, type) => {
         await c.subscribe(user, type);
         if (type === "video" && user.videoTrack) setRemoteVideo((v) => ({ ...v, [String(user.uid)]: user.videoTrack! }));
@@ -496,7 +514,7 @@ function useLiveEngine() {
     if (guest && !canVideo) { setError("Please leave and join the room again, then try sharing."); return; }
     let t: ILocalVideoTrack | null = null;
     try {
-      t = await (await rtc()).createScreenVideoTrack({ encoderConfig: "1080p_1", optimizationMode: "detail" }, "disable") as ILocalVideoTrack;
+      t = await (await rtc()).createScreenVideoTrack({ encoderConfig: "720p_2", optimizationMode: "detail" }, "disable") as ILocalVideoTrack;
       if (guest && !camOnRef.current) await c.setClientRole("host");
       if (cam.current && camOnRef.current) await c.unpublish(cam.current).catch(() => {});
       await c.publish(t);
@@ -653,9 +671,21 @@ function useLiveEngine() {
     if (await run("Handing over", supabase.from("live_sessions").update({ host_id: userId }).eq("id", live.id)))
       setLive((s) => (s ? { ...s, host_id: userId } : s));
   }
+  async function setCohost(userId: string, on: boolean) {
+    if (!live) return;
+    if (await run(on ? "Making co-host" : "Removing co-host", supabase.rpc("set_cohost", { p_session: live.id, p_user: userId, p_on: on })))
+      setLive((s) => (s ? { ...s, cohosts: on ? [...(s.cohosts ?? []).filter((x) => x !== userId), userId] : (s.cohosts ?? []).filter((x) => x !== userId) } : s));
+  }
+  async function reclaimHost() {
+    if (!live) return;
+    if (!window.confirm("Take back host? The current host will stay on as a co-host.")) return;
+    const prev = live.host_id;
+    if (await run("Taking back host", supabase.rpc("reclaim_host", { p_session: live.id })))
+      setLive((s) => (s ? { ...s, host_id: me, cohosts: [...(s.cohosts ?? []).filter((x) => x !== me && x !== prev), ...(prev && prev !== me ? [prev] : [])] } : s));
+  }
   async function takeOver() {
     if (!live) return;
-    if (await run("Taking over", supabase.from("live_sessions").update({ host_id: me }).eq("id", live.id)))
+    if (await run("Taking over", supabase.rpc("reclaim_host", { p_session: live.id })))
       setLive((s) => (s ? { ...s, host_id: me } : s));
   }
   async function sendChat(text: string, kind: "chat" | "question" = "chat", replyTo?: number | null) {
@@ -763,7 +793,7 @@ function useLiveEngine() {
     musicName, musicPlaying, musicVol, musicLoop, setMusicLoop, musicBusy, requests, gone, chat, floats, likes, elapsed, error, setError, notice, setNotice,
     recording, savingRec, needTap, giftShow, mine, cam,
     join, leaveRoom, tapToHear, toggleMute, toggleCam, canVideo, camBg, setCamBg, previewOn, startPreview, stopPreview, flipCam, facing, canFlip, startMusic, pauseMusic, stopMusic, setVolume, react, sendGift, requestCall,
-    makeHost, takeOver, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
+    makeHost, takeOver, setCohost, reclaimHost, handUp, toggleHand, lowerHand, setStatus, hostMute, muteAll, toggleLock, startRecording, saveRecording, endSession, sendChat, pinComment, setBackground, share,
     goLiveNow, startScheduled, remind, joinWithCode, refreshUpcoming,
   };
   return value;
