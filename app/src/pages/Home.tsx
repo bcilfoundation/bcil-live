@@ -157,21 +157,18 @@ export default function Home() {
   );
 }
 
-// "What do you need?": a hexagon card, like the hexagon in the BCIL logo
-const NEEDS: [string, string][] = [
-  ["Plan 2027", "/plan"], ["Meet Solomon", "/meet"],
-  ["Mentorship", "/mentorship"], ["Campus Sync", "/campus"],
-  ["Volunteer for FCB", "/forms?form=fcb27-volunteer"], ["Give", "/donate"],
+// "What do you need?": quick links to what people come for
+const NEEDS: [string, string, string][] = [
+  ["Plan 2027", "Set your goals for the year", "/plan"], ["Meet Solomon", "Book a one-on-one", "/meet"],
+  ["Mentorship", "Get a mentor", "/mentorship"], ["Campus Sync", "Join your campus group", "/campus"],
+  ["Volunteer for FCB", "Serve at FCB 2027", "/forms?form=fcb27-volunteer"], ["Give", "Support the work", "/donate"],
 ];
 function NeedBook() {
   return (
-    <div className="needhex2">
-      <span className="hx-out" aria-hidden="true" /><span className="hx-in" aria-hidden="true" />
-      <div className="hx-content">
-        <span className="hx-bar" aria-hidden="true" />
-        <h2>What do you need?</h2>
-        <div className="hx-grid">{NEEDS.map(([label, to]) => <Link key={label} to={to} className="hx-btn">{label}</Link>)}</div>
-      </div>
+    <div className="needcard">
+      <h2>What do you need?</h2>
+      <p>Tap one to get started.</p>
+      <div className="need-grid">{NEEDS.map(([label, line, to]) => <Link key={label} to={to} className="need-tile"><b>{label}</b><small>{line}</small></Link>)}</div>
     </div>
   );
 }
