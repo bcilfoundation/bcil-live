@@ -19,7 +19,6 @@ export default function LicenceViewer({ onClose }: { onClose: () => void }) {
     <div className="lic-view" role="dialog" aria-label="NPO licence" onClick={onClose}>
       <div className="lic-bar" onClick={(e) => e.stopPropagation()}>
         <b>NPO licence</b>
-        <a className="btn sm" href="/npo-licence.jpg" download="BCIL-NPO-Licence.jpg">Download</a>
         <button className="btn sm primary" onClick={onClose}>✕ Close</button>
       </div>
       <img src="/npo-licence.jpg" alt="BCIL Foundation NPO licence, No. NPOS/CR02/LN04364/26" onClick={(e) => e.stopPropagation()} />
