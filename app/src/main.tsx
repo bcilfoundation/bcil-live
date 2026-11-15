@@ -15,7 +15,11 @@ listenForAppSignIn();
 
 const updateSW = isNative ? () => Promise.resolve() : registerSW({
   immediate: true,
-  onNeedRefresh() { updateSW(true); },
+  // never reload in the middle of a live session: wait until the person has left the room
+  onNeedRefresh() {
+    const go = () => { if ((window as unknown as { __inLive?: boolean }).__inLive) setTimeout(go, 30000); else updateSW(true); };
+    go();
+  },
   onRegisteredSW(_url, reg) { if (reg) setInterval(() => reg.update(), 10 * 60 * 1000); },
 });
 

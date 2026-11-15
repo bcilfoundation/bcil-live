@@ -1168,3 +1168,5 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .npo-card .grow{flex:1;min-width:220px}
 .npo-badge{font-size:1.6rem}
 .npo-line{font-size:.85rem;color:var(--muted);margin:6px 0 12px}
+
+.lic-view{position:fixed;inset:0;z-index:1000;background:rgba(5,12,28,.92);display:flex;flex-direction:column;align-items:center;padding:12px;gap:10px;overflow:auto}.lic-bar{display:flex;gap:8px;align-items:center;width:100%;max-width:900px;color:#fff}.lic-bar b{flex:1}.lic-view img{max-width:min(900px,100%);height:auto;border-radius:8px;background:#fff}.linkbtn{background:none;border:0;padding:0;color:var(--navy);text-decoration:underline;cursor:pointer;font:inherit}

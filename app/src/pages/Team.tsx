@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import Avatar from "../components/Avatar";
+import LicenceViewer from "../components/LicenceViewer";
 
 type Links = { linkedin?: string; facebook?: string; instagram?: string; website?: string; scholar?: string };
 type Member = { id: string; name: string; role: string; team: string; bio: string | null; photo_url: string | null; sort: number; links?: Links | null };
@@ -34,6 +35,7 @@ export default function Team() {
   const { isStaff } = useAuth();
   const [people, setPeople] = useState<Member[] | null>(null);
   const [open, setOpen] = useState<Member | null>(null);
+  const [lic, setLic] = useState(false);
   const [editing, setEditing] = useState<Member | "new" | null>(null);
   const load = () => supabase.from("team_members").select("*").order("sort").order("created_at").then(({ data }) => setPeople((data ?? []) as Member[]));
   useEffect(() => { load(); }, []);
@@ -50,7 +52,8 @@ export default function Team() {
         <div className="grow"><span className="eyebrow">Licensed non-profit</span>
           <p style={{ margin: "4px 0 0" }}>BCIL Foundation is licensed as a <b>National Non-Profit Organisation</b> in Ghana by the Non-Profit Organisation Secretariat, Department of Social Welfare, Ministry of Gender, Children and Social Protection.</p>
           <small className="muted">Licence No. NPOS/CR02/LN04364/26</small></div>
-        <button className="btn sm" onClick={() => openUrl("https://live.bcilfoundation.org/npo-licence.jpg")}>View licence</button>
+        <button className="btn sm" onClick={() => setLic(true)}>View licence</button>
+        {lic && <LicenceViewer onClose={() => setLic(false)} />}
       </div>
       <div className="about-vm">
         <div className="card"><span className="eyebrow">Our vision</span><p>To become a globally recognized leader in youth empowerment by enabling the next generation to discover and fulfill their purpose, realize their full potential and make a meaningful and positive impact in society.</p></div>

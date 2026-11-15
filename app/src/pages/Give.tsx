@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 import { useAuth } from "../lib/auth";
+import LicenceViewer from "../components/LicenceViewer";
 
 type Gift = { id: number; amount_pesewas: number; purpose: string; kind: string; status: string; created_at: string };
 const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027", "Laptop for a student", "Refreshments for students", "Academic Mentorship", "Campus Sync"];
@@ -14,6 +15,7 @@ const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting", f
 // Give any amount to BCIL Foundation (Mobile Money or card through Paystack). 100% goes to BCIL.
 export default function Give() {
   const { isStaff } = useAuth();
+  const [lic, setLic] = useState(false);
   const canPay = paymentsOn(isStaff);
   const [amount, setAmount] = useState("50");
   const [purpose, setPurpose] = useState(PURPOSES[0]);
@@ -46,7 +48,7 @@ export default function Give() {
     <section className="view">
       <h1>Donate to BCIL Foundation</h1>
       <p className="muted">Your gift helps students through Finding Campus Balance, mentorship, Campus Sync and more. 100% goes to BCIL Foundation. GH₵ 20 covers one student's refreshment at FCB, and GH₵ 5,000 buys a laptop for a student.</p>
-      <p className="npo-line">✅ Licensed National Non-Profit Organisation in Ghana · Licence No. NPOS/CR02/LN04364/26 · <a href="https://live.bcilfoundation.org/npo-licence.jpg" target="_blank" rel="noopener">View licence</a></p>
+      <p className="npo-line">✅ Licensed National Non-Profit Organisation in Ghana · Licence No. NPOS/CR02/LN04364/26 · <button className="linkbtn" onClick={() => setLic(true)}>View licence</button>{lic && <LicenceViewer onClose={() => setLic(false)} />}</p>
       {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
       {MOMO && <MomoCard />}
       {!canPay ? (

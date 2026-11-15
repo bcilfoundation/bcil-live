@@ -185,6 +185,7 @@ function useLiveEngine() {
   function presence() { return { name: myName, role: liveRef.current?.host_id === me ? "host" as const : "listener" as const, staff: isStaff, hand: handRef.current, screen: sharingRef.current }; }
   useEffect(() => { room.current?.track(presence()).catch(() => {}); }, [live?.host_id, handUp, sharing]);
   useEffect(() => { setHandUp(0); }, [live?.id]);
+  useEffect(() => { (window as unknown as { __inLive?: boolean }).__inLive = joined; }, [joined]);
   // Callers who left the room (closed the app, lost signal, tapped Leave) stop showing on the stage after a few
   // seconds, and the host's app ends their turn after 20 seconds so the spot is freed for everyone.
   const [gone, setGone] = useState<Set<string>>(new Set());
