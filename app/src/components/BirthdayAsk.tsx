@@ -9,7 +9,7 @@ type Choice = "celebrate" | "private" | "none";
 
 // A one-time question on Home: "When is your birthday?" (day and month only). "Not now" asks again in 30 days.
 export default function BirthdayAsk() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const me = session!.user.id;
   const [open, setOpen] = useState(false);
   const [m, setM] = useState(""); const [d, setD] = useState("");
@@ -21,9 +21,17 @@ export default function BirthdayAsk() {
     supabase.from("profiles").select("birthday_month, birthday_choice").eq("id", me).single().then(({ data, error }) => {
       if (error || !data) return;   // database not updated yet: don't ask
       const r = data as { birthday_month: number | null; birthday_choice: string | null };
-      if (!r.birthday_month && !r.birthday_choice) setTimeout(() => setOpen(true), 1200);
+      if (r.birthday_month || r.birthday_choice) return;
+      // never on top of the app tour: wait until it's finished (or skipped)
+      const w = window as unknown as { __tourOn?: boolean };
+      let toured = !!profile?.toured_at;
+      try { toured = toured || !!localStorage.getItem("bcil.toured"); } catch { /* */ }
+      if (toured && !w.__tourOn) { setTimeout(() => { if (!w.__tourOn) setOpen(true); }, 1500); return; }
+      const after = () => setTimeout(() => setOpen(true), 1500);
+      window.addEventListener("bcil-tour-end", after, { once: true });
     });
   }, [me]);
+  useEffect(() => { const close = () => setOpen(false); window.addEventListener("bcil:tour", close); return () => window.removeEventListener("bcil:tour", close); }, []);
 
   function later() { try { localStorage.setItem(SNOOZE, String(Date.now())); } catch { /* ignore */ } setOpen(false); }
   async function save() {

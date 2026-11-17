@@ -66,8 +66,11 @@ export default function Tour() {
     return () => { clearTimeout(t); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); };
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { (window as unknown as { __tourOn?: boolean }).__tourOn = step !== null; }, [step]);
   function finish() {
     setStep(null);
+    (window as unknown as { __tourOn?: boolean }).__tourOn = false;
+    setTimeout(() => window.dispatchEvent(new Event("bcil-tour-end")), 0);
     try { localStorage.setItem("bcil.toured", "1"); } catch { /* */ }
     if (session) supabase.from("profiles").update({ toured_at: new Date().toISOString() }).eq("id", session.user.id).then(() => {});
   }
