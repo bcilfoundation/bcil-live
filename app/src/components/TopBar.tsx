@@ -145,7 +145,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
   const nav = useNavigate();
 
   function cycleTheme() {
-    const next: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
+    const next: Theme = theme === "dark" ? "light" : theme === "light" ? "auto" : "dark";
     setT(next); setTheme(next);
   }
   useEffect(() => { pushEnabled().then((on) => { if (on) setAlerts(true); }); }, []);

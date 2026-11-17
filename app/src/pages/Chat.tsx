@@ -413,6 +413,7 @@ export default function Chat() {
                 {([["all", "All"], ["unread", "Unread"], ["mentions", "Mentions and replies"]] as const).map(([k, label]) => (
                   <button key={k} className={filter === k ? "on" : ""} aria-pressed={filter === k} onClick={() => setFilter(k)}>{label}</button>))}
               </div>}
+              {curTab === "groups" && <Link to="/groups" className="findgroups"><Icon name="users" size={18} /><span className="grow">Find groups</span><span aria-hidden>›</span></Link>}
               {curTab === "requests" ? (
                 <div className="chanlist wa-list reqlist">
                   {requests.length === 0 ? <p className="muted pad small">No requests right now. When someone asks to be your friend, it shows here. <Link to="/friends">Find people</Link></p>

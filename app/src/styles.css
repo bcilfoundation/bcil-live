@@ -227,9 +227,9 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 }
 
 /* ---------- dark appearance ---------- */
-[data-theme="dark"]{--navy-text:#cfe0fb;--bg:#0b1628;--panel:#121f35;--panel-2:#1a2a45;--line:#26385a;--text:#e8eef8;--muted:#9aaccc;
-  --navy-soft:#1c3157;--accent:#4f86d9;--accent-ink:#fff;color-scheme:dark}
-[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:#0e1a2e;color:var(--text)}
+[data-theme="dark"]{--navy-text:#cfe0fb;--bg:#2a3344;--panel:#323d50;--panel-2:#3d4a61;--line:#48566e;--text:#e6ebf2;--muted:#aab5c7;
+  --navy-soft:#415070;--accent:#4f86d9;--accent-ink:#fff;color-scheme:dark}
+[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:#262f40;color:var(--text)}
 [data-theme="dark"] .btn.ghost{color:#cfdcf0}
 [data-theme="dark"] .avatar,[data-theme="dark"] .datebox,[data-theme="dark"] .seg button[aria-selected="true"],[data-theme="dark"] .bub b,
 [data-theme="dark"] .backlink,[data-theme="dark"] .eyebrow,[data-theme="dark"] .menu a:not(.active),[data-theme="dark"] .tabbar a.active,
@@ -263,7 +263,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .choice{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer;font-weight:500}
 .choice input{width:18px;height:18px;margin:0;accent-color:var(--navy);flex:none}
 .choice.on{border-color:var(--navy);background:var(--navy-soft)}
-[data-theme="dark"] .choice.on{background:#1b2c47}
+[data-theme="dark"] .choice.on{background:#3d4a61}
 .qsection{background:var(--navy);color:#fff;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}.qsection h3{font-size:1.1rem}.qsection .muted{color:#dbe5f4}
 /* audio talks and recording */
 .tile .art.audio{position:relative;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;display:flex;flex-direction:column;justify-content:center;gap:6px}
@@ -298,7 +298,7 @@ textarea{min-height:100px}input:focus,select:focus,textarea:focus{outline:none;b
 .kindpick button.on{background:#fff;color:var(--navy);border-color:#fff}.kindpick button.on small{color:var(--muted)}
 .menu a{display:flex;align-items:center;gap:10px}.morelist a{font-weight:600;font-size:1.02rem;gap:14px}.morelist a svg{color:var(--navy-text,var(--navy))}
 .filebtn{cursor:pointer}.musiccard input[type=range]{padding:0;border:0;accent-color:var(--navy)}
-.chattabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--panel-2);padding:4px;border-radius:16px}
+.chattabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--panel-2);padding:4px;border-radius:16px}
 .chattabs a{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;border-radius:12px;padding:7px 2px;font-weight:700;font-size:.78rem;line-height:1.15;color:var(--muted);min-width:0}
 .chattabs a span{font-size:1.15rem}
 .chattabs a.active{background:var(--panel);color:var(--navy-text,var(--navy));box-shadow:0 1px 3px rgba(10,25,50,.12)}
@@ -950,14 +950,14 @@ html,body{max-width:100%;overflow-x:hidden}
 .chatview .sysmsg{align-self:center;background:#fff;color:#54656f;border-radius:8px;padding:4px 10px;font-size:.75rem;box-shadow:0 1px .5px rgba(11,20,26,.13)}
 .chatview .composer{background:#f0f2f5}
 .chatview .composer input{background:#fff;border:0;color:#13233d;-webkit-text-fill-color:#13233d}
-[data-theme="dark"] .chatview .msgs{background:#0b141a}
-[data-theme="dark"] .chatview .msg .bub{background:#202c33;color:#e9edef}
-[data-theme="dark"] .chatview .msg.mine .bub{background:#005c4b;color:#e9edef;border:0}
-[data-theme="dark"] .chatview .msg.mine .bub b,[data-theme="dark"] .chatview .msg.mine .bub small,[data-theme="dark"] .chatview .bub .mtime{color:#aebac1}
-[data-theme="dark"] .chatview .sysmsg{background:#182229;color:#8696a0}
-[data-theme="dark"] .chatview .composer{background:#202c33}
-[data-theme="dark"] .chatview .composer input{background:#2a3942;color:#e9edef}
-[data-theme="dark"] .wa-filters button.on{background:#0a332c;color:#25d366}
+[data-theme="dark"] .chatview .msgs{background:#252d3c}
+[data-theme="dark"] .chatview .msg .bub{background:#38445b;color:#eef2f7}
+[data-theme="dark"] .chatview .msg.mine .bub{background:#2f6a5a;color:#eef2f7;border:0}
+[data-theme="dark"] .chatview .msg.mine .bub b,[data-theme="dark"] .chatview .msg.mine .bub small,[data-theme="dark"] .chatview .bub .mtime{color:#c3ccd8}
+[data-theme="dark"] .chatview .sysmsg{background:#323d50;color:#aab5c7}
+[data-theme="dark"] .chatview .composer{background:#323d50}
+[data-theme="dark"] .chatview .composer input{background:#3d4a61;color:#eef2f7}
+[data-theme="dark"] .wa-filters button.on{background:#325444;color:#b1e2c8}
 
 /* ---------- Home: Spotlight, What do you need?, Follow BCIL ---------- */
 .spot{margin:10px 0 4px}
@@ -1067,7 +1067,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .hx-core{background:var(--navy)}
 .hx-core img{width:78%;filter:brightness(0) invert(1)}
 .need-values{text-align:center;color:var(--muted);font-size:.74rem;letter-spacing:.02em;margin:10px 0 0}
-[data-theme="dark"] .hx-opt{background:#1d2c45;color:#dbe7fb}
+[data-theme="dark"] .hx-opt{background:#3d4a61;color:#dbe7fb}
 /* "When is your birthday?" sheet */
 .bdaysheet{max-height:88vh}
 .bdaysheet h2{margin:0}.bdaysheet p{margin:0}
@@ -1090,7 +1090,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .hx-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
 .hx-btn{display:grid;place-items:center;text-align:center;min-height:44px;padding:10px 6px;border-radius:12px;background:var(--navy-soft);color:var(--navy-text,var(--navy));font:700 .92rem/1.2 var(--display);text-decoration:none}
 .hx-btn:hover,.hx-btn:focus-visible{background:var(--navy);color:#fff}
-[data-theme="dark"] .hx-btn{background:#1d2c45;color:#dbe7fb}
+[data-theme="dark"] .hx-btn{background:#3d4a61;color:#dbe7fb}
 @media (max-width:360px){.hx-content h2{font-size:1.3rem}.hx-btn{font-size:.82rem;padding:8px 4px}}
 .hx-content{padding:0 11%}
 .bday-opt input{width:auto;flex:none;margin:3px 0 0;min-height:0;padding:0}.bday-opt span{flex:1;text-align:left;min-width:0}
@@ -1137,7 +1137,7 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .glA-go:disabled{opacity:.6}
 .glA-hint{color:var(--muted);text-align:center;font-size:.8rem}
 .glA-note{margin:0;padding:8px 12px;border-radius:10px;background:var(--navy-soft);font-size:.9rem}
-[data-theme="dark"] .glA-seg button.on{background:#2a426b;color:#fff}
+[data-theme="dark"] .glA-seg button.on{background:#46546e;color:#fff}
 [data-theme="dark"] .glA-h{color:#fff}
 /* schedule + invites on the Live tab */
 .glA-mode{margin-bottom:4px}.glA-mode button.on{background:var(--navy);color:#fff}
@@ -1278,3 +1278,5 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .wallopt span{font-size:.75rem;font-weight:700;background:rgba(255,255,255,.85);color:#1e3f78;border-radius:999px;padding:2px 8px}
 .wallopt.on{border-color:#b8862b;box-shadow:0 0 0 2px #b8862b}
 .wallopt.photo{align-items:center;background:var(--navy-soft)}
+
+.findgroups{display:flex;align-items:center;gap:8px;margin:2px 16px 6px;padding:10px 14px;border-radius:12px;background:var(--panel-2);color:var(--navy-text,var(--navy));font-weight:700;font-size:.92rem}
