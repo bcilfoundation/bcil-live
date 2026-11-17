@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ChatTabs from "../components/ChatTabs";
+import Statuses from "../components/Statuses";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -291,6 +292,7 @@ export default function Chat() {
         <div className="chans">
           <div className="chanhead"><h1>Chats</h1><Link to="/friends" className="iconbtn sm" aria-label="Start a conversation with a friend"><Icon name="userplus" size={18} /></Link></div>
           <div className="pad"><ChatTabs /></div>
+          <div className="pad"><Statuses /></div>
           <div className="wa-search"><Icon name="search" size={17} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chats" aria-label="Search chats" />
             {q && <button className="linkbtn" onClick={() => setQ("")} aria-label="Clear search">✕</button>}</div>
           <div className="wa-filters" role="group" aria-label="Show">

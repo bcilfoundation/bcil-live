@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { signInWithGoogle } from "../lib/google";
+import { passkeySupported } from "../lib/passkey";
 import GetApp from "../components/GetApp";
 
 // Turn on once the Google provider is switched on in Supabase
@@ -22,6 +23,8 @@ export default function SignIn() {
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [fp, setFp] = useState(false);
+  useEffect(() => { passkeySupported().then(setFp); }, []);
   const go = (s: Step) => { setStep(s); setError(""); setInfo(""); setCode(""); };
   const validEmail = () => /^\S+@\S+\.\S+$/.test(email.trim());
   async function task(fn: () => Promise<void>) {
@@ -113,6 +116,10 @@ export default function SignIn() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
           Continue with email</button>
         {GOOGLE_READY && <button type="button" className="welcome-btn alt" disabled={busy} onClick={() => task(signInWithGoogle)}><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>}
+        {fp && <button type="button" className="welcome-btn alt" disabled={busy} onClick={() => task(async () => {
+          const { error } = await supabase.auth.signInWithPasskey();
+          if (error) throw new Error(/cancel|abort|NotAllowed|not allowed/i.test(error.message) ? "Fingerprint sign-in was cancelled." : /not found|no passkey|credential/i.test(error.message) ? "No fingerprint sign-in is set up for this device yet. Sign in another way, then turn it on." : error.message);
+        })}><span aria-hidden="true" style={{ fontSize: 18 }}>👆</span>Sign in with fingerprint</button>}
         <button type="button" className="welcome-link" onClick={() => { setWithEmail(true); go("signup"); }}>New here? Create an account</button>
         {error && <p className="err" role="alert">{error}</p>}
         <a className="welcome-privacy" href={`${import.meta.env.BASE_URL}privacy`}>Privacy</a>

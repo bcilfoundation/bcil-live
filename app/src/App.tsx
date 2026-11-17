@@ -34,6 +34,8 @@ const Plan = lazy(() => import("./pages/Plan"));
 const Meet = lazy(() => import("./pages/Meet"));
 const Doc = lazy(() => import("./pages/Doc"));
 import NewsletterSwitch from "./components/NewsletterSwitch";
+import FingerprintSetting from "./components/FingerprintSetting";
+import Tour, { startTour } from "./components/Tour";
 const Search = lazy(() => import("./pages/Search"));
 const Register = lazy(() => import("./pages/Register"));
 const TicketPage = lazy(() => import("./pages/Register").then((m) => ({ default: m.TicketPage })));
@@ -163,6 +165,8 @@ export default function App() {
                   {isStaff && <NavLink to="/admin"><Icon name="shield" size={22} />Admin</NavLink>}
                 </div>
                 <NewsletterSwitch />
+                <FingerprintSetting />
+                <button className="btn ghost" onClick={startTour}>🧭 Take the tour</button>
                 {!isNative && isAndroid && <a className="btn primary" href={APK} download>Get the Android app</a>}
                 {!isNative && isIOS && <p className="muted small">On iPhone: tap ⬆︎ Share in Safari, then <b>Add to Home Screen</b> to install BCIL Foundation.</p>}
                 {!isNative && !isAndroid && !isIOS && <p className="muted small">On your phone, open live.bcilfoundation.org to install the app (Android) or add it to your Home Screen (iPhone).</p>}
@@ -173,6 +177,7 @@ export default function App() {
         </main>
       </div>
       <MiniPlayer />
+      <Tour />
       <nav className="tabbar">
         {([["/", "Home", "home"], ["/live", "Live", "live"], ["/library", "Library", "library"], ["/chat", "Chats", "chat"], ["/donate", "Donate", "gift"], ["/more", "More", "more"]] as const).map(([to, label, icon]) =>
           <NavLink key={to} to={to} end={to === "/"}

@@ -5,6 +5,8 @@ import { useAuth } from "../lib/auth";
 import { isNative } from "../lib/native";
 import HomePosts from "../components/HomePosts";
 import { useStories } from "../components/Stories";
+import Statuses from "../components/Statuses";
+import FingerprintOffer from "../components/FingerprintOffer";
 import Spotlight, { type Slide } from "../components/Spotlight";
 import PersonSheet from "../components/PersonSheet";
 import BirthdayAsk from "../components/BirthdayAsk";
@@ -106,6 +108,8 @@ export default function Home() {
   return (
     <section className="view home">
       <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+      <Statuses />
+      {profile && <FingerprintOffer />}
 
       <Spotlight slides={slides} />
       {isStaff && <button className="linkbtn hpost-add" onClick={() => setManage((m) => !m)}>{manage ? "Done with announcements" : "✏️ Add or edit announcements"}</button>}
