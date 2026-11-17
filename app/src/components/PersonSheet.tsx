@@ -66,6 +66,7 @@ export default function PersonSheet({ userId, close }: { userId: string; close: 
               {link?.status === "pending" && link.addressee === me && <button className="btn primary" disabled={busy} onClick={() => act("Accept", () => supabase.from("friendships").update({ status: "accepted" }).eq("id", link.id))}>Accept friend request</button>}
               {link?.status === "accepted" && <span className="ok">✓ Friends</span>}
               {(link?.status === "accepted" || isStaff) && <button className="btn primary" disabled={busy} onClick={message}><Icon name="chat" size={18} />Message</button>}
+              <button className="btn ghost sm danger" disabled={busy} onClick={async () => { if (!window.confirm(`Block ${p.full_name}? They won't be able to message you, add you or see your statuses.`)) return; setBusy(true); const { error } = await supabase.rpc("block_user", { p_user: userId }); setBusy(false); if (error) setError(error.message); else close(); }}>Block</button>
             </div>
           )}
         </>}

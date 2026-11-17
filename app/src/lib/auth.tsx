@@ -24,8 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshProfile() {
     if (!session) { setProfile(null); return; }
     const cols = "id, full_name, role, avatar_url, bio, is_minor";
-    let { data, error } = await supabase.from("profiles").select(`${cols}, newsletter, toured_at`).eq("id", session.user.id).single();
+    let { data, error } = await supabase.from("profiles").select(`${cols}, newsletter, toured_at, read_receipts, show_online, discoverable, notify_quotes, birthday_month, birthday_day`).eq("id", session.user.id).single();
     // before the newsletter column exists in the database, load the profile without it
+    if (error && !data) ({ data, error } = await supabase.from("profiles").select(`${cols}, newsletter, toured_at`).eq("id", session.user.id).single());
     if (error && !data) ({ data } = await supabase.from("profiles").select(cols).eq("id", session.user.id).single());
     setProfile(data as Profile | null);
     if (data) rememberSession(session, data as { full_name?: string; avatar_url?: string | null });

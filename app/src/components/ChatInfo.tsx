@@ -102,6 +102,7 @@ export default function ChatInfo({ room, me, canCall, onCall, onSearch, onWallpa
         <div className="ci-sec">
           {room.kind === "dm" ? <button className="btn ghost block" onClick={onProfile}>View profile</button> : <button className="btn ghost block" onClick={onGroup}>Group info and members</button>}
           {room.kind === "dm" && <button className="btn ghost block danger" onClick={report}>⚑ Report {room.name.split(" ")[0]}</button>}
+          {room.kind === "dm" && room.otherId && <button className="btn ghost block danger" onClick={async () => { if (!window.confirm(`Block ${room.name}? They won't be able to message you, add you or see your statuses.`)) return; const { error } = await supabase.rpc("block_user", { p_user: room.otherId }); setNote(error ? "Could not block. Try again." : `${room.name.split(" ")[0]} is blocked. You can unblock in Settings → Privacy.`); }}>🚫 Block {room.name.split(" ")[0]}</button>}
         </div>
       </div>
     </div>

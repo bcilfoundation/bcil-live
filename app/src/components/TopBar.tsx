@@ -11,8 +11,8 @@ import Icon from "./Icon";
 
 type Note = { id: number; kind: string; body: string; link: string | null; read_at: string | null; created_at: string; actor?: { full_name: string; avatar_url: string | null } | null };
 
-const ALERTS_KEY = "bcil-alerts";
-const alertsOn = () => { try { return ["on", "push"].includes(localStorage.getItem(ALERTS_KEY) ?? "") && "Notification" in window && Notification.permission === "granted"; } catch { return false; } };
+export const ALERTS_KEY = "bcil-alerts";
+export const alertsOn = () => { try { return ["on", "push"].includes(localStorage.getItem(ALERTS_KEY) ?? "") && "Notification" in window && Notification.permission === "granted"; } catch { return false; } };
 
 // Show a phone/computer alert for a new notification (while the app is open or in the background)
 async function systemAlert(n: Note) {
@@ -106,7 +106,7 @@ export default function TopBar() {
       <button className="iconbtn" onClick={() => { setOpen(""); nav("/chat"); }} aria-label={`Chats${unreadChats ? `, ${unreadChats} unread` : ""}`}>
         <Icon name="chat" />{unreadChats > 0 && <span className="count wa">{unreadChats > 99 ? "99+" : unreadChats}</span>}
       </button>
-      <MeButton active={open === "me"} onClick={() => setOpen(open === "me" ? "" : "me")} />
+      <MeButton active={false} onClick={() => { setOpen(""); nav("/settings"); }} />
 
       {open === "bell" && (
         <div className="pop notes" role="dialog" aria-label="Notifications">
@@ -189,7 +189,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
 }
 
 // your other accounts on this phone, and adding one (for example a personal account next to the BCIL account)
-function AccountSwitch({ me, onClose }: { me?: string; onClose: () => void }) {
+export function AccountSwitch({ me, onClose }: { me?: string; onClose: () => void }) {
   const [list, setList] = useState(savedAccounts());
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -210,7 +210,7 @@ function AccountSwitch({ me, onClose }: { me?: string; onClose: () => void }) {
   );
 }
 
-function EditProfile({ onDone }: { onDone: () => void }) {
+export function EditProfile({ onDone }: { onDone: () => void }) {
   const { session, profile, refreshProfile } = useAuth();
   const [name, setName] = useState(profile?.full_name ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");

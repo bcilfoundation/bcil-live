@@ -7,7 +7,8 @@ export const supabase = createClient(
   { auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } },
 );
 
-export type Profile = { id: string; full_name: string; role: "member" | "mentor" | "moderator" | "admin"; avatar_url?: string | null; bio?: string | null; is_minor?: boolean; newsletter?: boolean };
+export type Profile = { id: string; full_name: string; role: "member" | "mentor" | "moderator" | "admin"; avatar_url?: string | null; bio?: string | null; is_minor?: boolean; newsletter?: boolean;
+  read_receipts?: boolean; show_online?: boolean; discoverable?: "everyone" | "friends_of_friends" | "nobody"; notify_quotes?: boolean; birthday_month?: number | null; birthday_day?: number | null };
 
 export const initials = (name: string) =>
   name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";

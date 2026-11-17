@@ -18,6 +18,8 @@ import Give, { MOMO } from "./pages/Give";
 import Library from "./pages/Library";
 import Quotes from "./pages/Quotes";
 import Friends from "./pages/Friends";
+import Settings from "./pages/Settings";
+import MyGiving from "./pages/MyGiving";
 import Groups, { GroupPage, JoinWithLink } from "./pages/Groups";
 // Live (audio library) and Admin load only when opened, to keep the app light on mobile data
 const Live = lazy(() => import("./pages/Live"));
@@ -129,6 +131,9 @@ export default function App() {
             <Route path="/groups/:id" element={<GroupPage />} />
             <Route path="/join/:code" element={<JoinWithLink />} />
             <Route path="/friends" element={<Friends />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/:section" element={<Settings />} />
+            <Route path="/giving" element={<MyGiving />} />
             <Route path="/forms" element={<Forms />} />
             <Route path="/donate" element={<Give />} />
             <Route path="/give" element={<Navigate to="/donate" replace />} />

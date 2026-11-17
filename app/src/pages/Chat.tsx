@@ -101,6 +101,7 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const readersOk = useRef<Set<string>>(new Set());
 
   async function loadConvs() {
     const [{ data: gs }, { data: dms }, { data: un }] = await Promise.all([
@@ -193,8 +194,14 @@ export default function Chat() {
       .then(({ data }) => setMsgs(((data ?? []) as unknown as Msg[]).reverse()));
     markRead(roomId);
     setReacts({}); setPickFor(null); setReads({});
-    supabase.from("room_members").select("user_id, last_read_at").eq("room_id", roomId).neq("user_id", me).limit(500)
-      .then(({ data }) => setReads(Object.fromEntries(((data ?? []) as { user_id: string; last_read_at: string }[]).map((r) => [r.user_id, r.last_read_at]))));
+    // read receipts only for people who keep them on (and only if you keep yours on)
+    readersOk.current = new Set();
+    supabase.rpc("room_reads", { p_room: roomId }).then(({ data, error }) => {
+      const rows = (data ?? []) as { user_id: string; last_read_at: string }[];
+      if (error) return;
+      readersOk.current = new Set(rows.map((r) => r.user_id));
+      setReads(Object.fromEntries(rows.map((r) => [r.user_id, r.last_read_at])));
+    });
     setMembers([]); setEditing(null); setTags([]); setMentionQ(null);
     supabase.from("room_members").select("user_id, role").eq("room_id", roomId).limit(1000).then(async ({ data }) => {
       const rows = (data ?? []) as { user_id: string; role: string }[];
@@ -230,10 +237,10 @@ export default function Chat() {
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` }, (p) => {
         const r = p.new as { user_id: string; last_read_at: string };
-        if (r.user_id && r.user_id !== me) setReads((cur) => ({ ...cur, [r.user_id]: r.last_read_at }));
+        if (r.user_id && r.user_id !== me && readersOk.current.has(r.user_id)) setReads((cur) => ({ ...cur, [r.user_id]: r.last_read_at }));
       })
       .on("presence", { event: "sync" }, () => setOnline(Object.keys(ch.presenceState()).length))
-      .subscribe((s) => { if (s === "SUBSCRIBED") ch.track({ name: profile?.full_name ?? "" }); });
+      .subscribe((s) => { if (s === "SUBSCRIBED" && profile?.show_online !== false) ch.track({ name: profile?.full_name ?? "" }); });
     // keep unread counts on the list fresh for other rooms
     const all = supabase.channel(`rooms-list:${me}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
