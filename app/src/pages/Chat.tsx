@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import ChatTabs from "../components/ChatTabs";
 import Statuses from "../components/Statuses";
+import EmojiPanel from "../components/EmojiPanel";
+import ChatInfo from "../components/ChatInfo";
+import WallpaperSheet from "../components/WallpaperSheet";
+import { getWall, isDarkWall, wallStyle } from "../lib/wallpaper";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -41,7 +45,18 @@ export default function Chat() {
   const roomId = params.get("room");
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "unread" | "dm" | "groups">("all");
+  const [filter, setFilter] = useState<"all" | "unread" | "mentions">("all");
+  const [tab, setTab] = useState<"dm" | "groups" | "requests" | null>(null);
+  const [requests, setRequests] = useState<{ id: number; requester: string; name: string; avatar: string | null }[]>([]);
+  const [mentionRooms, setMentionRooms] = useState<Set<string>>(new Set());
+  const [showInfo, setShowInfo] = useState(false);
+  const [showWall, setShowWall] = useState(false);
+  const [wall, setWallState] = useState("none");
+  const [findQ, setFindQ] = useState<string | null>(null);
+  const [findIdx, setFindIdx] = useState(0);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [rec, setRec] = useState<{ start: number; secs: number } | null>(null);
+  const recRef = useRef<{ mr: MediaRecorder; chunks: Blob[]; stream: MediaStream; cancel?: boolean; secs?: number } | null>(null);
   const openRoom = useRef<string | null>(roomId);
   openRoom.current = roomId;
   const [unread, setUnread] = useState<Record<string, number>>({});
@@ -106,7 +121,36 @@ export default function Chat() {
     const firstDm = list.find((c) => c.kind === "dm");
     if (!roomId && firstDm && window.matchMedia("(min-width: 761px)").matches) setParams({ room: firstDm.id }, { replace: true });
   }
-  useEffect(() => { loadConvs(); }, []);
+  useEffect(() => { loadConvs(); loadRequests(); loadMentions(); }, []);
+  async function loadRequests() {
+    const { data } = await supabase.from("friendships").select("id, requester").eq("addressee", me).eq("status", "pending").limit(100);
+    const rows = (data ?? []) as { id: number; requester: string }[];
+    if (!rows.length) { setRequests([]); return; }
+    const { data: ps } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", rows.map((r) => r.requester));
+    const by = new Map(((ps ?? []) as { id: string; full_name: string; avatar_url: string | null }[]).map((p) => [p.id, p]));
+    setRequests(rows.map((r) => ({ id: r.id, requester: r.requester, name: by.get(r.requester)?.full_name || "Member", avatar: by.get(r.requester)?.avatar_url ?? null })));
+  }
+  // conversations where someone tagged me or replied to me in the last two weeks
+  async function loadMentions() {
+    const since = new Date(Date.now() - 14 * 864e5).toISOString();
+    const [{ data: tagged }, { data: mine }] = await Promise.all([
+      supabase.from("messages").select("room_id").or(`mentions.cs.{${me}},mention_all.eq.true`).neq("user_id", me).gte("created_at", since).limit(300),
+      supabase.from("messages").select("id").eq("user_id", me).gte("created_at", since).order("created_at", { ascending: false }).limit(300),
+    ]);
+    const set = new Set(((tagged ?? []) as { room_id: string }[]).map((r) => r.room_id));
+    const ids = ((mine ?? []) as { id: number }[]).map((r) => r.id);
+    if (ids.length) {
+      const { data: rep } = await supabase.from("messages").select("room_id").in("reply_to", ids).neq("user_id", me).limit(300);
+      ((rep ?? []) as { room_id: string }[]).forEach((r) => set.add(r.room_id));
+    }
+    setMentionRooms(set);
+  }
+  async function answerRequest(r: { id: number; requester: string }, ok: boolean) {
+    const { error } = ok ? await supabase.from("friendships").update({ status: "accepted" }).eq("id", r.id) : await supabase.from("friendships").delete().eq("id", r.id);
+    if (error) { setError(/row-level security/i.test(error.message) ? "This connection isn't allowed. Under-18 members can connect with BCIL staff and mentors only." : "That didn't work. Try again."); return; }
+    setRequests((cur) => cur.filter((x) => x.id !== r.id));
+    if (ok) { const { data } = await supabase.rpc("start_dm", { other: r.requester }); if (data) { await loadConvs(); setTab("dm"); setParams({ room: data as string }); } }
+  }
 
   // last message, time and unread count for each conversation (newest first, like WhatsApp)
   async function withPreviews(list: Conv[]): Promise<Conv[]> {
@@ -200,6 +244,67 @@ export default function Chat() {
   }, [roomId]);
 
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [msgs.length]);
+  useEffect(() => {
+    const upd = () => setWallState(getWall(me, roomId));
+    upd(); setFindQ(null); setEmojiOpen(false); setShowInfo(false);
+    window.addEventListener("bcil-wall", upd); return () => window.removeEventListener("bcil-wall", upd);
+  }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // search in this chat: jump between matching messages
+  const found = findQ && findQ.trim().length > 1 ? msgs.filter((m) => !m.deleted_at && m.body?.toLowerCase().includes(findQ.trim().toLowerCase())).map((m) => m.id).reverse() : [];
+  useEffect(() => { setFindIdx(0); }, [findQ]);
+  useEffect(() => { if (found.length) jumpTo(found[Math.min(findIdx, found.length - 1)]); }, [findIdx, found.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  function insertEmoji(e: string) {
+    const el = inputRef.current;
+    const at = el?.selectionStart ?? text.length, to = el?.selectionEnd ?? text.length;
+    const v = text.slice(0, at) + e + text.slice(to);
+    setText(v);
+    setTimeout(() => { if (el) { el.selectionStart = el.selectionEnd = at + e.length; } }, 0);
+  }
+  // voice notes: tap the mic to record, then send or delete
+  async function startRec() {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Voice notes aren't supported on this device."); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t));
+      const mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+      const r: { mr: MediaRecorder; chunks: Blob[]; stream: MediaStream; cancel?: boolean; secs?: number } = { mr, chunks: [] as Blob[], stream, cancel: false };
+      recRef.current = r;
+      mr.ondataavailable = (e) => { if (e.data.size) r.chunks.push(e.data); };
+      mr.onstop = () => { stream.getTracks().forEach((t) => t.stop()); if (!r.cancel) sendVoice(r.chunks, mr.mimeType || type || "audio/webm", r.secs ?? 1); };
+      mr.start(500);
+      const start = Date.now(); setRec({ start, secs: 0 });
+    } catch { setError("Allow the microphone to record a voice note."); }
+  }
+  useEffect(() => {
+    if (!rec) return;
+    const t = setInterval(() => setRec((r) => { if (!r) return r; const secs = Math.floor((Date.now() - r.start) / 1000); if (secs >= 300) stopRec(false); return { ...r, secs }; }), 500);
+    return () => clearInterval(t);
+  }, [!!rec]); // eslint-disable-line react-hooks/exhaustive-deps
+  function stopRec(cancel: boolean) {
+    const r = recRef.current; if (!r) return;
+    r.cancel = cancel || (rec ? Date.now() - rec.start < 800 : false);
+    r.secs = rec ? Math.max(1, Math.round((Date.now() - rec.start) / 1000)) : 1;
+    if (r.mr.state !== "inactive") r.mr.stop();
+    recRef.current = null; setRec(null);
+  }
+  useEffect(() => () => { if (recRef.current) { recRef.current.cancel = true; recRef.current.mr.stop(); } }, [roomId]);
+  async function sendVoice(chunks: Blob[], type: string, secs: number) {
+    if (!room || !chunks.length) return;
+    const blob = new Blob(chunks, { type: type.split(";")[0] });
+    setSending(true);
+    try {
+      const ext = /mp4/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
+      const path = `${me}/${Date.now()}-voice.${ext}`;
+      const up = await supabase.storage.from("chat-files").upload(path, blob, { contentType: blob.type || "audio/webm" });
+      if (up.error) throw up.error;
+      const reply = replyTo; setReplyTo(null);
+      const { error } = await supabase.from("messages").insert({ room_id: room.id, user_id: me, body: "", attachment_url: supabase.storage.from("chat-files").getPublicUrl(path).data.publicUrl,
+        attachment_name: `Voice note (${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")})`, attachment_type: "audio", attachment_size: blob.size, ...(reply ? { reply_to: reply.id } : {}) });
+      if (error) throw error;
+    } catch (e) { setError("Could not send the voice note: " + ((e as Error).message || "try again")); }
+    setSending(false);
+  }
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -295,35 +400,67 @@ export default function Chat() {
           <div className="pad"><Statuses /></div>
           <div className="wa-search"><Icon name="search" size={17} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chats" aria-label="Search chats" />
             {q && <button className="linkbtn" onClick={() => setQ("")} aria-label="Clear search">✕</button>}</div>
-          <div className="wa-filters" role="group" aria-label="Show">
-            {([["all", "All"], ["unread", `Unread${Object.values(unread).filter((n) => n > 0).length ? ` ${Object.values(unread).filter((n) => n > 0).length}` : ""}`], ["dm", "People"], ["groups", "Groups"]] as const).map(([k, label]) => (
-              <button key={k} className={filter === k ? "on" : ""} aria-pressed={filter === k} onClick={() => setFilter(k)}>{label}</button>))}
-          </div>
-          {convs === null ? <p className="muted pad">Loading…</p> : (() => {
-            const items = convs.filter((c) => (filter === "all" || (filter === "unread" ? (unread[c.id] ?? 0) > 0 : filter === "dm" ? c.kind === "dm" : c.kind !== "dm"))
-              && (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase())));
-            return <ChanList items={items} roomId={roomId} unread={unread} me={me} onPick={(id) => setParams({ room: id })}
-              empty={<p className="muted pad small">{q ? "No chats match that name." : filter === "unread" ? "You're all caught up." : <>Add friends, then message them here. <Link to="/friends">Find people</Link></>}</p>} />;
+          {(() => {
+            const curTab = tab ?? (convs?.some((c) => c.kind === "dm") ? "dm" : "groups");
+            const unreadIn = (k: "dm" | "groups") => (convs ?? []).filter((c) => (k === "dm" ? c.kind === "dm" : c.kind !== "dm") && (unread[c.id] ?? 0) > 0).length;
+            return <>
+              <div className="seg chatseg" role="tablist" aria-label="Chat type">
+                <button role="tab" aria-selected={curTab === "dm"} onClick={() => setTab("dm")}>Direct{unreadIn("dm") ? <b className="segn">{unreadIn("dm")}</b> : null}</button>
+                <button role="tab" aria-selected={curTab === "groups"} onClick={() => setTab("groups")}>Groups{unreadIn("groups") ? <b className="segn">{unreadIn("groups")}</b> : null}</button>
+                <button role="tab" aria-selected={curTab === "requests"} onClick={() => setTab("requests")}>Requests{requests.length ? <b className="segn red">{requests.length}</b> : null}</button>
+              </div>
+              {curTab !== "requests" && <div className="wa-filters" role="group" aria-label="Show">
+                {([["all", "All"], ["unread", "Unread"], ["mentions", "Mentions and replies"]] as const).map(([k, label]) => (
+                  <button key={k} className={filter === k ? "on" : ""} aria-pressed={filter === k} onClick={() => setFilter(k)}>{label}</button>))}
+              </div>}
+              {curTab === "requests" ? (
+                <div className="chanlist wa-list reqlist">
+                  {requests.length === 0 ? <p className="muted pad small">No requests right now. When someone asks to be your friend, it shows here. <Link to="/friends">Find people</Link></p>
+                    : requests.map((r) => (
+                      <div key={r.id} className="reqrow">
+                        <button className="plainbtn" onClick={() => setPerson(r.requester)} aria-label={`See ${r.name}'s profile`}><Avatar name={r.name} url={r.avatar} size={48} /></button>
+                        <span className="wa-mid"><b>{r.name}</b><small className="muted">wants to be your friend</small></span>
+                        <button className="btn primary sm" onClick={() => answerRequest(r, true)}>Accept</button>
+                        <button className="btn ghost sm" onClick={() => answerRequest(r, false)} aria-label={`Decline ${r.name}`}>✕</button>
+                      </div>))}
+                </div>
+              ) : convs === null ? <p className="muted pad">Loading…</p> : (() => {
+                const items = convs.filter((c) => (curTab === "dm" ? c.kind === "dm" : c.kind !== "dm")
+                  && (filter === "all" || (filter === "unread" ? (unread[c.id] ?? 0) > 0 : mentionRooms.has(c.id)))
+                  && (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase())));
+                return <ChanList items={items} roomId={roomId} unread={unread} me={me} onPick={(id) => setParams({ room: id })}
+                  empty={<p className="muted pad small">{q ? "No chats match that name." : filter === "unread" ? "You're all caught up." : filter === "mentions" ? "No one has tagged you or replied to you lately." : curTab === "dm" ? <>Add friends, then message them here. <Link to="/friends">Find people</Link></> : "You're not in any groups yet."}</p>} />;
+              })()}
+            </>;
           })()}
         </div>
         <div className="room">
           {!room ? <div className="center muted">Pick a conversation.</div> : <>
             <div className="roomhead">
               <button className="iconbtn sm backonly" onClick={() => nav("/chat")} aria-label="Back to chats"><Icon name="back" size={20} /></button>
-              <button className="plainbtn roomhead-who" onClick={() => (room.kind === "dm" ? room.otherId && setPerson(room.otherId) : nav(`/groups/${room.id}`))}
-                aria-label={room.kind === "dm" ? `See ${room.name}'s profile` : `About ${room.name}: description, members, leave group`}>
+              <button className="plainbtn roomhead-who" onClick={() => setShowInfo(true)} aria-label={`Chat info for ${room.name}`}>
                 {room.kind === "dm" ? <Avatar name={room.name} url={room.avatar} size={40} /> : <ChanIcon c={room} />}
                 <span className="grow"><b>{room.name}</b>
-                  <small className="muted">{room.kind === "dm" ? "Tap for profile" : `${room.members ?? ""} members · tap for group info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
+                  <small className="muted">{room.kind === "dm" ? "Tap for chat info" : `${room.members ?? ""} members · tap for info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
               </button>
               {room.kind === "dm" && canCall && <div className="callbtns">
                 <button className="iconbtn callbtn" disabled={calling} onClick={() => call("audio")} aria-label={`Voice call ${room.name}`} title="Voice call">📞</button>
                 <button className="iconbtn callbtn" disabled={calling} onClick={() => call("video")} aria-label={`Video call ${room.name}`} title="Video call">🎥</button>
               </div>}
+              <button className="iconbtn sm" onClick={() => setShowInfo(true)} aria-label="More options">⋮</button>
               {room.kind === "group" && room.leader && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name } } })} aria-label={`Go live with ${room.name}`}>● Live</button>}
             </div>
-            <div className="msgs">
-              <div className="sysmsg">Be kind. Never send money to anyone in chat.</div>
+            {findQ !== null && (
+              <div className="findbar">
+                <input autoFocus value={findQ} onChange={(e) => setFindQ(e.target.value)} placeholder="Search in this chat" aria-label="Search in this chat" />
+                <small className="muted">{findQ.trim().length > 1 ? (found.length ? `${Math.min(findIdx, found.length - 1) + 1} of ${found.length}` : "None") : ""}</small>
+                <button className="iconbtn sm" disabled={!found.length} onClick={() => setFindIdx((i) => (i + 1) % found.length)} aria-label="Older match">↑</button>
+                <button className="iconbtn sm" disabled={!found.length} onClick={() => setFindIdx((i) => (i - 1 + found.length) % found.length)} aria-label="Newer match">↓</button>
+                <button className="linkbtn" onClick={() => setFindQ(null)}>Done</button>
+              </div>
+            )}
+            <div className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+              <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
                 const newDay = i === 0 || day(msgs[i - 1].created_at) !== day(m.created_at);
@@ -345,7 +482,9 @@ export default function Chat() {
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
                         {m.attachment_url && m.attachment_type === "image" && (
                           <button className="plainbtn msgimg" onClick={() => setViewImg(m.attachment_url!)}><img src={m.attachment_url} alt={m.attachment_name ?? "Photo"} loading="lazy" /></button>)}
-                        {m.attachment_url && m.attachment_type !== "image" && (
+                        {m.attachment_url && m.attachment_type === "audio" && (
+                          <div className="msgvoice"><span aria-hidden="true">🎤</span><audio controls preload="none" src={m.attachment_url} aria-label={m.attachment_name ?? "Voice note"} /></div>)}
+                        {m.attachment_url && m.attachment_type !== "image" && m.attachment_type !== "audio" && (
                           <button className="plainbtn msgfile" onClick={() => openFile(m)}>
                             <span className="msgfile-ico" aria-hidden="true">{fileIcon(m.attachment_name)}</span>
                             <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
@@ -393,16 +532,38 @@ export default function Chat() {
                 <span className="grow"><b>{file.name}</b><small className="muted">{fileSize(file.size)}{sending ? " · sending…" : " · add a message or tap Send"}</small></span>
                 {!sending && <button className="linkbtn" onClick={clearFile} aria-label="Remove file">✕</button>}</div>
             )}
-            <form className="composer" onSubmit={send}>
-              {canPost && <label className="attachbtn" aria-label="Add a photo or document" title="Add a photo or document">📎
-                <input type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} /></label>}
-              <input ref={inputRef} value={text} onChange={(e) => onType(e.target.value)} disabled={!canPost}
-                placeholder={canPost ? "Write a message" : "Only admins can post here"} aria-label="Message" />
-              <button className="btn primary" disabled={!canPost || sending || (!text.trim() && !file)}>{sending ? "…" : editing ? "Save" : "Send"}</button>
+            {emojiOpen && canPost && !rec && <EmojiPanel onPick={insertEmoji} />}
+            {rec ? (
+              <div className="composer recbar" role="group" aria-label="Recording a voice note">
+                <button type="button" className="iconbtn" onClick={() => stopRec(true)} aria-label="Delete recording">🗑</button>
+                <span className="recdot" aria-hidden="true" /><b className="rectime">{Math.floor(rec.secs / 60)}:{String(rec.secs % 60).padStart(2, "0")}</b>
+                <span className="grow muted small">Recording… tap send when you're done</span>
+                <button type="button" className="btn primary sendround" onClick={() => stopRec(false)} aria-label="Send voice note">➤</button>
+              </div>
+            ) : (
+            <form className="composer" onSubmit={(e) => { setEmojiOpen(false); send(e); }}>
+              <div className="composebox">
+                {canPost && <button type="button" className="emojibtn" onClick={() => { setEmojiOpen((o) => !o); if (emojiOpen) setTimeout(() => inputRef.current?.focus(), 0); }} aria-label={emojiOpen ? "Show keyboard" : "Emojis"} aria-pressed={emojiOpen}>{emojiOpen ? "⌨️" : "😊"}</button>}
+                <input ref={inputRef} value={text} onChange={(e) => onType(e.target.value)} disabled={!canPost} onFocus={() => setEmojiOpen(false)}
+                  placeholder={canPost ? "Message" : "Only admins can post here"} aria-label="Message" />
+                {canPost && <label className="attachbtn" aria-label="Add a photo or document" title="Add a photo or document">📎
+                  <input type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} /></label>}
+                {canPost && !text && !file && <label className="attachbtn" aria-label="Take a photo" title="Take a photo">📷
+                  <input type="file" hidden accept="image/*" capture="environment" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} /></label>}
+              </div>
+              {canPost && !editing && !text.trim() && !file
+                ? <button type="button" className="btn primary sendround" onClick={startRec} disabled={sending} aria-label="Record a voice note">🎤</button>
+                : <button className="btn primary sendround" disabled={!canPost || sending || (!text.trim() && !file)} aria-label={editing ? "Save" : "Send"}>{sending ? "…" : editing ? "✓" : "➤"}</button>}
             </form>
+            )}
             {error && <p className="err pad" role="alert">{error}</p>}
           </>}
           {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
+          {showInfo && room && <ChatInfo room={room} me={me} canCall={canCall} onClose={() => setShowInfo(false)}
+            onCall={(k) => { setShowInfo(false); call(k); }} onSearch={() => { setShowInfo(false); setFindQ(""); }} onWallpaper={() => { setShowInfo(false); setShowWall(true); }}
+            onProfile={() => { setShowInfo(false); if (room.otherId) setPerson(room.otherId); }} onGroup={() => nav(`/groups/${room.id}`)}
+            onOpenRoom={(id) => { setShowInfo(false); setTab("groups"); setParams({ room: id }); }} />}
+          {showWall && room && <WallpaperSheet me={me} room={room.id} roomName={room.name} onClose={() => setShowWall(false)} />}
           {infoFor && (() => {
             const others = members.filter((p) => p.id !== me);
             const readers = others.filter((p) => reads[p.id] && Date.parse(reads[p.id]) >= Date.parse(infoFor.created_at))
@@ -458,7 +619,7 @@ function ChanList({ items, roomId, unread, me, onPick, empty }: { items: Conv[];
         const l = c.last;
         const who = !l?.user ? "" : l.user === me ? "You: " : c.kind !== "dm" ? `${(l.name || "Member").split(" ")[0]}: ` : "";
         const what = !l || (!l.body && !l.type) ? (c.kind === "dm" ? "Say hello 👋" : c.sub)
-          : l.body ? l.body : l.type === "image" ? "📷 Photo" : "📄 Document";
+          : l.body ? l.body : l.type === "image" ? "📷 Photo" : l.type === "audio" ? "🎤 Voice note" : "📄 Document";
         return (
           <button key={c.id} aria-current={c.id === roomId} className={n > 0 ? "unread" : ""} onClick={() => onPick(c.id)}
             aria-label={`${c.name}${n ? `, ${n} unread` : ""}`}>
