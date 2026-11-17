@@ -34,11 +34,17 @@ export async function switchTo(id: string): Promise<string | null> {
   return null;
 }
 
-// add another account: keep this one saved and go to the sign-in screen (without signing this one out everywhere)
+// add another account: keep this one saved and go to the sign-in screen.
+// We only clear the sign-in stored on this phone. Signing out properly would cancel the saved sign-in on the server,
+// and then switching back to this account wouldn't work.
 export async function addAccount() {
   const { data } = await supabase.auth.getSession();
   if (data.session) rememberSession(data.session);
-  await supabase.auth.signOut({ scope: "local" });
+  const key = (supabase.auth as unknown as { storageKey?: string }).storageKey;
+  try {
+    if (key) { localStorage.removeItem(key); localStorage.removeItem(`${key}-code-verifier`); localStorage.removeItem(`${key}-user`); }
+  } catch { /* */ }
+  location.assign(`${import.meta.env.BASE_URL}`);
 }
 
 // sign out of this account on this phone and forget it here
