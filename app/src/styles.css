@@ -1330,3 +1330,16 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .sttally{display:flex;justify-content:center;gap:10px;font-size:.95rem;padding:2px 10px}
 .stburst{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);font-size:5rem;animation:stburst .9s ease-out forwards;pointer-events:none;z-index:960}
 @keyframes stburst{0%{opacity:0;transform:translate(-50%,-30%) scale(.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-90%) scale(1)}}
+.strow .string{width:66px!important;height:66px!important;box-sizing:border-box}
+.strow .string img,.strow .string .stini{width:60px!important;height:60px!important;max-width:none!important;border-radius:50%!important;object-fit:cover;display:grid}
+.hellorow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.hellorow .hello{margin:0}
+.ststack{display:flex;align-items:center;padding:3px 6px 3px 3px;border-radius:999px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+.ststack.new{border-color:#b8862b;box-shadow:0 0 0 1px #b8862b}
+.stface{position:relative;width:34px;height:34px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font:700 .75rem var(--display);background:var(--navy-soft);color:var(--navy-text,var(--navy));border:2px solid var(--panel);flex:none}
+.stface+.stface{margin-left:-12px}
+.stface img{width:100%!important;height:100%!important;object-fit:cover;max-width:none!important}
+.stface.mine{overflow:visible}.stface.mine img{border-radius:50%}
+.stface.mine b{position:absolute;right:-5px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:#b8862b;color:#fff;font-size:.75rem;display:grid;place-items:center;border:2px solid var(--panel)}
+.stexpand{flex-basis:100%;animation:stdown .2s ease-out}
+@keyframes stdown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}

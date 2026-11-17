@@ -107,8 +107,10 @@ export default function Home() {
 
   return (
     <section className="view home">
-      <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
-      <Statuses />
+      <div className="hellorow">
+        <p className="hello">{hello}, {profile?.full_name.split(" ")[0] || "friend"} 👋</p>
+        <Statuses compact />
+      </div>
       {profile && <FingerprintOffer />}
 
       <Spotlight slides={slides} />

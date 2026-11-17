@@ -13,12 +13,13 @@ const REACTS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "🙏"];
 const BGS = ["#1e3f78", "#0f766e", "#7c2d12", "#6d28d9", "#b8862b", "#be123c", "#111827"];
 const ago = (iso: string) => { const m = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
 
-export default function Statuses() {
+export default function Statuses({ compact = false }: { compact?: boolean }) {
   const { session, profile } = useAuth();
   const me = session?.user.id;
   const [feed, setFeed] = useState<FeedRow[]>([]);
   const [view, setView] = useState<number | null>(null);   // index into feed
   const [compose, setCompose] = useState(false);
+  const [open, setOpen] = useState(false);
   const load = useCallback(async () => {
     const { data } = await supabase.rpc("status_feed");
     setFeed((data as FeedRow[] | null) ?? []);
@@ -33,8 +34,7 @@ export default function Statuses() {
   const mine = feed.find((f) => f.user_id === me);
   const others = feed.filter((f) => f.user_id !== me);
   const myName = profile?.full_name ?? "";
-  return (
-    <>
+  const row = (
       <div className="strow" role="list" aria-label="Statuses">
         <div className="stitem" role="listitem">
           <button className="stcirc mine" onClick={() => (mine ? setView(feed.indexOf(mine)) : setCompose(true))} aria-label={mine ? "View your status" : "Add a status"}>
@@ -55,7 +55,8 @@ export default function Statuses() {
             <small>{f.full_name.split(" ")[0]}</small>
           </div>
         ))}
-      </div>
+      </div>);
+  const modals = (<>
       {compose && <Composer me={me} onClose={() => setCompose(false)} onPosted={() => { setCompose(false); load(); }} />}
       {view !== null && feed[view] && (
         <Viewer key={feed[view].user_id} row={feed[view]} me={me}
@@ -63,6 +64,20 @@ export default function Statuses() {
           onPrev={() => view > 0 && setView(view - 1)}
           onClose={() => { setView(null); load(); }} onAdd={() => { setView(null); setCompose(true); }} />
       )}
+  </>);
+  if (!compact) return <>{row}{modals}</>;
+  // Home: a small stack of faces at the top; tap it to open the full row
+  const faces = [...others.filter((f) => f.unseen), ...others.filter((f) => !f.unseen)].slice(0, 3);
+  const unseen = others.some((f) => f.unseen);
+  return (
+    <>
+      <button className={`ststack${unseen ? " new" : ""}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        aria-label={others.length ? `Statuses from ${others.length} ${others.length === 1 ? "person" : "people"}. Tap to ${open ? "hide" : "show"}` : `Statuses. Tap to ${open ? "hide" : "show"}`}>
+        {faces.length ? faces.map((f) => <span key={f.user_id} className="stface">{f.avatar_url ? <img src={f.avatar_url} alt="" /> : initials(f.full_name)}</span>)
+          : <span className="stface mine">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials(myName)}<b>+</b></span>}
+      </button>
+      {open && <div className="stexpand">{row}</div>}
+      {modals}
     </>
   );
 }

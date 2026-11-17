@@ -10,7 +10,7 @@ type Step = { sel?: string[]; title: string; text: string };
 const nav = (path: string) => [`.tabbar a[href$="${path}"]`, `.side .menu a[href$="${path}"]`];
 const STEPS: Step[] = [
   { title: "Welcome to BCIL Foundation 👋", text: "Here's a quick look around. It takes less than a minute." },
-  { sel: [".strow"], title: "Statuses", text: "Share a photo or a short message with the community. It disappears after 24 hours." },
+  { sel: [".ststack", ".strow"], title: "Statuses", text: "Tap here to see statuses from the community, or share your own photo or message. Statuses disappear after 24 hours." },
   { sel: [".needcard"], title: "What do you need?", text: "Start here to plan your year, meet Solomon, find a mentor, join Campus Sync, volunteer or give." },
   { sel: nav("/live"), title: "Live", text: "Join live sessions and meetings. You can listen, raise your hand to speak, and catch up on recordings." },
   { sel: nav("/library"), title: "Library", text: "Talks, the reading room and the bookshop." },
