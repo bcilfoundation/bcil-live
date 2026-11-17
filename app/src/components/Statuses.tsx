@@ -9,6 +9,7 @@ import { uploadPhoto } from "../lib/media";
 
 type FeedRow = { user_id: string; full_name: string; avatar_url: string | null; count: number; latest: string; unseen: number };
 type Status = { id: number; user_id: string; kind: "photo" | "text"; media_url: string | null; body: string | null; bg: string | null; created_at: string };
+const REACTS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "🙏"];
 const BGS = ["#1e3f78", "#0f766e", "#7c2d12", "#6d28d9", "#b8862b", "#be123c", "#111827"];
 const ago = (iso: string) => { const m = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
 
@@ -136,7 +137,10 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
   const [pct, setPct] = useState(0);
   const [reply, setReply] = useState("");
   const [note, setNote] = useState("");
-  const [viewers, setViewers] = useState<{ name: string; at: string }[] | null>(null);
+  const [viewers, setViewers] = useState<{ name: string; at: string; emoji?: string }[] | null>(null);
+  const [mine, setMine] = useState<string | null>(null);
+  const [burst, setBurst] = useState<string | null>(null);
+  const [tally, setTally] = useState<Record<string, number>>({});
   const isMine = row.user_id === me;
   useEffect(() => {
     supabase.from("statuses").select("id,user_id,kind,media_url,body,bg,created_at").eq("user_id", row.user_id)
@@ -151,7 +155,14 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
   // mark as seen
   useEffect(() => {
     if (cur && !isMine) supabase.from("status_views").insert({ status_id: cur.id, viewer_id: me }).then(() => {});
-    setPct(0); setViewers(null);
+    setPct(0); setViewers(null); setMine(null); setTally({});
+    if (cur && !isMine) supabase.from("status_reactions").select("emoji").eq("status_id", cur.id).eq("user_id", me).maybeSingle()
+      .then(({ data }) => setMine((data as { emoji: string } | null)?.emoji ?? null));
+    if (cur && isMine) supabase.from("status_reactions").select("emoji").eq("status_id", cur.id).then(({ data }) => {
+      const t: Record<string, number> = {};
+      for (const r of (data ?? []) as { emoji: string }[]) t[r.emoji] = (t[r.emoji] ?? 0) + 1;
+      setTally(t);
+    });
   }, [cur?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // timer: photos 6s, text 7s
   useEffect(() => {
@@ -172,8 +183,22 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
   const prev = () => (i > 0 ? setI(i - 1) : onPrev());
   async function seenBy() {
     if (!cur) return;
-    const { data } = await supabase.from("status_views").select("seen_at, profiles:viewer_id(full_name)").eq("status_id", cur.id).order("seen_at", { ascending: false });
-    setViewers(((data ?? []) as unknown as { seen_at: string; profiles: { full_name: string } | null }[]).map((v) => ({ name: v.profiles?.full_name ?? "Member", at: v.seen_at })));
+    const [{ data }, { data: rx }] = await Promise.all([
+      supabase.from("status_views").select("viewer_id, seen_at, profiles:viewer_id(full_name)").eq("status_id", cur.id).order("seen_at", { ascending: false }),
+      supabase.from("status_reactions").select("user_id, emoji").eq("status_id", cur.id)]);
+    const em = new Map(((rx ?? []) as { user_id: string; emoji: string }[]).map((r) => [r.user_id, r.emoji]));
+    setViewers(((data ?? []) as unknown as { viewer_id: string; seen_at: string; profiles: { full_name: string } | null }[])
+      .map((v) => ({ name: v.profiles?.full_name ?? "Member", at: v.seen_at, emoji: em.get(v.viewer_id) }))
+      .sort((a, b) => (b.emoji ? 1 : 0) - (a.emoji ? 1 : 0)));
+  }
+  async function react(e: string) {
+    if (!cur) return;
+    const off = mine === e;
+    setMine(off ? null : e);
+    if (!off) { setBurst(e); setTimeout(() => setBurst(null), 900); }
+    const r = off ? await supabase.from("status_reactions").delete().eq("status_id", cur.id).eq("user_id", me)
+      : await supabase.from("status_reactions").upsert({ status_id: cur.id, user_id: me, emoji: e }, { onConflict: "status_id,user_id" });
+    if (r.error) { setMine(mine); setNote("Could not react. Try again."); }
   }
   async function del() {
     if (!cur || !window.confirm("Delete this status?")) return;
@@ -223,7 +248,14 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
         <button className="sttap left" onClick={prev} aria-label="Previous" />
         <button className="sttap right" onClick={next} aria-label="Next" />
       </div>
+      {burst && <span className="stburst" aria-hidden="true">{burst}</span>}
       {note && <p className="stnote">{note}</p>}
+      {!isMine && (
+        <div className="streacts" role="group" aria-label="React to this status">
+          {REACTS.map((e) => <button key={e} className={mine === e ? "on" : ""} aria-pressed={mine === e} onClick={() => react(e)} aria-label={e === "❤️" ? "Like" : `React ${e}`}>{e}</button>)}
+        </div>
+      )}
+      {isMine && Object.keys(tally).length > 0 && <div className="sttally">{Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([e, n]) => <span key={e}>{e} {n}</span>)}</div>}
       {isMine ? (
         <div className="stfoot">
           <button className="chip" onClick={seenBy}>👁 Seen by</button>
@@ -239,7 +271,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
         <div className="sheet-back" onClick={() => setViewers(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h3>Seen by {viewers.length}</h3>
-            {viewers.length ? viewers.map((v, k) => <div key={k} className="row" style={{ justifyContent: "space-between", padding: "6px 0" }}><span>{v.name}</span><small className="muted">{ago(v.at)}</small></div>)
+            {viewers.length ? viewers.map((v, k) => <div key={k} className="row" style={{ justifyContent: "space-between", padding: "6px 0", gap: 8 }}><span className="grow">{v.name}</span>{v.emoji && <span style={{ fontSize: "1.2rem" }}>{v.emoji}</span>}<small className="muted">{ago(v.at)}</small></div>)
               : <p className="muted">No one has seen it yet.</p>}
             <button className="btn" onClick={() => setViewers(null)}>Close</button>
           </div>
