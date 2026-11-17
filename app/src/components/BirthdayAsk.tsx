@@ -21,7 +21,7 @@ export default function BirthdayAsk() {
     supabase.from("profiles").select("birthday_month, birthday_choice").eq("id", me).single().then(({ data, error }) => {
       if (error || !data) return;   // database not updated yet: don't ask
       const r = data as { birthday_month: number | null; birthday_choice: string | null };
-      if (r.birthday_month || r.birthday_choice) return;
+      if (r.birthday_month || r.birthday_choice || profile?.is_org) return;
       // never on top of the app tour: wait until it's finished (or skipped)
       const w = window as unknown as { __tourOn?: boolean };
       let toured = !!profile?.toured_at;

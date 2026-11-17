@@ -60,7 +60,7 @@ export default function Settings() {
         <button className="setava" onClick={() => setEditing(true)} aria-label="Change your photo">
           <Avatar name={profile?.full_name} url={profile?.avatar_url} size={64} /><span className="setcam" aria-hidden="true">📷</span></button>
         <div className="grow"><b className="setname">{profile?.full_name || "Your name"}<Tick id={me} size={16} /></b>
-          <small className="muted">{session?.user.email ?? session?.user.phone}</small></div>
+          <small className="muted">{profile?.is_org ? "Official BCIL Foundation account" : session?.user.email ?? session?.user.phone}</small></div>
       </div>
       {editing && <div className="settings-edit"><EditProfile onDone={() => setEditing(false)} /></div>}
       <div className="setquick">
@@ -218,6 +218,11 @@ function Privacy() {
 }
 
 function profileSteps(p: ReturnType<typeof useAuth>["profile"]) {
+  if (p?.is_org) return [
+    { key: "photo", label: "Add the BCIL logo as the photo", done: !!p?.avatar_url },
+    { key: "bio", label: "Write a short description", done: !!p?.bio?.trim() },
+    { key: "alerts", label: "Turn on notifications", done: alertsOn() },
+  ];
   return [
     { key: "photo", label: "Add a profile photo", done: !!p?.avatar_url },
     { key: "name", label: "Use your full name", done: (p?.full_name ?? "").trim().split(/\s+/).length >= 2 },

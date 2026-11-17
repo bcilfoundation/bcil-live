@@ -170,7 +170,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
         <span className="tick"><Icon name="check" size={20} /></span>
       </div>
       <AccountSwitch me={session?.user.id} onClose={onClose} />
-      <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />Edit profile and birthday</button>
+      <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />{profile?.is_org ? "Edit profile" : "Edit profile and birthday"}</button>
       <button className="menubtn" onClick={() => { onClose(); nav("/friends"); }}><Icon name="users" size={18} />Friends</button>
       {realStaff && <button className="menubtn" onClick={() => { setViewAsMember(!viewAsMember); onClose(); nav("/"); }}><Icon name="star" size={18} />{viewAsMember ? "Back to admin view" : "View as member"}</button>}
       <div className="menurow"><span>Appearance</span>
@@ -256,9 +256,9 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
       </div>
       <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
-      <label className="field">About you <small className="muted">(optional)</small>
+      <label className="field">{profile?.is_org ? "About BCIL Foundation" : "About you"} <small className="muted">(optional)</small>
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} placeholder="e.g. Level 200, KNUST · BCIL Campus Sync" style={{ minHeight: 70 }} /></label>
-      {bd.ok && <fieldset className="field bdayfield">
+      {bd.ok && !profile?.is_org && <fieldset className="field bdayfield">
         <legend>Birthday <small className="muted">(optional · day and month only)</small></legend>
         <div className="row" style={{ gap: 8 }}>
           <select aria-label="Birthday day" value={bd.d} onChange={(e) => setBd({ ...bd, d: e.target.value })}><option value="">Day</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select>
