@@ -1217,8 +1217,8 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .stview .sheet-back{z-index:950}.stview .sheet{z-index:951}
 /* app tour */
 .tour{position:fixed;inset:0;z-index:1200}
-.tour-dim{position:fixed;inset:0;background:rgba(5,12,28,.62)}
-.tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(5,12,28,.62);outline:2px solid #e0b04a;transition:all .25s ease;pointer-events:none}
+.tour-dim{position:fixed;inset:0;background:rgba(5,12,28,.78)}
+.tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(5,12,28,.78);outline:2px solid #e0b04a;transition:all .25s ease;pointer-events:none}
 .tour-card{position:fixed;background:var(--panel);color:var(--text);border-radius:16px;padding:14px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35);max-width:340px;width:calc(100vw - 24px)}
 .tour-card h3{margin:2px 0 4px;font:800 1.1rem/1.25 var(--display)}
 .tour-card p{margin:0 0 12px;font-size:.93rem;line-height:1.45}
