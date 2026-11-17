@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Tick from "../components/Tick";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import { initials, supabase } from "../lib/supabase";
@@ -399,7 +400,7 @@ export default function Live() {
         <div className="sheet"><h3>In the room · {Math.max(people.length, 1)}</h3>
           {hands.length > 0 && <p className="muted small">✋ {hands.length} raised hand{hands.length > 1 ? "s" : ""}, in the order they were raised</p>}
           <div className="sheet-list">{[...people].sort((a, b) => (a.role === "host" ? -1 : b.role === "host" ? 1 : 0) || ((a.hand || 9e15) - (b.hand || 9e15))).map((p) => (
-            <div key={p.id} className="row"><button className="plainbtn row" style={{ gap: 10, flex: 1, minWidth: 0 }} onClick={() => setPerson(p.id)}><div className="ava sm">{initials(p.name)}</div><span className="grow" style={{ textAlign: "left" }}>{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}</span></button>{p.role === "host" && <span className="tag">HOST</span>}
+            <div key={p.id} className="row"><button className="plainbtn row" style={{ gap: 10, flex: 1, minWidth: 0 }} onClick={() => setPerson(p.id)}><div className="ava sm">{initials(p.name)}</div><span className="grow" style={{ textAlign: "left" }}>{p.hand ? "✋ " : ""}{p.id === me ? "You" : p.name}<Tick id={p.id} size={13} /></span></button>{p.role === "host" && <span className="tag">HOST</span>}
               {canManage && !!p.hand && p.id !== me && <button className="chip" onClick={() => L.lowerHand(p.id)}>Lower</button>}
               {cohosts.includes(p.id) && p.role !== "host" && <span className="tag">CO-HOST</span>}
               {amHost && p.id !== me && p.role !== "host" && <button className="chip" onClick={() => L.setCohost(p.id, !cohosts.includes(p.id))}>{cohosts.includes(p.id) ? "Remove co-host" : "Make co-host"}</button>}

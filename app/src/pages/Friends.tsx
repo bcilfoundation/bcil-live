@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Tick from "../components/Tick";
 import ChatTabs from "../components/ChatTabs";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -77,7 +78,7 @@ export default function Friends() {
     return (
       <div className="person">
         <Avatar name={p.full_name} url={p.avatar_url} size={46} />
-        <div className="grow"><b>{p.full_name}</b>{ROLE_LABEL[p.role] && <span className="pill soon">{ROLE_LABEL[p.role]}</span>}
+        <div className="grow"><b>{p.full_name}<Tick id={p.id} size={14} /></b>{ROLE_LABEL[p.role] && <span className="pill soon">{ROLE_LABEL[p.role]}</span>}
           {p.bio && <small className="muted clamp">{p.bio}</small>}</div>
         <div className="acts">{children}</div>
       </div>

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { signInWithGoogle } from "../lib/google";
 import { passkeySupported } from "../lib/passkey";
+import { savedAccounts, switchTo } from "../lib/accounts";
+import Avatar from "../components/Avatar";
 import GetApp from "../components/GetApp";
 
 // Turn on once the Google provider is switched on in Supabase
@@ -24,6 +26,7 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
 
   const [fp, setFp] = useState(false);
+  const [saved, setSaved] = useState(savedAccounts());
   useEffect(() => { passkeySupported().then(setFp); }, []);
   const go = (s: Step) => { setStep(s); setError(""); setInfo(""); setCode(""); };
   const validEmail = () => /^\S+@\S+\.\S+$/.test(email.trim());
@@ -112,6 +115,10 @@ export default function SignIn() {
         <h1>Grooming Generational Leaders</h1>
         <p>Sign in to continue</p>
         {info && <p className="ok" role="status">{info}</p>}
+        {saved.length > 0 && <div className="savedaccts">
+          {saved.map((a) => <button key={a.id} type="button" className="welcome-btn alt savedacct" disabled={busy} onClick={() => task(async () => { const e = await switchTo(a.id); if (e) { setSaved(savedAccounts()); throw new Error(e); } })}>
+            <Avatar name={a.name} url={a.avatar} size={28} /><span className="grow">Continue as <b>{a.name.split(" ")[0]}</b></span></button>)}
+        </div>}
         <button type="button" className="welcome-btn" onClick={() => setWithEmail(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
           Continue with email</button>

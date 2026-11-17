@@ -1283,3 +1283,9 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 [data-theme="dark"] .chatview .composebox{background:#3d4a61;border-color:#48566e}
 [data-theme="dark"] .chatview .composebox input{color:#eef2f7!important;-webkit-text-fill-color:#eef2f7}
 [data-theme="dark"] .chatview .composebox input::placeholder{color:#aab5c7;-webkit-text-fill-color:#aab5c7}
+.vtick{display:inline-grid;place-items:center;vertical-align:-2px;margin-left:4px;flex:none}
+.vtick.staff{color:#1d9bf0}.vtick.mentor{color:#c9a227}
+.acctlist{display:flex;flex-direction:column;border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:4px}
+.menubtn.acct{gap:10px}.menubtn.acct .grow{display:flex;flex-direction:column;text-align:left;min-width:0}.menubtn.acct small{overflow:hidden;text-overflow:ellipsis}
+.savedaccts{display:flex;flex-direction:column;gap:8px;width:100%}
+.savedacct{gap:10px;justify-content:flex-start}

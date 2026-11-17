@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import Tick from "./Tick";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
@@ -208,7 +209,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
       <div className="stbars">{items.map((s, k) => <span key={s.id}><i style={{ width: `${k < i ? 100 : k === i ? pct : 0}%` }} /></span>)}</div>
       <div className="sthead">
         <span className="stava">{row.avatar_url ? <img src={row.avatar_url} alt="" /> : initials(row.full_name)}</span>
-        <div><b>{isMine ? "You" : row.full_name}</b><small>{ago(cur.created_at)}</small></div>
+        <div><b>{isMine ? "You" : row.full_name}{!isMine && <Tick id={row.user_id} size={14} />}</b><small>{ago(cur.created_at)}</small></div>
         <span style={{ flex: 1 }} />
         {isMine ? <button className="sthbtn" onClick={del} aria-label="Delete status">🗑</button>
           : <button className="sthbtn" onClick={report} aria-label="Report status">⚑</button>}

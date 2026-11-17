@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { rememberSession } from "./accounts";
 import { supabase, type Profile } from "./supabase";
 
 // isStaff is what the screens use. realStaff is the true role; an admin can switch on "view as member"
@@ -16,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); if (s) rememberSession(s); });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // before the newsletter column exists in the database, load the profile without it
     if (error && !data) ({ data } = await supabase.from("profiles").select(cols).eq("id", session.user.id).single());
     setProfile(data as Profile | null);
+    if (data) rememberSession(session, data as { full_name?: string; avatar_url?: string | null });
   }
   useEffect(() => { refreshProfile(); }, [session?.user.id]);
 

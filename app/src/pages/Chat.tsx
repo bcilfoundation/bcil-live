@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Tick from "../components/Tick";
 import ChatTabs from "../components/ChatTabs";
 import Statuses from "../components/Statuses";
 import EmojiPanel from "../components/EmojiPanel";
@@ -420,7 +421,7 @@ export default function Chat() {
                     : requests.map((r) => (
                       <div key={r.id} className="reqrow">
                         <button className="plainbtn" onClick={() => setPerson(r.requester)} aria-label={`See ${r.name}'s profile`}><Avatar name={r.name} url={r.avatar} size={48} /></button>
-                        <span className="wa-mid"><b>{r.name}</b><small className="muted">wants to be your friend</small></span>
+                        <span className="wa-mid"><b>{r.name}<Tick id={r.requester} size={14} /></b><small className="muted">wants to be your friend</small></span>
                         <button className="btn primary sm" onClick={() => answerRequest(r, true)}>Accept</button>
                         <button className="btn ghost sm" onClick={() => answerRequest(r, false)} aria-label={`Decline ${r.name}`}>✕</button>
                       </div>))}
@@ -441,7 +442,7 @@ export default function Chat() {
               <button className="iconbtn sm backonly" onClick={() => nav("/chat")} aria-label="Back to chats"><Icon name="back" size={20} /></button>
               <button className="plainbtn roomhead-who" onClick={() => setShowInfo(true)} aria-label={`Chat info for ${room.name}`}>
                 {room.kind === "dm" ? <Avatar name={room.name} url={room.avatar} size={40} /> : <ChanIcon c={room} />}
-                <span className="grow"><b>{room.name}</b>
+                <span className="grow"><b>{room.name}{room.kind === "dm" && <Tick id={room.otherId} />}</b>
                   <small className="muted">{room.kind === "dm" ? "Tap for chat info" : `${room.members ?? ""} members · tap for info`}{online > 1 && <>, <span className="ok">{online} online</span></>}</small></span>
               </button>
               {room.kind === "dm" && canCall && <div className="callbtns">
@@ -478,7 +479,7 @@ export default function Chat() {
                       onDoubleClick={() => startReply(m)}>
                       {!mine && <span className="msgav">{!sameAuthor && <button className="plainbtn" onClick={() => setPerson(m.user_id)} aria-label={`See ${nameOf(m)}'s profile`}><Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={32} /></button>}</span>}
                       <div className={`bub${sel === m.id ? " sel" : ""}`} onClick={(e) => { if (!(e.target as HTMLElement).closest("button,a")) setSel(sel === m.id ? null : m.id); }}>
-                        {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}</button>}
+                        {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}<Tick id={m.user_id} size={13} /></button>}
                         {m.reply_to && <button className="quote-in" onClick={() => m.reply_to && jumpTo(m.reply_to)}>
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
                         {m.attachment_url && m.attachment_type === "image" && (
@@ -626,7 +627,7 @@ function ChanList({ items, roomId, unread, me, onPick, empty }: { items: Conv[];
             aria-label={`${c.name}${n ? `, ${n} unread` : ""}`}>
             {c.kind === "dm" ? <Avatar name={c.name} url={c.avatar} size={48} /> : <ChanIcon c={c} />}
             <span className="wa-mid">
-              <span className="wa-top"><b>{c.name}</b>{c.at && <small className="wa-time">{listTime(c.at)}</small>}</span>
+              <span className="wa-top"><b>{c.name}{c.kind === "dm" && <Tick id={c.otherId} size={14} />}</b>{c.at && <small className="wa-time">{listTime(c.at)}</small>}</span>
               <span className="wa-bot"><span className="wa-prev">{who}{what.replace(/\s+/g, " ")}</span>{n > 0 && <span className="wa-count">{n > 99 ? "99+" : n}</span>}</span>
             </span>
           </button>

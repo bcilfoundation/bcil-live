@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { addAccount, savedAccounts, signOutHere, switchTo } from "../lib/accounts";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -168,6 +169,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
         <div className="grow"><b>{profile?.full_name || "Your name"}</b><small className="muted">{session?.user.email ?? session?.user.phone}</small></div>
         <span className="tick"><Icon name="check" size={20} /></span>
       </div>
+      <AccountSwitch me={session?.user.id} onClose={onClose} />
       <button className="menubtn" onClick={() => setEditing(true)}><Icon name="pencil" size={18} />Edit profile and birthday</button>
       <button className="menubtn" onClick={() => { onClose(); nav("/friends"); }}><Icon name="users" size={18} />Friends</button>
       {realStaff && <button className="menubtn" onClick={() => { setViewAsMember(!viewAsMember); onClose(); nav("/"); }}><Icon name="star" size={18} />{viewAsMember ? "Back to admin view" : "View as member"}</button>}
@@ -178,10 +180,32 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
         <button className={`switch${alerts ? " on" : ""}`} role="switch" aria-checked={alerts} onClick={toggleAlerts} aria-label="Alerts on this device"><span /></button>
       </div>
       {msg && <p className="err">{msg}</p>}
-      <button className="menubtn danger" onClick={() => supabase.auth.signOut()}><Icon name="logout" size={18} />Sign out</button>
+      <button className="menubtn danger" onClick={() => signOutHere()}><Icon name="logout" size={18} />Sign out</button>
       <div className="menufoot">
         <a href={`${import.meta.env.BASE_URL}privacy`} onClick={(e) => { e.preventDefault(); onClose(); nav("/privacy"); }}>Privacy</a>
       </div>
+    </div>
+  );
+}
+
+// your other accounts on this phone, and adding one (for example a personal account next to the BCIL account)
+function AccountSwitch({ me, onClose }: { me?: string; onClose: () => void }) {
+  const [list, setList] = useState(savedAccounts());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { const f = () => setList(savedAccounts()); window.addEventListener("bcil-accounts", f); return () => window.removeEventListener("bcil-accounts", f); }, []);
+  const others = list.filter((a) => a.id !== me);
+  return (
+    <div className="acctlist">
+      {others.map((a) => (
+        <button key={a.id} className="menubtn acct" disabled={!!busy} onClick={async () => { setBusy(a.id); setErr(""); const e = await switchTo(a.id); setBusy(null); if (e) setErr(e); else { onClose(); location.assign(`${import.meta.env.BASE_URL}`); } }}>
+          <Avatar name={a.name} url={a.avatar} size={30} />
+          <span className="grow"><b>{a.name}</b><small className="muted">{busy === a.id ? "Switching…" : a.email}</small></span>
+          <span className="muted small">Switch</span>
+        </button>
+      ))}
+      <button className="menubtn" onClick={async () => { onClose(); await addAccount(); }}><Icon name="userplus" size={18} />Add another account</button>
+      {err && <p className="err small">{err}</p>}
     </div>
   );
 }

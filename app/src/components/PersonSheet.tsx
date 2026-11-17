@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Tick from "./Tick";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -51,7 +52,7 @@ export default function PersonSheet({ userId, close }: { userId: string; close: 
         {!p ? <p className="muted">Loading…</p> : <>
           <div className="ps-head">
             <Avatar name={p.full_name} url={p.avatar_url} size={72} />
-            <div className="grow"><h3>{p.full_name || "Member"}</h3>
+            <div className="grow"><h3>{p.full_name || "Member"}<Tick id={p.id} size={18} /></h3>
               {ROLE_LABEL[p.role] && <span className="pill soon">{ROLE_LABEL[p.role]}</span>}</div>
             <button className="linkbtn" onClick={close} aria-label="Close">✕</button>
           </div>
