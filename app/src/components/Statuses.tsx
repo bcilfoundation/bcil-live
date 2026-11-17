@@ -53,7 +53,6 @@ export default function Statuses() {
             <small>{f.full_name.split(" ")[0]}</small>
           </div>
         ))}
-        {!others.length && <p className="stempty muted">When people share a status, it shows here for 24 hours.</p>}
       </div>
       {compose && <Composer me={me} onClose={() => setCompose(false)} onPosted={() => { setCompose(false); load(); }} />}
       {view !== null && feed[view] && (
