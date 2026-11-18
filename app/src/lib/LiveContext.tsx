@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { isNative, startLiveService, stopLiveService } from "./native";
-import { MixRecorder, uploadAudio } from "./recorder";
+import { GridRecorder, MixRecorder, saveToDevice, uploadAudio } from "./recorder";
 import type { IAgoraRTCClient, IMicrophoneAudioTrack, ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack, IBufferSourceAudioTrack } from "agora-rtc-sdk-ng";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
@@ -89,7 +89,8 @@ function useLiveEngine() {
   const speakerRef = useRef(false);
   const stayIn = useRef(false);          // true while the person wants to be in the room (drives auto-reconnect)
   const reconnecting = useRef(false);
-  const recRef = useRef<MixRecorder | null>(null);      // host-side recording of the whole room
+  const recRef = useRef<MixRecorder | null>(null);
+  const vidRec = useRef<GridRecorder | null>(null);   // video sessions: the picture of the room      // host-side recording of the whole room
   const liveRef = useRef<Session | null>(null);
 
   // ---------- sessions ----------
@@ -624,6 +625,10 @@ function useLiveEngine() {
       return;
     }
     recRef.current = r; setRecording(true);
+    // video sessions also record the picture: every camera on screen, with names, plus the room's sound
+    if (liveRef.current?.kind === "video" && GridRecorder.supported()) {
+      try { const v = new GridRecorder(() => document.querySelector(".vgrid"), r.audioTrack); v.start(); vidRec.current = v; } catch { vidRec.current = null; }
+    }
     if (liveRef.current) await supabase.from("live_sessions").update({ recording: true }).eq("id", liveRef.current.id);
     setNotice("Recording. Everyone sees a ● REC badge. It will be saved as a draft in the Library when you stop or end the session.");
   }
@@ -631,6 +636,17 @@ function useLiveEngine() {
     const r = recRef.current, sess = liveRef.current;
     if (!r) return;
     recRef.current = null; setRecording(false); setSavingRec(true);
+    const v = vidRec.current; vidRec.current = null;
+    if (v) {
+      try {
+        const vb = await v.stop();
+        if (vb.size > 50_000) {
+          const d = new Date().toISOString().slice(0, 10);
+          const title = (sess?.title ?? "BCIL session").replace(/[^\w -]+/g, "").trim() || "BCIL session";
+          saveToDevice(vb, `${title} ${d}.${vb.type.includes("mp4") ? "mp4" : "webm"}`);
+        }
+      } catch { /* the sound is still saved below */ }
+    }
     setNotice("Saving the recording to the Library… keep this page open.");
     try {
       const seconds = Math.round((Date.now() - r.startedAt) / 1000);
@@ -643,7 +659,7 @@ function useLiveEngine() {
         live_session_id: sess?.id ?? null, created_by: me, status: "draft",
       });
       if (sess) await supabase.from("live_sessions").update({ recording: false, recording_url: url }).eq("id", sess.id);
-      setNotice("Recording saved as a draft. Open the Library → Drafts to trim, edit and publish it.");
+      setNotice(v ? "Saved. The video was downloaded to this device, and the sound is a draft in the Library → Drafts." : "Recording saved as a draft. Open the Library → Drafts to trim, edit and publish it.");
     } catch (e) {
       setError("The recording could not be saved: " + ((e as Error).message ?? "unknown error"));
     } finally { setSavingRec(false); }

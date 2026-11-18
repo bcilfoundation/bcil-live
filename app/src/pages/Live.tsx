@@ -231,7 +231,8 @@ export default function Live() {
   const waiting = requests.filter((r) => r.status === "waiting");
   // listeners who switched their camera on (video sessions work like Zoom)
   const stageUids = new Set([live?.host_id, ...onStage.map((r) => r.user_id)].filter(Boolean).map((id) => String(agoraUid(id as string))));
-  const guestCams = Object.entries(L.remoteVideo).filter(([uid]) => !stageUids.has(uid))
+  const presentUids = new Set(people.map((p) => String(agoraUid(p.id))));
+  const guestCams = Object.entries(L.remoteVideo).filter(([uid]) => !stageUids.has(uid) && (people.length === 0 || presentUids.has(uid)))
     .map(([uid, track]) => ({ uid, track, name: people.find((p) => String(agoraUid(p.id)) === uid)?.name ?? "Guest" }));
   const meGuestCam = (L.camOn || L.sharing) && !amHost && !onStage.some((r) => r.user_id === me);
   // my own picture: the shared screen while sharing, otherwise the camera
