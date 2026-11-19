@@ -10,6 +10,7 @@ import FingerprintOffer from "../components/FingerprintOffer";
 import Spotlight, { type Slide } from "../components/Spotlight";
 import PersonSheet from "../components/PersonSheet";
 import BirthdayAsk from "../components/BirthdayAsk";
+import GenderAsk from "../components/GenderAsk";
 import type { SpotlightRow } from "../components/CelebrationsAdmin";
 import { biteDay, shareBite } from "./Quotes";
 import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when, type Ev } from "../lib/events";
@@ -145,6 +146,7 @@ export default function Home() {
       </>}
 
       <BirthdayAsk />
+      <GenderAsk />
       {person && <PersonSheet userId={person} close={() => setPerson(null)} />}
       {star && <div className="lightbox starsheet" role="dialog" aria-label={`Spotlight: ${star.name}`} onClick={() => setStar(null)}>
         <div className="card" onClick={(e) => e.stopPropagation()}>

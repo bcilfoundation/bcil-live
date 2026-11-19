@@ -228,6 +228,7 @@ function profileSteps(p: ReturnType<typeof useAuth>["profile"]) {
     { key: "name", label: "Use your full name", done: (p?.full_name ?? "").trim().split(/\s+/).length >= 2 },
     { key: "bio", label: "Write a short bio", done: !!p?.bio?.trim() },
     { key: "birthday", label: "Add your birthday", done: !!p?.birthday_month && !!p?.birthday_day },
+    { key: "gender", label: "Add your gender", done: !!p?.gender },
     { key: "alerts", label: "Turn on notifications", done: alertsOn() },
   ];
 }

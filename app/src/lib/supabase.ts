@@ -8,7 +8,7 @@ export const supabase = createClient(
 );
 
 export type Profile = { id: string; full_name: string; role: "member" | "mentor" | "moderator" | "admin"; avatar_url?: string | null; bio?: string | null; is_minor?: boolean; newsletter?: boolean;
-  read_receipts?: boolean; show_online?: boolean; discoverable?: "everyone" | "friends_of_friends" | "nobody"; notify_quotes?: boolean; birthday_month?: number | null; birthday_day?: number | null; toured_at?: string | null; is_org?: boolean };
+  read_receipts?: boolean; show_online?: boolean; discoverable?: "everyone" | "friends_of_friends" | "nobody"; notify_quotes?: boolean; birthday_month?: number | null; birthday_day?: number | null; toured_at?: string | null; is_org?: boolean; gender?: "male" | "female" | "prefer_not" | null };
 
 export const initials = (name: string) =>
   name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";

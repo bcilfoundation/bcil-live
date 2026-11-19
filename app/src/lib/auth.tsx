@@ -28,6 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // before the newsletter column exists in the database, load the profile without it
     if (error && !data) ({ data, error } = await supabase.from("profiles").select(`${cols}, newsletter, toured_at`).eq("id", session.user.id).single());
     if (error && !data) ({ data } = await supabase.from("profiles").select(cols).eq("id", session.user.id).single());
+    // gender lives in a private table (only you and staff can see it)
+    if (data) { const { data: pp, error: pe } = await supabase.from("profile_private").select("gender").eq("user_id", session.user.id).maybeSingle();
+      (data as Profile).gender = pe ? undefined : (pp as { gender: Profile["gender"] } | null)?.gender ?? null; }
     setProfile(data as Profile | null);
     if (data) rememberSession(session, data as { full_name?: string; avatar_url?: string | null });
   }

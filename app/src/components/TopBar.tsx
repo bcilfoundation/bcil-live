@@ -220,6 +220,7 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
   const file = useRef<HTMLInputElement>(null);
   // birthday: day and month only, so BCIL can celebrate it (loaded separately so older databases still work)
   const [bd, setBd] = useState({ m: "", d: "", show: true, ok: false });
+  const [gender, setGender] = useState<string>(profile?.gender ?? "");
   useEffect(() => {
     supabase.from("profiles").select("birthday_month, birthday_day, show_birthday").eq("id", session!.user.id).single()
       .then(({ data, error }) => { if (!error && data) { const r = data as { birthday_month: number | null; birthday_day: number | null; show_birthday: boolean };
@@ -240,8 +241,11 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
     if ((bd.m && !bd.d) || (!bd.m && bd.d)) { setBusy(false); setErr("Choose both the day and the month of your birthday."); return; }
     const { error } = await supabase.from("profiles").update({ full_name: name.trim(), bio: bio.trim() || null, avatar_url: photo,
       ...(bd.ok ? { birthday_month: bd.m ? Number(bd.m) : null, birthday_day: bd.d ? Number(bd.d) : null, show_birthday: bd.show, ...(bd.m && bd.d ? { birthday_choice: bd.show ? "celebrate" : "private" } : {}) } : {}) }).eq("id", session!.user.id);
+    let gErr = null;
+    if (!error && !profile?.is_org && gender && gender !== (profile?.gender ?? ""))
+      ({ error: gErr } = await supabase.from("profile_private").upsert({ user_id: session!.user.id, gender, updated_at: new Date().toISOString() }));
     setBusy(false);
-    if (error) { setErr("Could not save. Check your connection and try again."); return; }
+    if (error || gErr) { setErr("Could not save. Check your connection and try again."); return; }
     await refreshProfile(); onDone();
   }
   return (
@@ -266,6 +270,10 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
         </div>
         {bd.m && bd.d && <label className="row small" style={{ gap: 8, marginTop: 6 }}><input type="checkbox" checked={bd.show} onChange={(e) => setBd({ ...bd, show: e.target.checked })} /> Celebrate my birthday on Home so others can wish me well</label>}
       </fieldset>}
+      {!profile?.is_org && <label className="field">Gender <small className="muted">(only you and BCIL staff can see this)</small>
+        <select value={gender} onChange={(e) => setGender(e.target.value)}>
+          <option value="" disabled>Choose…</option><option value="male">Male</option><option value="female">Female</option><option value="prefer_not">Prefer not to say</option>
+        </select></label>}
       {err && <p className="err">{err}</p>}
       <button className="btn primary" disabled={busy}>Save</button>
     </form>

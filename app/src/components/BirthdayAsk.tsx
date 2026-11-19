@@ -46,6 +46,10 @@ export default function BirthdayAsk() {
     if (error) { setErr("Could not save. Check your connection and try again."); return; }
     setOpen(false);
   }
+  useEffect(() => {   // let the gender question wait until this sheet is closed
+    const w = window as unknown as { __bdayOpen?: boolean };
+    w.__bdayOpen = open; if (!open) window.dispatchEvent(new Event("bcil-bday-closed"));
+  }, [open]);
   if (!open) return null;
   const max = m ? DAYS_IN[Number(m) - 1] : 31;
   const opts: [Choice, string, string][] = [
