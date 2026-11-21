@@ -1365,3 +1365,10 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .sheet .stshare-card { box-shadow: 0 2px 10px rgba(0,0,0,.12); border: 1px solid rgba(0,0,0,.06); }
 .stshare-open { position: relative; z-index: 3; }
 .evstatus { margin-top: 6px; background: rgba(255,255,255,.15); color: #fff; border-color: rgba(255,255,255,.35); }
+
+/* meeting request: remove a document before sending, and the check sheet */
+.filepill { display: inline-flex; align-items: center; gap: 6px; }
+.filex { border: 0; background: rgba(0,0,0,.08); color: inherit; border-radius: 50%; width: 20px; height: 20px; line-height: 20px; padding: 0; cursor: pointer; font-size: .7rem; }
+.mreview { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 10px 0 16px; }
+.mreview dt { color: var(--muted); font-size: .88rem; }
+.mreview dd { margin: 0; }
