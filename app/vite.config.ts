@@ -16,7 +16,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/bcil-live\.apk$/, /^\/privacy/, /^\/bite-relay/, /^\/npo-licence/],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // big optional parts (PDF reader, camera backgrounds, FCB photos) download only when used, to save mobile data
-        globIgnores: ["**/pdf*.{js,mjs}", "**/agora-extension-virtual-background*", "**/fcb/**"],
+        globIgnores: ["**/pdf*.{js,mjs}", "**/agora-extension-virtual-background*", "**/fcb/**", "**/shorts/**"],
       },
       manifest: {
         name: "BCIL Foundation",

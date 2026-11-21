@@ -17,7 +17,7 @@ import { EVENT_COLS, bgFor, countdown, img, isOnNow, nextSession, sessions, when
 
 type Quote = { id: number; body: string; author: string; show_on: string };
 type Session = { id: string; title: string; starts_at: string; status: string };
-type Post = { id: string; title: string; body: string | null; image_url: string | null; link_url: string | null; link_label: string | null; ends_on: string | null; published: boolean };
+type Post = { id: string; title: string; body: string | null; image_url: string | null; link_url: string | null; link_label: string | null; ends_on: string | null; published: boolean; video_url?: string | null };
 type NewItem = { id: string; title: string; sub: string; cover: string | null; to: string; at: string; icon: string };
 const NEW_FOR_DAYS = 7;   // new books and talks stay on Home this long
 
@@ -29,6 +29,7 @@ export default function Home() {
   const [person, setPerson] = useState<string | null>(null);     // birthday: open their profile to send wishes
   const [star, setStar] = useState<SpotlightRow | null>(null);   // spotlight: read their story
   const [posts, setPosts] = useState<Post[]>([]);
+  const [video, setVideo] = useState<Post | null>(null);   // a short video from an announcement, played full screen
   const [manage, setManage] = useState(false);   // staff: show the announcements list to add or edit
   const [quote, setQuote] = useState<Quote | null>(null);
   const [next, setNext] = useState<Session | null>(null);
@@ -46,7 +47,7 @@ export default function Home() {
       .order("starts_at").limit(1).maybeSingle().then(({ data }) => setNext(data as Session | null));
     supabase.from("event_pages").select(EVENT_COLS).eq("listed", true).then(({ data }) => setEvents((data ?? []) as Ev[]));
     const today = new Date().toISOString().slice(0, 10);
-    supabase.from("home_posts").select("id, title, body, image_url, link_url, link_label, ends_on, published").eq("published", true).order("sort").order("created_at", { ascending: false })
+    supabase.from("home_posts").select("*").eq("published", true).order("sort").order("created_at", { ascending: false })
       .then(({ data }) => setPosts(((data ?? []) as Post[]).filter((p) => !p.ends_on || p.ends_on >= today)));
     supabase.rpc("birthdays_today").then(({ data }) => setBdays((data ?? []) as typeof bdays));
     supabase.rpc("current_spotlights").then(({ data }) => setStars((data ?? []) as SpotlightRow[]));
@@ -99,8 +100,9 @@ export default function Home() {
       cta: reg ? { label: "🎟 My ticket", to: `/events/${e.slug}` } : canReg ? { label: "Register · free", to: `/forms?form=${e.form_slug}` } : { label: "Details", to: `/events/${e.slug}` },
       cta2: reg || canReg ? { label: "Details", to: `/events/${e.slug}` } : undefined });
   });
-  posts.forEach((p) => slides.push({ key: "post-" + p.id, tone: "purple", image: p.image_url, eyebrow: "📢 Announcement", title: p.title, sub: p.body ?? undefined,
-    cta: p.link_url ? { label: p.link_label || "Learn more", to: p.link_url } : undefined }));
+  posts.forEach((p) => slides.push({ key: "post-" + p.id, tone: "purple", image: p.image_url, eyebrow: p.video_url ? "▶ Watch" : "📢 Announcement", title: p.title, sub: p.body ?? undefined,
+    cta: p.video_url ? { label: "▶ Play", onClick: () => setVideo(p) } : p.link_url ? { label: p.link_label || "Learn more", to: p.link_url } : undefined,
+    cta2: p.video_url && p.link_url ? { label: p.link_label || "Full video", to: p.link_url } : undefined }));
   (stories ?? []).forEach((p) => slides.push({ key: "story-" + p.id, tone: "navy", image: p.image, eyebrow: `Story · ${new Date(p.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
     title: p.title, sub: p.excerpt, cta: { label: "Read the story", to: p.link } }));
   slides.push({ key: "plan", tone: "gold", eyebrow: "New · BCIL mentorship", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL mentors.", cta: { label: "Start my plan", to: "/plan" } });
@@ -156,6 +158,16 @@ export default function Home() {
           <p><b>{star.headline}</b></p>{star.story && <p className="prewrap">{star.story}</p>}
           <div className="row" style={{ gap: 8 }}>{star.link_url && <button className="btn ghost sm" onClick={() => window.open(star.link_url!, "_blank", "noopener")}>Read more</button>}
             <button className="btn primary sm" onClick={() => setStar(null)}>Close</button></div>
+        </div>
+      </div>}
+
+      {video && <div className="lightbox shortplayer" role="dialog" aria-label={video.title} onClick={() => setVideo(null)}>
+        <div className="shortbox" onClick={(e) => e.stopPropagation()}>
+          <video src={video.video_url!.startsWith("http") ? video.video_url! : import.meta.env.BASE_URL + video.video_url!.replace(/^\//, "")}
+            poster={video.image_url ?? undefined} controls autoPlay playsInline />
+          <div className="row" style={{ gap: 8, justifyContent: "center" }}>
+            {video.link_url && <button className="btn ghost sm" onClick={() => { const u = video.link_url!; if (/^https?:/.test(u)) window.open(u, "_blank", "noopener"); else location.assign(import.meta.env.BASE_URL + u.replace(/^\//, "")); }}>{video.link_label || "Full video"}</button>}
+            <button className="btn primary sm" onClick={() => setVideo(null)}>Close</button></div>
         </div>
       </div>}
 

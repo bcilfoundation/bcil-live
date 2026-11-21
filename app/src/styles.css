@@ -1343,3 +1343,7 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .stface.mine b{position:absolute;right:-5px;bottom:-4px;width:17px;height:17px;border-radius:50%;background:#b8862b;color:#fff;font-size:.75rem;display:grid;place-items:center;border:2px solid var(--panel)}
 .stexpand{flex-basis:100%;animation:stdown .2s ease-out}
 @keyframes stdown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* short vertical video from a Home announcement */
+.shortplayer .shortbox { display: flex; flex-direction: column; gap: 10px; align-items: center; max-height: 94vh; }
+.shortplayer video { height: min(80vh, 760px); max-width: 94vw; aspect-ratio: 9 / 16; border-radius: 16px; background: #000; object-fit: contain; }
