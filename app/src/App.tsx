@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import AddToStatusSheet from "./components/AddToStatus";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Privacy from "./pages/Privacy";
 import Thanks from "./pages/Thanks";
@@ -119,6 +120,7 @@ export default function App() {
           <TopBar />
         </header>
         <UpdateBanner />
+        <AddToStatusSheet />
         <GetApp />
         <main className={pathname === "/live" ? "inroom" : ""}>
           <Suspense fallback={<div className="center muted">Loading…</div>}>

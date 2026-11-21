@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { addToStatus } from "../components/AddToStatus";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { enablePush, pushEnabled, pushSupported } from "../lib/push";
@@ -75,6 +76,7 @@ export default function Quotes() {
           <button className={`likebtn${l.mine ? " on" : ""}`} onClick={() => toggleLike(x.id)} aria-pressed={l.mine} aria-label={l.mine ? "Unlike" : "Like"}>{l.mine ? "❤️" : "🤍"} {l.n || ""}</button>
           <button className="likebtn" onClick={() => setOpenC((o) => (o === x.id ? null : x.id))} aria-expanded={openC === x.id} aria-label="Comments">💬 {counts[x.id]?.c || ""}</button>
           <button className={big ? "btn primary sm" : "btn ghost sm"} onClick={async () => { if (await shareBite(x)) bump(x.id); }}>Share{counts[x.id]?.s ? ` · ${counts[x.id].s}` : ""}</button>
+          <button className="btn ghost sm" onClick={() => addToStatus({ type: "bite", title: `“${x.body}”`, sub: `— ${x.author}`, link: "/quotes" })}>＋ Status</button>
         </div>
         {(big || openC === x.id) && <BiteComments quoteId={x.id} me={me} open={openC === x.id || !!big} onCount={(n) => setCounts((m) => (m[x.id]?.c === n ? m : { ...m, [x.id]: { s: m[x.id]?.s ?? 0, c: n } }))} />}
       </div>

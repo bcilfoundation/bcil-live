@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { addToStatus } from "../components/AddToStatus";
 import LibraryTabs from "../components/LibraryTabs";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -16,6 +17,7 @@ export default function Library() {
   const { session, isStaff } = useAuth();
   const me = session!.user.id;
   const [params, setParams] = useSearchParams();
+  const [tcounts, setTcounts] = useState<Record<string, { l: number; c: number }>>({});
   const [adding, setAdding] = useState(false);
   const [speed, setSpeed] = useState(1);
   const player = useRef<HTMLAudioElement | null>(null);
@@ -126,6 +128,9 @@ export default function Library() {
         <button className="btn ghost" onClick={toggleLike} aria-pressed={liked}>{liked ? "♥" : "♡"} {likes}</button>
         <button className="btn ghost" onClick={toggleSave}>{saved ? "Saved" : "Save for later"}</button>
         <button className="btn ghost" onClick={share}>Share</button>
+        <button className="btn ghost" onClick={() => addToStatus({ type: "video", title: open.title, sub: open.program ?? undefined, link: `/library?talk=${open.id}`,
+          image: open.youtube_id ? `https://i.ytimg.com/vi/${open.youtube_id}/hqdefault.jpg` : undefined })}>＋ Status</button>
+        {open.youtube_id && <button className="btn ghost" onClick={() => window.open(`https://www.youtube.com/watch?v=${open.youtube_id}`, "_blank", "noopener")}>▶ Open on YouTube</button>}
         {open.kind === "audio" && open.audio_url && <button className="btn ghost" onClick={() => download(open)}>⬇ Download</button>}
       </div>
       <h2>Comments <span className="muted">{comments.length}</span></h2>
@@ -165,12 +170,14 @@ export default function Library() {
           <button key={k} role="tab" aria-selected={type === k} onClick={() => setType(k)}>{label}</button>)}
       </div>
       <div className="chips">{programs.map((p) => <button key={p} className="chip" aria-pressed={p === filter} onClick={() => setFilter(p)}>{p}</button>)}</div>
+      <TalkCounts ids={shown.map((t) => t.id)} onLoad={setTcounts} />
       <div className="grid3">
         {shown.map((t) => (
           <button key={t.id} className="tile" onClick={() => loadTalk(t)}>
             {t.youtube_id ? <img src={`https://i.ytimg.com/vi/${t.youtube_id}/hqdefault.jpg`} alt="" loading="lazy" />
               : <div className="art audio"><span className="badge">{t.live_session_id ? "● Live recording" : "🎧 Audio"}</span><span className="t">{t.title}</span>{playLength(t) ? <span className="dur">{clock(playLength(t)!)}</span> : null}</div>}
             <b>{t.title}</b>{t.program && <small className="muted">{t.program}</small>}
+            {(tcounts[t.id]?.l || tcounts[t.id]?.c) ? <small className="muted tcounts">{tcounts[t.id].l ? `♥ ${tcounts[t.id].l}` : ""}{tcounts[t.id].l && tcounts[t.id].c ? " · " : ""}{tcounts[t.id].c ? `💬 ${tcounts[t.id].c}` : ""}</small> : null}
           </button>
         ))}
       </div>
@@ -288,4 +295,24 @@ function TalkEditor({ talk, player, onChange, onDelete }: { talk: Talk; player: 
       </>}
     </div>
   );
+}
+
+// like and comment counts for the talks on screen
+function TalkCounts({ ids, onLoad }: { ids: string[]; onLoad: (m: Record<string, { l: number; c: number }>) => void }) {
+  const key = ids.join(",");
+  useEffect(() => {
+    if (!ids.length) return;
+    let gone = false;
+    Promise.all([supabase.from("talk_likes").select("talk_id").in("talk_id", ids), supabase.from("talk_comments").select("talk_id").in("talk_id", ids)])
+      .then(([l, c]) => {
+        if (gone) return;
+        const m: Record<string, { l: number; c: number }> = {};
+        for (const r of (l.data ?? []) as { talk_id: string }[]) (m[r.talk_id] ??= { l: 0, c: 0 }).l++;
+        for (const r of (c.data ?? []) as { talk_id: string }[]) (m[r.talk_id] ??= { l: 0, c: 0 }).c++;
+        onLoad(m);
+      });
+    return () => { gone = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return null;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { addToStatus } from "../components/AddToStatus";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -78,6 +79,8 @@ export default function Event() {
         <span className="eyebrow">{[ev.subtitle, date && (all.length > 1 ? `${all.length} sessions` : when(date, true))].filter(Boolean).join(" · ")}</span>
         <h1>{ev.title}</h1>
         {ev.venue && <p className="venue">📍 {ev.venue}</p>}
+        <button className="btn ghost sm evstatus" onClick={() => addToStatus({ type: "event", title: ev.title,
+          sub: [date && when(date, true), ev.venue].filter(Boolean).join(" · ") || undefined, link: `/events/${ev.slug}`, image: ev.hero_url ? img(ev.hero_url) : undefined })}>＋ Add to status</button>
         <div className="evstats">
           {at ? <span><b>{now ? "● On now" : countdown(at)}</b></span> : <span>This programme has ended</span>}
           {count !== null && <span><b>{count.toLocaleString()}</b> registered</span>}

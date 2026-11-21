@@ -3,12 +3,14 @@ import Tick from "./Tick";
 import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
+import { useNavigate } from "react-router-dom";
+import { ShareCardView, type ShareCard } from "./AddToStatus";
 
 // Statuses: a photo or a coloured text card that disappears after 24 hours.
 // A row of circles (yours first), a full-screen viewer, and a sheet to post one.
 
 type FeedRow = { user_id: string; full_name: string; avatar_url: string | null; count: number; latest: string; unseen: number };
-type Status = { id: number; user_id: string; kind: "photo" | "text"; media_url: string | null; body: string | null; bg: string | null; created_at: string };
+type Status = { id: number; user_id: string; kind: "photo" | "text" | "share"; media_url: string | null; body: string | null; bg: string | null; created_at: string; link?: string | null; card?: Omit<ShareCard, "link"> | null };
 const REACTS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "🙏"];
 const BGS = ["#1e3f78", "#0f766e", "#7c2d12", "#6d28d9", "#b8862b", "#be123c", "#111827"];
 const ago = (iso: string) => { const m = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
@@ -145,6 +147,7 @@ function Composer({ me, onClose, onPosted }: { me: string; onClose: () => void; 
 }
 
 function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me: string; onNext: () => void; onPrev: () => void; onClose: () => void; onAdd: () => void }) {
+  const go = useNavigate();
   const { isStaff } = useAuth();
   const [items, setItems] = useState<Status[] | null>(null);
   const [i, setI] = useState(0);
@@ -158,7 +161,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
   const [tally, setTally] = useState<Record<string, number>>({});
   const isMine = row.user_id === me;
   useEffect(() => {
-    supabase.from("statuses").select("id,user_id,kind,media_url,body,bg,created_at").eq("user_id", row.user_id)
+    supabase.from("statuses").select("id,user_id,kind,media_url,body,bg,created_at,link,card").eq("user_id", row.user_id)
       .is("removed_at", null).gt("expires_at", new Date().toISOString()).order("created_at").then(({ data }) => {
         const list = (data as Status[] | null) ?? [];
         setItems(list);
@@ -182,7 +185,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
   // timer: photos 6s, text 7s
   useEffect(() => {
     if (!cur || paused || viewers || reply) return;
-    const total = cur.kind === "text" ? 7000 : 6000;
+    const total = cur.kind === "photo" ? 6000 : 7000;
     const t = setInterval(() => setPct((p) => {
       const n = p + 100 / (total / 100);
       if (n >= 100) { clearInterval(t); setTimeout(() => (items && i + 1 < items.length ? setI(i + 1) : onNext()), 0); return 100; }
@@ -238,7 +241,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
     if (!cur || !reply.trim()) return;
     const { data: roomId, error } = await supabase.rpc("start_dm", { other: row.user_id });
     if (error || !roomId) { setNote(/friend/i.test(error?.message ?? "") ? `Add ${row.full_name.split(" ")[0]} as a friend to reply.` : "Could not send the reply."); return; }
-    const quote = cur.kind === "text" ? (cur.body ?? "").slice(0, 60) : "📷 Photo" + (cur.body ? `: ${cur.body.slice(0, 50)}` : "");
+    const quote = cur.kind === "text" ? (cur.body ?? "").slice(0, 60) : cur.kind === "share" ? "🔗 " + (cur.card?.title ?? "").slice(0, 60) : "📷 Photo" + (cur.body ? `: ${cur.body.slice(0, 50)}` : "");
     const r = await supabase.from("messages").insert({ room_id: roomId, user_id: me, body: `↩ Replying to your status “${quote}”\n${reply.trim()}` });
     if (r.error) { setNote("Could not send the reply."); return; }
     setReply(""); setNote("Reply sent."); setTimeout(() => setNote(""), 1500);
@@ -257,7 +260,11 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
         <button className="sthbtn" onClick={onClose} aria-label="Close">✕</button>
       </div>
       <div className="stbody" onPointerDown={() => setPaused(true)} onPointerUp={() => setPaused(false)} onPointerLeave={() => setPaused(false)}>
-        {cur.kind === "photo"
+        {cur.kind === "share" && cur.card && cur.link
+          ? <div className="stsharewrap"><ShareCardView card={{ ...cur.card, link: cur.link }} line={cur.body} />
+              <button className="btn primary sm stshare-open" onClick={(e) => { e.stopPropagation(); onClose(); go(cur.link!); }}>
+                {cur.card.type === "video" ? "▶ Watch" : cur.card.type === "event" ? "See the event" : "Open"}</button></div>
+          : cur.kind === "photo"
           ? <figure className="stfig"><img src={cur.media_url ?? ""} alt={cur.body ?? "Status photo"} />{cur.body && <figcaption>{cur.body}</figcaption>}</figure>
           : <div className="sttext" style={{ background: cur.bg ?? BGS[0] }}><p>{cur.body}</p></div>}
         <button className="sttap left" onClick={prev} aria-label="Previous" />
