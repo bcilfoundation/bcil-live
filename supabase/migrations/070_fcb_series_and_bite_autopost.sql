@@ -6,13 +6,13 @@
 -- 1. the series (no dates or 2027 details until the flyer is out)
 insert into public.quotes (show_on, body, author, theme)
 values
- (date '2026-11-30', 'ONE: Do you know what Finding Campus Balance is about? FCB is BCIL Foundation''s yearly program for university students. It helps them handle every part of campus life and make informed decisions about their studies, their growth and their future.', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-01', 'TWO: During the program, participants get to learn about strategies to balance all aspects of their student life and get the best out of each and every aspect without compromising on the others.', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-02', 'THREE: The program is grounded on Proverbs 11:1, "A false balance is abomination to the LORD: but a just weight is his delight." And 3 John 1:2, "My loved one, it is my prayer that you may do well in all things, and be healthy in body, even as your soul does well."', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-03', 'FOUR: Students also have the opportunity to be mentored after the program to streamline their journeys on campus. This is in line with BCIL Foundation''s mission of seeing successors do better than their predecessors.', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-04', 'FIVE: Over five editions, FCB has helped students with academic growth, managing money, leadership, networking, relationships and personal values.', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-05', 'SIX: FCB is for every student, whatever your level: those settling into their first year, finalists getting ready for what comes next, and everyone in between, in person and online.', 'BCIL Foundation', 'Finding Campus Balance'),
- (date '2026-12-06', 'ANTICIPATE: Finding Campus Balance is back. Bigger, better, balanced. The official flyer drops tomorrow. Stay tuned and tell a friend to tell a friend.', 'BCIL Foundation', 'Finding Campus Balance')
+ (date '2026-11-30', 'Do you know what Finding Campus Balance is about? FCB is BCIL Foundation''s yearly program for university students. It helps them handle every part of campus life and make informed decisions about their studies, their growth and their future.', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-01', 'During the program, participants get to learn about strategies to balance all aspects of their student life and get the best out of each and every aspect without compromising on the others.', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-02', 'The program is grounded on Proverbs 11:1, "A false balance is abomination to the LORD: but a just weight is his delight." And 3 John 1:2, "My loved one, it is my prayer that you may do well in all things, and be healthy in body, even as your soul does well."', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-03', 'Students also have the opportunity to be mentored after the program to streamline their journeys on campus. About 70 students have been mentored so far. This is in line with BCIL Foundation''s mission of seeing successors do better than their predecessors.', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-04', 'Over five editions, FCB has welcomed an average of 450 students each time and helped them with academic growth, managing money, leadership, networking, relationships and personal values.', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-05', 'FCB is for every student, whatever your level: those settling into their first year, finalists getting ready for what comes next, and everyone in between, in person and online.', 'BCIL Foundation', 'Finding Campus Balance'),
+ (date '2026-12-06', 'Finding Campus Balance is back. Bigger, better, balanced. The official flyer drops tomorrow. Stay tuned and tell a friend to tell a friend.', 'BCIL Foundation', 'Finding Campus Balance')
 on conflict (show_on) do update set body = excluded.body, author = excluded.author, theme = excluded.theme;
 
 -- 2. the 6:00 am routine
