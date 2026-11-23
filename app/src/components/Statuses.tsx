@@ -4,7 +4,7 @@ import { initials, supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { uploadPhoto } from "../lib/media";
 import { useNavigate } from "react-router-dom";
-import { ShareCardView, type ShareCard } from "./AddToStatus";
+import { ShareCardView, addToStatus, type ShareCard } from "./AddToStatus";
 
 // Statuses: a photo or a coloured text card that disappears after 24 hours.
 // A row of circles (yours first), a full-screen viewer, and a sheet to post one.
@@ -262,8 +262,11 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
       <div className="stbody" onPointerDown={() => setPaused(true)} onPointerUp={() => setPaused(false)} onPointerLeave={() => setPaused(false)}>
         {cur.kind === "share" && cur.card && cur.link
           ? <div className="stsharewrap"><ShareCardView card={{ ...cur.card, link: cur.link }} line={cur.body} />
-              <button className="btn primary sm stshare-open" onClick={(e) => { e.stopPropagation(); onClose(); go(cur.link!); }}>
-                {cur.card.type === "video" ? "▶ Watch" : cur.card.type === "event" ? "See the event" : "Open"}</button></div>
+              <div className="row stshare-open" style={{ gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onClose(); go(cur.link!); }}>
+                  {cur.card.type === "video" ? "▶ Watch" : cur.card.type === "event" ? "See the event" : "Open"}</button>
+                {!isMine && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setPaused(true); addToStatus({ ...cur.card!, sub: cur.card!.sub ?? undefined, image: cur.card!.image ?? undefined, link: cur.link! }); }}>＋ Add to my status</button>}
+              </div></div>
           : cur.kind === "photo"
           ? <figure className="stfig"><img src={cur.media_url ?? ""} alt={cur.body ?? "Status photo"} />{cur.body && <figcaption>{cur.body}</figcaption>}</figure>
           : <div className="sttext" style={{ background: cur.bg ?? BGS[0] }}><p>{cur.body}</p></div>}

@@ -48,7 +48,7 @@ export default function AddToStatusSheet() {
     setTimeout(() => setCard(null), 1400);
   }
   return (
-    <div className="sheet-back" role="dialog" aria-modal="true" aria-labelledby="ats-h" onClick={() => setCard(null)}>
+    <div className="sheet-back ats-back" role="dialog" aria-modal="true" aria-labelledby="ats-h" onClick={() => setCard(null)}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <h2 id="ats-h">Add to your status</h2>
         <ShareCardView card={card} line={line.trim() || null} />
