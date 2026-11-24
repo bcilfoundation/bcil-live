@@ -7,8 +7,8 @@ import LicenceViewer from "../components/LicenceViewer";
 type Gift = { id: number; amount_pesewas: number; purpose: string; kind: string; status: string; created_at: string };
 export const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027", "Laptop for a student", "Refreshments for students", "Academic Mentorship", "Campus Sync"];
 const AMOUNTS = [10, 20, 50, 100, 200, 500];
-// Until Paystack is live, people can send Mobile Money straight to this number.
-export const MOMO: { number: string; network: string; name: string } | null = { number: "054 021 5225", network: "MTN Mobile Money", name: "Solomon Hope Agbesi" };
+// BCIL Foundation's MTN MoMo merchant number. People can send Mobile Money straight to it.
+export const MOMO: { number: string; network: string; name: string } | null = { number: "059 591 3265", network: "MTN Mobile Money", name: "BCIL FOUNDATION LBG" };
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting", failed: "Not completed", recorded: "Recorded" };
 
