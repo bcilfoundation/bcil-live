@@ -513,7 +513,7 @@ export default function Chat() {
               </div>
             )}
             <div className="msgswrap">
-            <div ref={setScrollerEl} onScroll={onScroll} onTouchMove={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onWheel={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onKeyDown={() => { lastGesture.current = Date.now(); }} onMouseDown={() => { lastGesture.current = Date.now(); }} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+            <div ref={setScrollerEl} onScroll={onScroll} onTouchMove={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onWheel={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onKeyDown={() => { lastGesture.current = Date.now(); }} onMouseDown={() => { lastGesture.current = Date.now(); }} onTouchStart={() => { lastGesture.current = Date.now(); }} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
               <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
