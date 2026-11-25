@@ -241,7 +241,7 @@ function AddBook({ uid, shelves, onClose, onDone }: { uid: string; shelves: stri
         <label className="field">Cover image (optional; we use the first page if you skip this)<input name="cover" type="file" accept="image/*" /></label>
         <label className="choice"><input type="checkbox" name="published" defaultChecked /> Show it to members now</label>
         <label className="choice"><input type="checkbox" name="notify" defaultChecked /> Tell everyone (a notification on their phones). It also shows on Home for 7 days.</label>
-        <p className="muted small">Only upload books BCIL has the right to share: your own guides, free or public-domain books, or books whose author has given permission.</p>
+        <p className="muted small">Only upload books BCIL Foundation has the right to share: your own guides, free or public-domain books, or books whose author has given permission.</p>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ gap: 8 }}>
           <button className="btn primary" disabled={!!busy}>{busy || "Upload"}</button>

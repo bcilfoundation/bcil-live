@@ -18,7 +18,7 @@ async function openUrl(url: string) {
 // who give advice, guidance and mentorship, without running the Foundation.
 const TEAMS = ["Board of Directors", "Executives", "Advisory Council", "Coordinators"];
 
-// BCIL's social media, as linked on bcilfoundation.org. Add Telegram here once we have its link.
+// BCIL Foundation's social media, as linked on bcilfoundation.org. Add Telegram here once we have its link.
 const SOCIALS: [string, string, string][] = [
   ["Facebook", "https://www.facebook.com/share/1AXRApBrbN/", "#1877f2"],
   ["Instagram", "https://www.instagram.com/bcilfoundation", "#d62976"],

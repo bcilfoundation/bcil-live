@@ -15,7 +15,7 @@ async function openLink(url: string) {
   window.open(url, "_blank", "noopener");
 }
 
-// Books written by BCIL people: buy on Amazon, or order from a BCIL contact in Ghana (WhatsApp or call)
+// Books written by BCIL Foundation people: buy on Amazon, or order from a BCIL Foundation contact in Ghana (WhatsApp or call)
 export default function Shop() {
   const { isStaff } = useAuth();
   const [books, setBooks] = useState<ShopBook[] | null>(null);
@@ -119,7 +119,7 @@ function BookEditor({ b, close, saved }: { b: ShopBook | null; close: () => void
       <div className="sheet tall" role="dialog" aria-label="Edit book">
         <div className="row" style={{ justifyContent: "space-between" }}><h3 style={{ margin: 0 }}>{b ? "Edit book" : "Add a book"}</h3><button className="linkbtn" onClick={close}>Close</button></div>
         <label className="field">Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
-        <label className="field">Author<input value={f.author} onChange={(e) => setF({ ...f, author: e.target.value })} placeholder="e.g. a BCIL member's name" /></label>
+        <label className="field">Author<input value={f.author} onChange={(e) => setF({ ...f, author: e.target.value })} placeholder="e.g. a BCIL Foundation member's name" /></label>
         <label className="field">About the book <small className="muted">(optional)</small><textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></label>
         <label className="field">Price <small className="muted">(optional, e.g. GH₵ 150 · US$ 15)</small><input value={f.price_text} onChange={(e) => setF({ ...f, price_text: e.target.value })} /></label>
         <label className="field">Amazon link <small className="muted">(optional)</small><input value={f.amazon_url} onChange={(e) => setF({ ...f, amazon_url: e.target.value })} placeholder="https://www.amazon.com/dp/…" inputMode="url" /></label>

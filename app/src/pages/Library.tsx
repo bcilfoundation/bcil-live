@@ -201,7 +201,7 @@ const toSecs = (v: string) => {
 async function download(t: Talk) {
   if (!t.audio_url) return;
   const ext = (t.audio_url.split("?")[0].split(".").pop() || "mp3").toLowerCase();
-  const name = `${t.title.replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, " ").slice(0, 60) || "BCIL talk"}.${ext}`;
+  const name = `${t.title.replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, " ").slice(0, 60) || "BCIL Foundation talk"}.${ext}`;
   const url = `${t.audio_url}${t.audio_url.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`;
   if (isNative) { const { Browser } = await import("@capacitor/browser"); await Browser.open({ url }); return; }
   const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();

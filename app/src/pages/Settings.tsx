@@ -196,7 +196,7 @@ function Privacy() {
       </div>
       <h3 className="setsub">People</h3>
       <div className="card setlist">
-        <div className="setrow col"><span className="grow">Who can find me<small className="muted">Who can find you by name to add you as a friend. The BCIL team and mentors can always find you.</small></span>
+        <div className="setrow col"><span className="grow">Who can find me<small className="muted">Who can find you by name to add you as a friend. The BCIL Foundation team and mentors can always find you.</small></span>
           <div className="seg mini" role="tablist">{([["everyone", "Everyone"], ["friends_of_friends", "Friends of friends"], ["nobody", "No one"]] as const).map(([k, l]) => (
             <button key={k} role="tab" aria-selected={(profile?.discoverable ?? "everyone") === k} onClick={() => set("discoverable", k)}>{l}</button>))}</div></div>
         <div className="setrow col"><span className="grow">Blocked people<small className="muted">They can't message you, add you or see your statuses.</small></span>
@@ -219,7 +219,7 @@ function Privacy() {
 
 function profileSteps(p: ReturnType<typeof useAuth>["profile"]) {
   if (p?.is_org) return [
-    { key: "photo", label: "Add the BCIL logo as the photo", done: !!p?.avatar_url },
+    { key: "photo", label: "Add the BCIL Foundation logo as the photo", done: !!p?.avatar_url },
     { key: "bio", label: "Write a short description", done: !!p?.bio?.trim() },
     { key: "alerts", label: "Turn on notifications", done: alertsOn() },
   ];

@@ -44,7 +44,7 @@ export default function GenderAsk() {
     <div className="sheet-back" role="dialog" aria-modal="true" aria-labelledby="gender-h" onClick={later}>
       <div className="sheet bdaysheet" onClick={(e) => e.stopPropagation()}>
         <h2 id="gender-h">One more thing about you</h2>
-        <p className="muted">What is your gender? Only you and BCIL staff can see this. It helps us send you the right messages and programmes.</p>
+        <p className="muted">What is your gender? Only you and BCIL Foundation staff can see this. It helps us send you the right messages and programmes.</p>
         <div className="bday-opts" role="radiogroup" aria-label="Gender">
           {opts.map(([k, t]) => (
             <label key={k} className={`bday-opt${g === k ? " on" : ""}`}>

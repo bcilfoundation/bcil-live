@@ -42,7 +42,7 @@ export const img = (u: string | null | undefined, fallback?: string) => {
   const v = u || fallback; if (!v) return "";
   return v.startsWith("/") ? import.meta.env.BASE_URL + v.slice(1) : v;
 };
-/** BCIL photos used as backgrounds for programmes without their own picture */
+/** BCIL Foundation photos used as backgrounds for programmes without their own picture */
 export const BG = ["/fcb/hero.jpg", "/fcb/p2.jpg", "/fcb/signin.jpg", "/fcb/p1.jpg", "/fcb/p3.jpg"];
 export const bgFor = (slug: string) => BG[[...slug].reduce((n, c) => n + c.charCodeAt(0), 0) % BG.length];
 

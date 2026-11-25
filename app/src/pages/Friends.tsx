@@ -10,7 +10,7 @@ import Icon from "../components/Icon";
 type Person = { id: string; full_name: string; avatar_url: string | null; bio: string | null; role: string; mutual?: number };
 type Friendship = { id: number; requester: string; addressee: string; status: "pending" | "accepted"; created_at?: string };
 
-const ROLE_LABEL: Record<string, string> = { admin: "BCIL team", moderator: "Moderator", mentor: "Mentor" };
+const ROLE_LABEL: Record<string, string> = { admin: "BCIL Foundation team", moderator: "Moderator", mentor: "Mentor" };
 
 export default function Friends() {
   const { session, isStaff } = useAuth();
@@ -62,7 +62,7 @@ export default function Friends() {
   async function act(label: string, p: PromiseLike<{ error: { message: string } | null }>) {
     setError("");
     const { error } = await p;
-    if (error) setError(`${label} didn't work: ${/row-level security/i.test(error.message) ? "this connection isn't allowed. Under-18 members can connect with BCIL staff and mentors only." : /duplicate/i.test(error.message) ? "there is already a request between you." : error.message}`);
+    if (error) setError(`${label} didn't work: ${/row-level security/i.test(error.message) ? "this connection isn't allowed. Under-18 members can connect with BCIL Foundation staff and mentors only." : /duplicate/i.test(error.message) ? "there is already a request between you." : error.message}`);
     else load();
   }
   const add = (id: string) => act("Friend request", supabase.from("friendships").insert({ requester: me, addressee: id }));
@@ -107,7 +107,7 @@ export default function Friends() {
       {error && <p className="err" role="alert">{error}</p>}
 
       {tab === "friends" && (friends.length === 0 ? (
-        <div className="empty"><b>No friends yet</b><span>Find people from BCIL programmes and campuses and add them.</span>
+        <div className="empty"><b>No friends yet</b><span>Find people from BCIL Foundation programmes and campuses and add them.</span>
           <button className="btn primary" onClick={() => setTab("find")}><Icon name="userplus" size={18} />Find people</button></div>
       ) : (
         <div className="list">{friends.map((f) => (

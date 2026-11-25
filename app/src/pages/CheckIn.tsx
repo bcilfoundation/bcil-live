@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 
 type Result = { ok: boolean; name?: string; form_title?: string; already?: boolean; paid?: boolean; fee?: boolean; status?: string; error?: string };
 
-// For BCIL staff on the event day: scan a member's QR ticket to check them in
+// For BCIL Foundation staff on the event day: scan a member's QR ticket to check them in
 export default function CheckIn() {
   const { isStaff } = useAuth();
   const video = useRef<HTMLVideoElement>(null);
@@ -18,7 +18,7 @@ export default function CheckIn() {
 
   const check = async (code: string) => {
     const t = code.trim();
-    if (!/^[0-9a-f-]{36}$/i.test(t)) { setResult({ ok: false, error: "That isn't a BCIL ticket." }); return; }
+    if (!/^[0-9a-f-]{36}$/i.test(t)) { setResult({ ok: false, error: "That isn't a BCIL Foundation ticket." }); return; }
     busy.current = true;
     const { data, error } = await supabase.rpc("check_in", { p_ticket: t });
     busy.current = false;
@@ -59,7 +59,7 @@ export default function CheckIn() {
     return () => { stop = true; cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()); };
   }, [on]);
 
-  if (!isStaff) return <section className="view"><p className="muted">Only BCIL staff can check people in.</p></section>;
+  if (!isStaff) return <section className="view"><p className="muted">Only BCIL Foundation staff can check people in.</p></section>;
   return (
     <section className="view checkin">
       <h1>Check-in</h1>

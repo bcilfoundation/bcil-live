@@ -19,7 +19,7 @@ export function icsFile(o: { uid: string; title: string; start: string; minutes?
     o.details ? `DESCRIPTION:${esc(o.details)}` : "", o.location ? `LOCATION:${esc(o.location)}` : "", "END:VEVENT", "END:VCALENDAR"].filter(Boolean).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([body], { type: "text/calendar" }));
-  a.download = "BCIL meeting.ics"; document.body.appendChild(a); a.click(); a.remove();
+  a.download = "BCIL Foundation meeting.ics"; document.body.appendChild(a); a.click(); a.remove();
 }
 
 /** The private calendar feed address for a token (subscribe to it once in Google Calendar). */

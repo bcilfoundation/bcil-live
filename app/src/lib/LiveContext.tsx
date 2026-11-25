@@ -642,7 +642,7 @@ function useLiveEngine() {
         const vb = await v.stop();
         if (vb.size > 50_000) {
           const d = new Date().toISOString().slice(0, 10);
-          const title = (sess?.title ?? "BCIL session").replace(/[^\w -]+/g, "").trim() || "BCIL session";
+          const title = (sess?.title ?? "BCIL Foundation session").replace(/[^\w -]+/g, "").trim() || "BCIL Foundation session";
           saveToDevice(vb, `${title} ${d}.${vb.type.includes("mp4") ? "mp4" : "webm"}`);
         }
       } catch { /* the sound is still saved below */ }

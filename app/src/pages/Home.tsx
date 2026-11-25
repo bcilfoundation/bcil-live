@@ -1,3 +1,4 @@
+import DonatePrompt from "../components/DonatePrompt";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -105,7 +106,7 @@ export default function Home() {
     cta2: p.video_url && p.link_url ? { label: p.link_label || "Full video", to: p.link_url } : undefined }));
   (stories ?? []).forEach((p) => slides.push({ key: "story-" + p.id, tone: "navy", image: p.image, eyebrow: `Story · ${new Date(p.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
     title: p.title, sub: p.excerpt, cta: { label: "Read the story", to: p.link } }));
-  slides.push({ key: "plan", tone: "gold", eyebrow: "New · BCIL mentorship", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL mentors.", cta: { label: "Start my plan", to: "/plan" } });
+  slides.push({ key: "plan", tone: "gold", eyebrow: "New · BCIL Foundation mentorship", title: "Plan 2027", sub: "Write your one-year plan, goal by goal, and get feedback from BCIL Foundation mentors.", cta: { label: "Start my plan", to: "/plan" } });
   slides.push({ key: "meet", tone: "green", image: `${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`, eyebrow: "Book a session", title: "Meet Solomon", sub: "Pick a time from his calendar and send your CV or plan for review.", cta: { label: "Book a time", to: "/meet" } });
 
   return (
@@ -135,6 +136,7 @@ export default function Home() {
 
       {/* the essentials, so nobody has to dig through menus */}
       <NeedBook />
+      <DonatePrompt where="home" />
 
       {/* new books and talks this week */}
       {fresh.length > 0 && <>

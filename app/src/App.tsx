@@ -95,7 +95,7 @@ export default function App() {
   if (cert) return <main className="public"><Suspense fallback={<p className="muted">Loading…</p>}><CertificateCheck ticket={cert[1]} /></Suspense></main>;
   if (pathname === "/thanks") return <main className="public"><Thanks /></main>;
   if (loading) return <div className="center muted">Loading…</div>;
-  if (!session) return <>{pathname.startsWith("/plan") && <div className="signin-note">📝 <b>Plan 2027</b> is part of BCIL mentorship. Sign in or create a free account to write your plan.</div>}<SignIn /></>;
+  if (!session) return <>{pathname.startsWith("/plan") && <div className="signin-note">📝 <b>Plan 2027</b> is part of BCIL Foundation mentorship. Sign in or create a free account to write your plan.</div>}<SignIn /></>;
 
   return (
     <LiveProvider>
@@ -210,7 +210,7 @@ function MiniPlayer() {
   useEffect(() => { try { localStorage.setItem("bcil.mp.small", small ? "1" : "0"); } catch { /* private mode */ } }, [small]);
   if (!L.live || pathname === "/live") return null;
   const amHost = L.live.host_id === L.me;
-  const status = L.joined ? (L.speaker ? (amHost ? "You're hosting" : "You're on stage") : L.needTap ? "Tap 🔊 to hear" : "Listening live") : "BCIL is live now";
+  const status = L.joined ? (L.speaker ? (amHost ? "You're hosting" : "You're on stage") : L.needTap ? "Tap 🔊 to hear" : "Listening live") : "BCIL Foundation is live now";
 
   if (small || inChat) {
     const clamp = (x: number, y: number) => ({ x: Math.max(6, Math.min(window.innerWidth - 62, x)), y: Math.max(60, Math.min(window.innerHeight - 140, y)) });

@@ -25,7 +25,7 @@ type ListRow = { room_id: string; kind: string; category: string | null; name: s
 const byRecent = (a: Conv, b: Conv) => (b.at ? Date.parse(b.at) : 0) - (a.at ? Date.parse(a.at) : 0);
 type Msg = { id: number; user_id: string; body: string; created_at: string; reply_to?: number | null;
   edited_at?: string | null; deleted_at?: string | null; mentions?: string[] | null; mention_all?: boolean | null;
-  attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; profiles?: { full_name: string; avatar_url: string | null } | null };
+  attachment_url?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null; forwarded?: boolean | null; profiles?: { full_name: string; avatar_url: string | null } | null };
 
 export default function Chat() {
   const { session, profile, isStaff } = useAuth();
@@ -73,7 +73,14 @@ export default function Chat() {
   const [viewImg, setViewImg] = useState<string | null>(null);
   const [reacts, setReacts] = useState<Record<number, { emoji: string; user_id: string }[]>>({});
   const [pickFor, setPickFor] = useState<number | null>(null);
-  const [sel, setSel] = useState<number | null>(null);   // tapped message: shows Reply / React / Report
+  const [sel, setSel] = useState<number | null>(null);   // message whose menu is open (long press or right-click)
+  const [menuFor, setMenuFor] = useState<Msg | null>(null);
+  const [stars, setStars] = useState<Set<number>>(new Set());
+  const [pinnedId, setPinnedId] = useState<number | null>(null);
+  const [forwardFor, setForwardFor] = useState<Msg | null>(null);
+  const [showStarred, setShowStarred] = useState(false);
+  const [toast, setToast] = useState("");
+  const press = useRef<{ id: number; t: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   // read receipts: when each other member last opened this conversation
   const [reads, setReads] = useState<Record<string, string>>({});
   async function react(m: Msg, emoji: string) {
@@ -162,7 +169,7 @@ export default function Chat() {
   }
   async function answerRequest(r: { id: number; requester: string }, ok: boolean) {
     const { error } = ok ? await supabase.from("friendships").update({ status: "accepted" }).eq("id", r.id) : await supabase.from("friendships").delete().eq("id", r.id);
-    if (error) { setError(/row-level security/i.test(error.message) ? "This connection isn't allowed. Under-18 members can connect with BCIL staff and mentors only." : "That didn't work. Try again."); return; }
+    if (error) { setError(/row-level security/i.test(error.message) ? "This connection isn't allowed. Under-18 members can connect with BCIL Foundation staff and mentors only." : "That didn't work. Try again."); return; }
     setRequests((cur) => cur.filter((x) => x.id !== r.id));
     if (ok) { const { data } = await supabase.rpc("start_dm", { other: r.requester }); if (data) { await loadConvs(); setTab("dm"); setParams({ room: data as string }); } }
   }
@@ -223,6 +230,9 @@ export default function Chat() {
       const byId = new Map(((ps ?? []) as { id: string; full_name: string; avatar_url: string | null }[]).map((p) => [p.id, p]));
       setMembers(rows.map((r) => ({ id: r.user_id, role: r.role, name: byId.get(r.user_id)?.full_name || "Member", avatar: byId.get(r.user_id)?.avatar_url ?? null })));
     });
+    setStars(new Set()); setPinnedId(null); setMenuFor(null); setShowStarred(false);
+    supabase.from("message_stars").select("message_id").eq("room_id", roomId).then(({ data }) => setStars(new Set(((data ?? []) as { message_id: number }[]).map((x) => x.message_id))));
+    supabase.rpc("room_pin", { p_room: roomId }).then(({ data }) => setPinnedId(((data ?? []) as { message_id: number | null }[])[0]?.message_id ?? null));
     supabase.from("message_reactions").select("message_id, emoji, user_id").eq("room_id", roomId).then(({ data }) => {
       const m: Record<number, { emoji: string; user_id: string }[]> = {};
       for (const r of (data ?? []) as { message_id: number; emoji: string; user_id: string }[]) (m[r.message_id] ??= []).push({ emoji: r.emoji, user_id: r.user_id });
@@ -247,6 +257,9 @@ export default function Chat() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (p) => {
         const m = p.new as Msg;
         setMsgs((cur) => cur.map((x) => (x.id === m.id ? { ...x, ...m, profiles: x.profiles } : x)));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (p) => {
+        setPinnedId(((p.new as { pinned_message_id?: number | null }).pinned_message_id) ?? null);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` }, (p) => {
         const r = p.new as { user_id: string; last_read_at: string };
@@ -420,6 +433,38 @@ export default function Chat() {
     alert("Thanks. A moderator will review this message.");
   }
 
+  // the message menu (long press on a phone, right-click on a computer): react, reply, forward, copy, pin, star, edit, info, report, delete
+  function openMenu(m: Msg) { if (m.deleted_at) return; setSel(m.id); setMenuFor(m); try { navigator.vibrate?.(15); } catch { /* no vibration */ } }
+  const closeMenu = () => { setMenuFor(null); setSel(null); };
+  const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 1800); };
+  async function toggleStar(m: Msg) {
+    closeMenu();
+    const on = !stars.has(m.id);
+    setStars((cur) => { const n = new Set(cur); if (on) n.add(m.id); else n.delete(m.id); return n; });
+    const r = on ? await supabase.from("message_stars").insert({ user_id: me, message_id: m.id, room_id: roomId })
+      : await supabase.from("message_stars").delete().eq("user_id", me).eq("message_id", m.id);
+    if (r.error && !/duplicate/i.test(r.error.message)) { flash("Couldn't save the star. Try again."); return; }
+    flash(on ? "Starred" : "Star removed");
+  }
+  async function togglePin(m: Msg) {
+    closeMenu();
+    const on = pinnedId !== m.id;
+    const { error } = await supabase.rpc("pin_message", { p_id: m.id, p_on: on });
+    if (error) { flash(error.message || "Couldn't pin the message."); return; }
+    setPinnedId(on ? m.id : null); flash(on ? "Pinned" : "Unpinned");
+  }
+  async function copyMsg(m: Msg) {
+    closeMenu();
+    try { await navigator.clipboard.writeText(m.body || m.attachment_url || ""); flash("Copied"); } catch { flash("Couldn't copy on this device."); }
+  }
+  async function forwardTo(m: Msg, toRoom: string, toName: string) {
+    setForwardFor(null);
+    const att = m.attachment_url ? { attachment_url: m.attachment_url, attachment_name: m.attachment_name, attachment_type: m.attachment_type, attachment_size: m.attachment_size } : {};
+    const { error } = await supabase.from("messages").insert({ room_id: toRoom, user_id: me, body: m.body ?? "", forwarded: true, ...att });
+    flash(error ? "Couldn't forward. You may not be able to post there." : `Forwarded to ${toName}`);
+  }
+  const canPin = !!room && (isStaff || room.kind === "dm" || members.some((p) => p.id === me && p.role === "leader"));
+  const pinned = pinnedId ? msgs.find((x) => x.id === pinnedId) ?? null : null;
   const canPost = room && (!room.read_only || isStaff);
   const amLeader = isStaff || members.some((p) => p.id === me && p.role === "leader");
   const canTagAll = !!room && room.kind !== "dm" && amLeader;
@@ -501,6 +546,7 @@ export default function Chat() {
                 <button className="iconbtn callbtn" disabled={calling} onClick={() => call("audio")} aria-label={`Voice call ${room.name}`} title="Voice call">📞</button>
                 <button className="iconbtn callbtn" disabled={calling} onClick={() => call("video")} aria-label={`Video call ${room.name}`} title="Video call">🎥</button>
               </div>}
+              {stars.size > 0 && <button className="iconbtn sm" onClick={() => setShowStarred(true)} aria-label="Starred messages" title="Starred messages">★</button>}
               <button className="iconbtn sm" onClick={() => setShowInfo(true)} aria-label="More options">⋮</button>
               {room.kind === "group" && room.leader && <button className="btn ghost sm golivebtn" onClick={() => nav("/live", { state: { group: { id: room.id, name: room.name } } })} aria-label={`Go live with ${room.name}`}>● Live</button>}
             </div>
@@ -511,6 +557,12 @@ export default function Chat() {
                 <button className="iconbtn sm" disabled={!found.length} onClick={() => setFindIdx((i) => (i + 1) % found.length)} aria-label="Older match">↑</button>
                 <button className="iconbtn sm" disabled={!found.length} onClick={() => setFindIdx((i) => (i - 1 + found.length) % found.length)} aria-label="Newer match">↓</button>
                 <button className="linkbtn" onClick={() => setFindQ(null)}>Done</button>
+              </div>
+            )}
+            {pinned && !pinned.deleted_at && (
+              <div className="pinbar">
+                <button className="plainbtn grow" onClick={() => jumpTo(pinned.id)}><span aria-hidden="true">📌</span><span className="pinbar-text"><b>Pinned</b><span>{pinned.body || pinned.attachment_name || "Photo"}</span></span></button>
+                {canPin && <button className="iconbtn sm" onClick={() => togglePin(pinned)} aria-label="Unpin message">✕</button>}
               </div>
             )}
             <div className="msgswrap">
@@ -525,13 +577,19 @@ export default function Chat() {
                   <div key={m.id} className="msgblock">
                     {newDay && <div className="sysmsg">{day(m.created_at)}</div>}
                     <div id={`m${m.id}`} className={`msg${mine ? " mine" : ""}${sameAuthor && !m.reply_to ? " cont" : ""}`}
-                      onTouchStart={(e) => { swipe.current = { id: m.id, x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
-                      onTouchEnd={(e) => { const s0 = swipe.current; swipe.current = null; if (!s0 || s0.id !== m.id) return;
+                      onTouchStart={(e) => { const x = e.touches[0].clientX, y = e.touches[0].clientY; swipe.current = { id: m.id, x, y };
+                        if (press.current) clearTimeout(press.current.t);
+                        press.current = { id: m.id, x, y, t: setTimeout(() => { press.current = null; swipe.current = null; openMenu(m); }, 450) }; }}
+                      onTouchMove={(e) => { const p0 = press.current; if (p0 && (Math.abs(e.touches[0].clientX - p0.x) > 10 || Math.abs(e.touches[0].clientY - p0.y) > 10)) { clearTimeout(p0.t); press.current = null; } }}
+                      onTouchEnd={(e) => { if (press.current) { clearTimeout(press.current.t); press.current = null; }
+                        const s0 = swipe.current; swipe.current = null; if (!s0 || s0.id !== m.id) return;
                         const dx = e.changedTouches[0].clientX - s0.x, dy = Math.abs(e.changedTouches[0].clientY - s0.y);
                         if (dx > 60 && dy < 40) startReply(m); }}
+                      onContextMenu={(e) => { if ((e.target as HTMLElement).closest("a,audio")) return; e.preventDefault(); openMenu(m); }}
                       onDoubleClick={() => startReply(m)}>
                       {!mine && <span className="msgav">{!sameAuthor && <button className="plainbtn" onClick={() => setPerson(m.user_id)} aria-label={`See ${nameOf(m)}'s profile`}><Avatar name={m.profiles?.full_name} url={m.profiles?.avatar_url} size={32} /></button>}</span>}
-                      <div className={`bub${sel === m.id ? " sel" : ""}`} onClick={(e) => { if (!(e.target as HTMLElement).closest("button,a")) setSel(sel === m.id ? null : m.id); }}>
+                      <div className={`bub${sel === m.id ? " sel" : ""}`}>
+                        {m.forwarded && !m.deleted_at && <small className="fwdlabel">↪ Forwarded</small>}
                         {!mine && !sameAuthor && room.kind !== "dm" && <button className="plainbtn bubname" onClick={() => setPerson(m.user_id)}>{m.profiles?.full_name || "Member"}<Tick id={m.user_id} size={13} /></button>}
                         {m.reply_to && <button className="quote-in" onClick={() => m.reply_to && jumpTo(m.reply_to)}>
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
@@ -547,18 +605,9 @@ export default function Chat() {
                           </button>)}
                         {m.deleted_at ? <p className="msgdeleted">🚫 {m.user_id === me ? "You deleted this message" : "This message was deleted"}</p>
                           : m.body && !isBite(m) && <p className="prewrap">{withTags(m)}</p>}
-                        <small className="mtime">{m.edited_at && !m.deleted_at ? "edited · " : ""}{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
+                        <small className="mtime">{stars.has(m.id) && <span className="starmark" aria-label="Starred">★ </span>}{m.edited_at && !m.deleted_at ? "edited · " : ""}{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
                           {mine && room.kind === "dm" && (seenBy(m) > 0 ? <span className="tick seen" title="Seen" aria-label="Seen"> ✓✓</span> : <span className="tick" title="Sent" aria-label="Sent"> ✓</span>)}</small>
                         {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <button className="plainbtn seenby" onClick={() => setInfoFor(m)}>Seen by {seenBy(m)} ›</button>}
-                        {!m.deleted_at && <span className="msgacts">
-                        {canPost && <button className="linkbtn" onClick={() => startReply(m)}>Reply</button>}
-                        <button className="linkbtn" onClick={() => setPickFor(pickFor === m.id ? null : m.id)} aria-label="React">☺︎+</button>
-                        {canEdit(m) && <button className="linkbtn" onClick={() => startEdit(m)}>Edit</button>}
-                        {mine && room.kind !== "dm" && <button className="linkbtn" onClick={() => setInfoFor(m)}>Info</button>}
-                        {canDelete(m) && <button className="linkbtn danger" onClick={() => remove(m)}>Delete</button>}
-                        {!mine && <button className="linkbtn" onClick={() => report(m)}>Report</button>}
-                        </span>}
-                        {pickFor === m.id && <span className="reactpick">{EMOJIS.map((e) => <button key={e} onClick={() => react(m, e)} aria-label={`React ${e}`}>{e}</button>)}</span>}
                         {(reacts[m.id]?.length ?? 0) > 0 && <span className="reactrow">{Object.entries((reacts[m.id] ?? []).reduce<Record<string, number>>((a, r) => ((a[r.emoji] = (a[r.emoji] ?? 0) + 1), a), {})).map(([e, n]) => (
                           <button key={e} className={`reactchip${(reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === e) ? " mine" : ""}`} onClick={() => react(m, e)}>{e}{n > 1 ? ` ${n}` : ""}</button>))}</span>}
                       </div>
@@ -643,6 +692,43 @@ export default function Chat() {
               </div>
             );
           })()}
+          {menuFor && room && (() => { const m = menuFor; const mine = m.user_id === me;
+            return <div className="msgmenu-back" role="dialog" aria-modal="true" aria-label="Message options" onClick={closeMenu} onContextMenu={(e) => { e.preventDefault(); closeMenu(); }}>
+              <div className="msgmenu" onClick={(e) => e.stopPropagation()}>
+                <div className="msgmenu-emojis">{MENU_EMOJIS.map((e) => <button key={e} className={(reacts[m.id] ?? []).some((r) => r.user_id === me && r.emoji === e) ? "on" : ""} onClick={() => { closeMenu(); react(m, e); }} aria-label={`React ${e}`}>{e}</button>)}</div>
+                <div className="msgmenu-preview"><b>{mine ? "You" : nameOf(m)}</b><span>{m.body || m.attachment_name || "Photo"}</span></div>
+                <div className="msgmenu-list">
+                  {canPost && <button onClick={() => { closeMenu(); startReply(m); }}><span aria-hidden="true">↩</span>Reply</button>}
+                  <button onClick={() => { closeMenu(); setForwardFor(m); }}><span aria-hidden="true">↪</span>Forward</button>
+                  {(m.body || m.attachment_url) && <button onClick={() => copyMsg(m)}><span aria-hidden="true">⧉</span>Copy</button>}
+                  {canPin && <button onClick={() => togglePin(m)}><span aria-hidden="true">📌</span>{pinnedId === m.id ? "Unpin" : "Pin"}</button>}
+                  <button onClick={() => toggleStar(m)}><span aria-hidden="true">{stars.has(m.id) ? "☆" : "★"}</span>{stars.has(m.id) ? "Unstar" : "Star"}</button>
+                  {canEdit(m) && <button onClick={() => { closeMenu(); startEdit(m); }}><span aria-hidden="true">✎</span>Edit</button>}
+                  {mine && room.kind !== "dm" && <button onClick={() => { closeMenu(); setInfoFor(m); }}><span aria-hidden="true">ⓘ</span>Info</button>}
+                  {!mine && <button onClick={() => { closeMenu(); report(m); }}><span aria-hidden="true">⚑</span>Report</button>}
+                  {canDelete(m) && <button className="danger" onClick={() => { closeMenu(); remove(m); }}><span aria-hidden="true">🗑</span>Delete</button>}
+                </div>
+              </div>
+            </div>; })()}
+          {forwardFor && <div className="sheet-back" role="dialog" aria-modal="true" aria-labelledby="fwd-h" onClick={() => setForwardFor(null)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()}>
+              <h2 id="fwd-h">Forward to…</h2>
+              <div className="fwdlist">{(convs ?? []).filter((c) => !c.read_only || isStaff).map((c) => (
+                <button key={c.id} className="plainbtn fwdrow" onClick={() => forwardTo(forwardFor, c.id, c.name)}>
+                  {c.kind === "dm" ? <Avatar name={c.name} url={c.avatar} size={36} /> : <ChanIcon c={c} />}<span className="grow"><b>{c.name}</b></span></button>))}</div>
+              <button className="btn ghost" onClick={() => setForwardFor(null)}>Cancel</button>
+            </div></div>}
+          {showStarred && <div className="sheet-back" role="dialog" aria-modal="true" aria-labelledby="star-h" onClick={() => setShowStarred(false)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()}>
+              <h2 id="star-h">★ Starred messages</h2>
+              <div className="fwdlist">{msgs.filter((x) => stars.has(x.id)).reverse().map((x) => (
+                <button key={x.id} className="plainbtn fwdrow" onClick={() => { setShowStarred(false); setTimeout(() => jumpTo(x.id), 50); }}>
+                  <span className="grow"><b>{x.user_id === me ? "You" : nameOf(x)}</b><span className="muted">{x.body || x.attachment_name || "Photo"}</span></span>
+                  <small className="muted">{new Date(x.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</small></button>))}
+                {msgs.filter((x) => stars.has(x.id)).length === 0 && <p className="muted">Starred messages from earlier in this chat aren't loaded yet. Scroll up to see them.</p>}</div>
+              <button className="btn ghost" onClick={() => setShowStarred(false)}>Close</button>
+            </div></div>}
+          {toast && <div className="chattoast" role="status">{toast}</div>}
           {viewImg && <div className="lightbox" role="dialog" aria-label="Photo" onClick={() => setViewImg(null)}>
             <img src={viewImg} alt="" /><button className="lightbox-x" aria-label="Close">✕</button>
             <a className="lightbox-dl" href={`${viewImg}?download=`} onClick={(e) => e.stopPropagation()}>⬇ Save</a></div>}
@@ -653,6 +739,7 @@ export default function Chat() {
 }
 
 const EMOJIS = ["👍", "❤️", "🙏", "😂", "🔥", "👏"];
+const MENU_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "👏"];
 const fileSize = (n?: number | null) => (!n ? "" : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const fileIcon = (name?: string | null) => {
   const ext = (name ?? "").split(".").pop()?.toLowerCase() ?? "";

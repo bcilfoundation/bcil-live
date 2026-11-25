@@ -40,7 +40,7 @@ export default function Search() {
         "Groups": ((groups.data ?? []) as { id: string; name: string; description: string | null; is_member: boolean; member_count: number }[])
           .filter((g) => `${g.name} ${g.description ?? ""}`.toLowerCase().includes(low)).slice(0, 6)
           .map((g) => ({ id: g.id, title: g.name, sub: `${g.member_count} members${g.is_member ? " · you're in" : ""}`, to: g.is_member ? `/chat?room=${g.id}` : `/groups/${g.id}`, icon: "👥" })),
-        "People": ((people.data ?? []) as { id: string; full_name: string; avatar_url: string | null; role: string }[]).map((x) => ({ id: x.id, title: x.full_name, sub: x.role === "admin" ? "BCIL team" : x.role === "moderator" ? "Moderator" : x.role === "mentor" ? "Mentor" : "Member", icon: "", person: { name: x.full_name, avatar: x.avatar_url } })),
+        "People": ((people.data ?? []) as { id: string; full_name: string; avatar_url: string | null; role: string }[]).map((x) => ({ id: x.id, title: x.full_name, sub: x.role === "admin" ? "BCIL Foundation team" : x.role === "moderator" ? "Moderator" : x.role === "mentor" ? "Mentor" : "Member", icon: "", person: { name: x.full_name, avatar: x.avatar_url } })),
       });
       setBusy(false);
     }, 300);

@@ -1,3 +1,4 @@
+import DonatePrompt from "../components/DonatePrompt";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { docLink, fileName } from "../lib/docs";
@@ -98,11 +99,13 @@ export default function Meet() {
         <Avatar url={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} name="Solomon Agbesi" size={64} />
         <div><h1 style={{ margin: 0 }}>Meet Solomon</h1><span className="muted">Solomon Agbesi · Founder, BCIL Foundation</span></div>
       </div>
-      <p>Want to talk about mentorship, your plan for the year, your studies or career, or working with BCIL? Pick a time from Solomon's calendar, or just send your question or documents for feedback without a meeting. You'll get a notification when Solomon replies.</p>
+      <p>Want to talk about mentorship, your plan for the year, your studies or career, or working with BCIL Foundation? Pick a time from Solomon's calendar, or just send your question or documents for feedback without a meeting. You'll get a notification when Solomon replies.</p>
 
       {sent ? <div className="card planbar"><span>✅ Request sent. You'll get a notification when Solomon replies.</span>
         {undo ? <button className="btn primary sm" onClick={undoSend}>↩ Undo ({undo.left}s)</button>
-          : <button className="btn ghost sm" disabled={!!busy} onClick={() => setSent(false)}>{busy === "Undoing…" ? busy : "New request"}</button>}</div> : (
+          : <button className="btn ghost sm" disabled={!!busy} onClick={() => setSent(false)}>{busy === "Undoing…" ? busy : "New request"}</button>}</div> : null}
+      {sent && !undo && <DonatePrompt where="meet" />}
+      {!sent && (
         <div className="card meetform">
           <label className="field">What is it about?<select value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value })}><option value="">Choose…</option>{TOPICS.map((t) => <option key={t}>{t}</option>)}</select></label>
           <label className="field">Tell us a little more<textarea value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} placeholder="What would you like to talk about, and what would help most?" maxLength={1500} /></label>
@@ -150,14 +153,15 @@ export default function Meet() {
 
       {list && list.length > 0 && <>
         <h2 style={{ marginTop: 18 }}>My requests</h2>
+        {!sent && list.some((r) => r.status === "done" || !!r.reply) && <DonatePrompt where="feedback" />}
         <div className="list">{list.map((r) => (
           <div key={r.id}><div className="grow">
             <b>{r.topic}</b> <span className={`pill ${STATUS[r.status]?.[1] ?? ""}`}>{STATUS[r.status]?.[0] ?? r.status}</span>
             {r.status === "pending" && r.slot_at && <div className="muted">🕒 You asked for <b>{when(r.slot_at)}</b></div>}
             {r.status === "confirmed" && r.meet_at && <div>📅 <b>{when(r.meet_at)}</b>{r.mode ? ` · ${r.mode}` : ""}
               {new Date(r.meet_at) > new Date() && <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                <a className="btn ghost sm" target="_blank" rel="noopener" href={googleCalLink({ title: `Meeting with Solomon Agbesi (BCIL): ${r.topic}`, start: r.meet_at, minutes: r.minutes, details: [r.reply, r.mode && `How: ${r.mode}`].filter(Boolean).join("\n"), location: r.mode ?? "" })}>📅 Add to Google Calendar</a>
-                <button className="btn ghost sm" onClick={() => icsFile({ uid: `meet-${r.id}@bcilfoundation.org`, title: `Meeting with Solomon Agbesi (BCIL): ${r.topic}`, start: r.meet_at!, minutes: r.minutes, details: r.reply ?? "", location: r.mode ?? "" })}>Other calendar</button>
+                <a className="btn ghost sm" target="_blank" rel="noopener" href={googleCalLink({ title: `Meeting with Solomon Agbesi (BCIL Foundation): ${r.topic}`, start: r.meet_at, minutes: r.minutes, details: [r.reply, r.mode && `How: ${r.mode}`].filter(Boolean).join("\n"), location: r.mode ?? "" })}>📅 Add to Google Calendar</a>
+                <button className="btn ghost sm" onClick={() => icsFile({ uid: `meet-${r.id}@bcilfoundation.org`, title: `Meeting with Solomon Agbesi (BCIL Foundation): ${r.topic}`, start: r.meet_at!, minutes: r.minutes, details: r.reply ?? "", location: r.mode ?? "" })}>Other calendar</button>
               </div>}</div>}
             {r.reply && <div className="muted">💬 {r.reply}</div>}
             {r.files?.length > 0 && <div className="row" style={{ gap: 6, flexWrap: "wrap", margin: "4px 0" }}>{r.files.map((p) => (

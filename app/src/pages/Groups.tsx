@@ -15,10 +15,10 @@ export type Group = {
   member_count: number; is_member: boolean; my_role: string | null;
 };
 const SECTIONS: [string, string, string][] = [
-  ["campus", "Campus Sync", "BCIL on your campus: activities, updates and your campus chat."],
+  ["campus", "Campus Sync", "BCIL Foundation on your campus: activities, updates and your campus chat."],
   ["cohort", "Cohorts", "Your programme year group."],
-  ["program", "Programmes", "Groups for BCIL programmes."],
-  ["general", "Community", "Open to every BCIL member."],
+  ["program", "Programmes", "Groups for BCIL Foundation programmes."],
+  ["general", "Community", "Open to every BCIL Foundation member."],
 ];
 const inviteLink = (code: string) => `${location.origin}${import.meta.env.BASE_URL}join/${code}`;
 
@@ -393,7 +393,7 @@ function About({ g, leader, staff, onSaved }: { g: Group; leader: boolean; staff
   );
 }
 
-// Leaders and BCIL staff add people to a group by name (the person gets a notification)
+// Leaders and BCIL Foundation staff add people to a group by name (the person gets a notification)
 function AddPeople({ roomId, have, onAdded }: { roomId: string; have: Set<string>; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");

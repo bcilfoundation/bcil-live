@@ -234,7 +234,7 @@ function Viewer({ row, me, onNext, onPrev, onClose, onAdd }: { row: FeedRow; me:
     const why = window.prompt("What's wrong with this status? (optional)");
     if (why === null) return;
     await supabase.rpc("report_status", { p_status: cur.id, p_reason: why || null });
-    setNote("Thanks. The BCIL team will look at it."); setTimeout(onNext, 1200);
+    setNote("Thanks. The BCIL Foundation team will look at it."); setTimeout(onNext, 1200);
   }
   async function sendReply(e: React.FormEvent) {
     e.preventDefault();

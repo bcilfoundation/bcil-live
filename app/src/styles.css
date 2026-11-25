@@ -1382,3 +1382,33 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .biteacts{clear:both;padding-top:6px}.biteacts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .biteacts .btn{justify-content:center;padding:6px 4px;font-size:.78rem;white-space:nowrap}
 .chatview .msg .bub .biteacts .btn{background:rgba(0,0,0,.04)}
+.donateprompt{display:flex;gap:12px;align-items:flex-start;margin-top:12px}
+.donateprompt-ico{font-size:1.4rem;line-height:1}.donateprompt p{margin:4px 0 10px}
+/* message menu: long press or right-click */
+.msgmenu-back{position:fixed;inset:0;z-index:1200;background:rgba(10,15,25,.45);display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:761px){.msgmenu-back{align-items:center}}
+.msgmenu{width:min(340px,100%);display:flex;flex-direction:column;gap:8px;animation:mmIn .14s ease-out}
+@keyframes mmIn{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+.msgmenu-emojis{display:flex;justify-content:space-between;background:var(--panel);border-radius:999px;padding:6px 8px;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.msgmenu-emojis button{border:0;background:transparent;font-size:1.55rem;width:38px;height:38px;border-radius:50%;cursor:pointer}
+.msgmenu-emojis button.on{background:var(--navy-soft)}
+.msgmenu-preview{background:var(--panel);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;max-height:110px;overflow:hidden}
+.msgmenu-preview span{color:var(--muted);font-size:.9rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.msgmenu-list{background:var(--panel);border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.msgmenu-list button{display:flex;align-items:center;gap:14px;width:100%;padding:12px 16px;border:0;background:transparent;color:var(--text);font-size:1rem;text-align:left;cursor:pointer}
+.msgmenu-list button+button{border-top:1px solid var(--line)}
+.msgmenu-list button:hover{background:var(--panel-2)}
+.msgmenu-list button span{width:22px;text-align:center}
+.msgmenu-list button.danger{color:#d9363e}
+.chatview .bub.sel{outline:2px solid var(--accent);outline-offset:1px}
+.fwdlabel{display:block;color:#667781;font-style:italic;font-size:.72rem;margin-bottom:2px}
+.starmark{color:#c99a1a}
+.pinbar{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.pinbar .plainbtn{display:flex;gap:10px;align-items:center;text-align:left;min-width:0}
+.pinbar-text{display:flex;flex-direction:column;min-width:0}.pinbar-text b{font-size:.78rem;color:var(--accent)}
+.pinbar-text span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.9rem}
+.fwdlist{display:flex;flex-direction:column;max-height:55vh;overflow-y:auto;margin:8px 0 12px}
+.fwdrow{display:flex;align-items:center;gap:12px;padding:10px 4px;text-align:left;border-bottom:1px solid var(--line)}
+.fwdrow .grow{display:flex;flex-direction:column;min-width:0}.fwdrow .grow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chattoast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222c3b;color:#fff;padding:8px 16px;border-radius:999px;font-size:.88rem;z-index:1300}
+.chatview .msg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}

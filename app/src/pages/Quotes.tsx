@@ -127,14 +127,14 @@ export async function shareBite(x: { id?: number; body: string; author: string; 
   }
   // 2. phone browsers: share the card as a picture
   if (blob) {
-    const file = new File([blob], "BCIL Daily Bite.png", { type: "image/png" });
+    const file = new File([blob], "BCIL Foundation Daily Bite.png", { type: "image/png" });
     try {
       if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text }); record(); return true; }
     } catch (e) { if ((e as Error)?.name === "AbortError") return false; }
     // 3. computers: save the card and copy the text, ready to attach to a post
     if (!isNative) {
       const { saveBlob } = await import("../lib/quoteCard");
-      saveBlob(blob, `BCIL Daily Bite ${x.show_on ?? ""}.png`.trim());
+      saveBlob(blob, `BCIL Foundation Daily Bite ${x.show_on ?? ""}.png`.trim());
       await navigator.clipboard?.writeText(text).catch(() => {});
       alert("The Daily Bite card is saved to your downloads, and the text is copied. Attach the picture to your post.");
       record(); return true;

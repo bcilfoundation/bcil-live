@@ -23,7 +23,7 @@ export default function Admin() {
   // notifications link straight to a tab: /admin?tab=Meetings
   const [tab, setTab] = useState<Tab>(() => { const t = new URLSearchParams(location.search).get("tab"); return (TABS as readonly string[]).includes(t ?? "") ? (t as Tab) : "FCB 2027"; });
   if (profile?.role !== "admin" && profile?.role !== "moderator" && profile?.role !== "mentor")
-    return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL admin to give you access.</div></section>;
+    return <section className="view"><h1>Admin</h1><div className="empty"><b>Admins only</b>Ask a BCIL Foundation admin to give you access.</div></section>;
   const isAdmin = profile.role === "admin";
   const isMentor = profile.role === "mentor";
   // moderators and mentors only see the plans and meeting requests Solomon assigns to them (and their own mentees' plans)
@@ -389,7 +389,7 @@ function PeopleAdmin() {
     const { default: writeXlsxFile } = await import("write-excel-file/browser");
     await writeXlsxFile([[{ value: "Name", fontWeight: "bold" }, { value: "Email", fontWeight: "bold" }, { value: "Joined", fontWeight: "bold" }],
       ...list.map((r) => [{ value: r.full_name }, { value: r.email }, { value: r.joined }])] as never,
-      { sheet: "Newsletter", columns: [{ width: 28 }, { width: 34 }, { width: 12 }] }).toFile("BCIL newsletter list (app members).xlsx");
+      { sheet: "Newsletter", columns: [{ width: 28 }, { width: 34 }, { width: 12 }] }).toFile("BCIL Foundation newsletter list (app members).xlsx");
     setNl(`${list.length} app member${list.length === 1 ? "" : "s"} on the list. Website sign-ups are in WordPress → SureForms → Entries.`);
   }
   return (<>
@@ -861,7 +861,7 @@ function CalendarFeed() {
   if (added === undefined) return null;
   if (added && !open) return (
     <div className="card availcard calok">
-      <span>✓ <b>Meetings go to your Google Calendar</b> <small className="muted">Confirmed meetings appear in “Meet Solomon (BCIL)” within a few hours.</small></span>
+      <span>✓ <b>Meetings go to your Google Calendar</b> <small className="muted">Confirmed meetings appear in “Meet Solomon (BCIL Foundation)” within a few hours.</small></span>
       <button className="linkbtn" onClick={get}>Calendar link</button>
     </div>
   );
@@ -877,7 +877,7 @@ function CalendarFeed() {
           <ol className="small" style={{ margin: "4px 0", paddingLeft: 18 }}>
             <li>Copy your private calendar link: <button className="btn primary sm" onClick={async () => { await navigator.clipboard.writeText(url).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? "Copied ✓" : "Copy link"}</button></li>
             <li>On a computer, open <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Add calendar → From URL</a>.</li>
-            <li>Paste the link and click <b>Add calendar</b>. A calendar called “Meet Solomon (BCIL)” appears.</li>
+            <li>Paste the link and click <b>Add calendar</b>. A calendar called “Meet Solomon (BCIL Foundation)” appears.</li>
           </ol>
           <small className="muted">Google refreshes it every few hours. For an instant add, use “Add to Google Calendar” on a confirmed meeting. Keep this link private: anyone with it can see your meeting times.</small>
           <div className="row" style={{ gap: 8, marginTop: 6 }}>

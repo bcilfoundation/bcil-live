@@ -171,7 +171,7 @@ export default function Live() {
       ) : (
         <div className="pod-empty">
           <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" />
-          <div><b>Nothing is live right now</b><p className="muted">When BCIL goes live, it shows up here and you'll hear it straight away.</p></div>
+          <div><b>Nothing is live right now</b><p className="muted">When BCIL Foundation goes live, it shows up here and you'll hear it straight away.</p></div>
         </div>
       )}
       {error && <p className="err" role="alert">{error}</p>}
@@ -606,7 +606,7 @@ function GiftSheet({ close }: { close: () => void }) {
     <div className="sheet"><h3>Send a gift</h3>
       {canPay && (
         <div className="seg" role="tablist">
-          <button role="tab" aria-selected={tab === "support"} onClick={() => setTab("support")}>💛 Support BCIL</button>
+          <button role="tab" aria-selected={tab === "support"} onClick={() => setTab("support")}>💛 Support BCIL Foundation</button>
           <button role="tab" aria-selected={tab === "free"} onClick={() => setTab("free")}>Free gifts</button>
         </div>
       )}
@@ -625,7 +625,7 @@ function GiftSheet({ close }: { close: () => void }) {
   );
 }
 
-// BCIL's saved background music: upload songs once, then play them in any session
+// BCIL Foundation's saved background music: upload songs once, then play them in any session
 type Song = { id: number; name: string; path: string };
 const songCache = new Map<string, File>();
 function MusicLibrary() {
@@ -667,7 +667,7 @@ function MusicLibrary() {
     if (failed) setErr(`${failed} file${failed > 1 ? "s" : ""} could not be uploaded. Use MP3, M4A or WAV files under 30 MB.`);
   }
   async function remove(s: Song) {
-    if (!window.confirm(`Remove "${s.name}" from BCIL's music?`)) return;
+    if (!window.confirm(`Remove "${s.name}" from BCIL Foundation's music?`)) return;
     setSongs((cur) => cur?.filter((x) => x.id !== s.id) ?? cur);
     await supabase.from("live_music").delete().eq("id", s.id);
     await supabase.storage.from("live-music").remove([s.path]);

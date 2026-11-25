@@ -12,7 +12,7 @@ export const MOMO: { number: string; network: string; name: string } | null = { 
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
 const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting", failed: "Not completed", recorded: "Recorded" };
 
-// Give any amount to BCIL Foundation (Mobile Money or card through Paystack). 100% goes to BCIL.
+// Give any amount to BCIL Foundation (Mobile Money or card through Paystack). 100% goes to BCIL Foundation.
 export default function Give() {
   const { isStaff } = useAuth();
   const [lic, setLic] = useState(false);

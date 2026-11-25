@@ -13,7 +13,7 @@ const when = (d: string) => new Date(d).toLocaleString("en-GB", { weekday: "shor
 // datetime-local wants local "YYYY-MM-DDTHH:MM"
 const toLocalInput = (d: string | null) => { if (!d) return ""; const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16); };
 
-// BCIL Academic Mentorship: my mentor or mentees, the next session, and how to join
+// BCIL Foundation Academic Mentorship: my mentor or mentees, the next session, and how to join
 export default function Mentorship() {
   const { session, profile } = useAuth();
   const me = session!.user.id;
@@ -35,11 +35,11 @@ export default function Mentorship() {
       <h1>Mentorship</h1>
       {profile?.role === "mentor" && <Link className="card planbar" to="/admin?tab=Plan%202027" style={{ textDecoration: "none", color: "inherit" }}>
         <span>📋 <b>For mentors:</b> your mentees' 2027 plans, and anything Solomon asks you to help with</span><span className="btn ghost sm">Open</span></Link>}
-      <p className="muted">BCIL Academic Mentorship pairs students with experienced mentors for support beyond our programmes: studies, career, leadership and personal growth.</p>
+      <p className="muted">BCIL Foundation Academic Mentorship pairs students with experienced mentors for support beyond our programmes: studies, career, leadership and personal growth.</p>
       <Link to="/plan" className="card plancta">
         <span className="eyebrow">New</span>
         <b>📝 Plan 2027</b>
-        <span className="muted small">Write your one-year plan for 2027: your goals and targets for each area of life, with start and end months. Get feedback from BCIL mentors and check in every month.</span>
+        <span className="muted small">Write your one-year plan for 2027: your goals and targets for each area of life, with start and end months. Get feedback from BCIL Foundation mentors and check in every month.</span>
         <span className="btn primary sm">Open my plan</span>
       </Link>
       {pairs === null ? <p className="muted">Loading…</p> : <>

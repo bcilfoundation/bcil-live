@@ -156,7 +156,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
       if (alerts) { await disablePush(); localStorage.setItem(ALERTS_KEY, "off"); setAlerts(false); return; }
       await enablePush(session!.user.id);
       localStorage.setItem(ALERTS_KEY, "push"); setAlerts(true);
-      setMsg("Done. You'll get a notification on this device for the Daily Bite, when BCIL goes live, programme reminders and messages.");
+      setMsg("Done. You'll get a notification on this device for the Daily Bite, when BCIL Foundation goes live, programme reminders and messages.");
     } catch (e) { setMsg((e as Error).message); }
   }
 
@@ -188,7 +188,7 @@ function ProfileMenu({ onClose, startEditing = false }: { onClose: () => void; s
   );
 }
 
-// your other accounts on this phone, and adding one (for example a personal account next to the BCIL account)
+// your other accounts on this phone, and adding one (for example a personal account next to the BCIL Foundation account)
 export function AccountSwitch({ me, onClose }: { me?: string; onClose: () => void }) {
   const [list, setList] = useState(savedAccounts());
   const [busy, setBusy] = useState<string | null>(null);
@@ -218,7 +218,7 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const file = useRef<HTMLInputElement>(null);
-  // birthday: day and month only, so BCIL can celebrate it (loaded separately so older databases still work)
+  // birthday: day and month only, so BCIL Foundation can celebrate it (loaded separately so older databases still work)
   const [bd, setBd] = useState({ m: "", d: "", show: true, ok: false });
   const [gender, setGender] = useState<string>(profile?.gender ?? "");
   useEffect(() => {
@@ -261,7 +261,7 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
       </div>
       <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
       <label className="field">{profile?.is_org ? "About BCIL Foundation" : "About you"} <small className="muted">(optional)</small>
-        <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} placeholder="e.g. Level 200, KNUST · BCIL Campus Sync" style={{ minHeight: 70 }} /></label>
+        <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} placeholder="e.g. Level 200, KNUST · BCIL Foundation Campus Sync" style={{ minHeight: 70 }} /></label>
       {bd.ok && !profile?.is_org && <fieldset className="field bdayfield">
         <legend>Birthday <small className="muted">(optional · day and month only)</small></legend>
         <div className="row" style={{ gap: 8 }}>
@@ -270,7 +270,7 @@ export function EditProfile({ onDone }: { onDone: () => void }) {
         </div>
         {bd.m && bd.d && <label className="row small" style={{ gap: 8, marginTop: 6 }}><input type="checkbox" checked={bd.show} onChange={(e) => setBd({ ...bd, show: e.target.checked })} /> Celebrate my birthday on Home so others can wish me well</label>}
       </fieldset>}
-      {!profile?.is_org && <label className="field">Gender <small className="muted">(only you and BCIL staff can see this)</small>
+      {!profile?.is_org && <label className="field">Gender <small className="muted">(only you and BCIL Foundation staff can see this)</small>
         <select value={gender} onChange={(e) => setGender(e.target.value)}>
           <option value="" disabled>Choose…</option><option value="male">Male</option><option value="female">Female</option><option value="prefer_not">Prefer not to say</option>
         </select></label>}

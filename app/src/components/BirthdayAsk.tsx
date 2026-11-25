@@ -53,8 +53,8 @@ export default function BirthdayAsk() {
   if (!open) return null;
   const max = m ? DAYS_IN[Number(m) - 1] : 31;
   const opts: [Choice, string, string][] = [
-    ["celebrate", "Celebrate me with BCIL", "Your name and photo appear on Home on your birthday so the BCIL family can wish you well, and you get a birthday wish from us."],
-    ["private", "Just a wish from BCIL", "We'll send you a birthday wish. Nothing is shown to others."],
+    ["celebrate", "Celebrate me with BCIL Foundation", "Your name and photo appear on Home on your birthday so the BCIL Foundation family can wish you well, and you get a birthday wish from us."],
+    ["private", "Just a wish from BCIL Foundation", "We'll send you a birthday wish. Nothing is shown to others."],
     ["none", "Please don't", "Nobody is told. We keep no date."],
   ];
   return (

@@ -52,7 +52,7 @@ export default function ChatInfo({ room, me, canCall, onCall, onSearch, onWallpa
     setNote(hours === null ? "Notifications on" : hours === 0 ? "Muted" : `Muted for ${hours >= 24 ? `${hours / 24} day${hours > 24 ? "s" : ""}` : `${hours} hours`}`);
   }
   async function report() {
-    if (!room.otherId || !window.confirm(`Report ${room.name} to the BCIL team?`)) return;
+    if (!room.otherId || !window.confirm(`Report ${room.name} to the BCIL Foundation team?`)) return;
     await supabase.from("reports").insert({ reporter: me, target_type: "user", target_id: room.otherId });
     setNote("Thanks. A moderator will look at it.");
   }

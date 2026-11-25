@@ -123,12 +123,12 @@ export async function monthPack(month: string, bites: BiteQ[]) {
     "Schedule these Daily Bites on Facebook and Instagram with Meta Business Suite (free):",
     "",
     "1. Go to business.facebook.com and open Planner (or Content > Planner).",
-    "2. Click Create post. Choose the BCIL Facebook Page and the Instagram account.",
+    "2. Click Create post. Choose the BCIL Foundation Facebook Page and the Instagram account.",
     "3. Add the image for a day (e.g. 2026-12-01 Daily Bite.png) and paste the caption (the hashtags in caption.txt).",
     "4. Click the arrow next to Publish > Schedule, pick that date and a time (e.g. 7:00 am), and schedule it.",
     "5. Repeat for each day. Tip: Meta Business Suite also has Bulk upload under Planner, which takes several posts at once.",
   ].join("\r\n"));
-  saveBlob(await zip.generateAsync({ type: "blob" }), `BCIL Daily Bites ${month}.zip`);
+  saveBlob(await zip.generateAsync({ type: "blob" }), `BCIL Foundation Daily Bites ${month}.zip`);
 }
 
 /** Public address of a day's card image (made when the bite is saved in Admin). */

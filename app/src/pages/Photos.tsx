@@ -7,7 +7,7 @@ import LibraryTabs from "../components/LibraryTabs";
 type Album = { id: number; title: string; subtitle: string | null; taken_on: string | null; photos: string[]; sort: number };
 const src = (u: string) => (u.startsWith("/") ? `${import.meta.env.BASE_URL}${u.slice(1)}` : u);
 
-// Photos from BCIL programmes, one album per programme. Staff add albums and photos here.
+// Photos from BCIL Foundation programmes, one album per programme. Staff add albums and photos here.
 export default function Photos() {
   const { isStaff } = useAuth();
   const [albums, setAlbums] = useState<Album[] | null>(null);
@@ -39,7 +39,7 @@ export default function Photos() {
     <section className="view">
       <LibraryTabs />
       <h1>Photos</h1>
-      <p className="muted">Moments from BCIL programmes.</p>
+      <p className="muted">Moments from BCIL Foundation programmes.</p>
       {albums === null ? <p className="muted">Loading…</p> : albums.length === 0 ? <p className="muted">No albums yet.</p> : (
         <div className="albumgrid">{albums.map((a) => (
           <button key={a.id} className="albumcard" onClick={() => setOpen(a)}>

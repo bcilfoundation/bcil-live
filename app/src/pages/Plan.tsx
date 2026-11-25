@@ -1,3 +1,4 @@
+import DonatePrompt from "../components/DonatePrompt";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -52,14 +53,14 @@ export default function Plan() {
     <section className="view">
       <Link to="/mentorship" className="linkbtn">← Mentorship</Link>
       <div className="card planhero">
-        <span className="eyebrow">BCIL mentorship</span>
+        <span className="eyebrow">BCIL Foundation mentorship</span>
         <h1>Plan {YEAR}</h1>
-        <p>Start the year on purpose. Write a one-year plan for {YEAR} and keep going with monthly check-ins and quarterly reviews. Keep it to yourself, or share it with BCIL for mentorship and feedback. You choose.</p>
+        <p>Start the year on purpose. Write a one-year plan for {YEAR} and keep going with monthly check-ins and quarterly reviews. Keep it to yourself, or share it with BCIL Foundation for mentorship and feedback. You choose.</p>
         <ol className="plansteps">
           <li><b>Choose a theme</b> or a word for your year.</li>
           <li><b>Set your goals</b> across your life: studies, career, faith, health, money, relationships, leadership and personal growth. As many as you need, habits included.</li>
           <li><b>For each goal,</b> describe it and choose the month you'll start and the month you'll finish.</li>
-          <li><b>Keep it private</b>, or <b>share it</b> with BCIL mentors for feedback. Then update your progress every month.</li>
+          <li><b>Keep it private</b>, or <b>share it</b> with BCIL Foundation mentors for feedback. Then update your progress every month.</li>
         </ol>
         <button className="btn primary" onClick={start}>Start my {YEAR} plan</button>
         <small className="muted">🔒 Your plan is private. Only you can see it unless you choose to share it for mentorship. You can make it private again at any time.</small>
@@ -84,17 +85,18 @@ export default function Plan() {
 
       {!plan.shared ? (
         <div className="card planbar">
-          <span><b>🔒 Private.</b> Only you can see this plan. Want a BCIL mentor to read it and give you feedback?</span>
+          <span><b>🔒 Private.</b> Only you can see this plan. Want a BCIL Foundation mentor to read it and give you feedback?</span>
           <button className="btn primary sm" disabled={!goals.length} title={!goals.length ? "Add at least one goal first" : undefined}
-            onClick={async () => { if (!window.confirm("Share your plan with BCIL mentors and staff so they can give you feedback?")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: true }); load(); }}>Share for mentorship</button>
+            onClick={async () => { if (!window.confirm("Share your plan with BCIL Foundation mentors and staff so they can give you feedback?")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: true }); load(); }}>Share for mentorship</button>
         </div>
       ) : (
         <div className="card planbar">
-          <span>{plan.feedback ? "💬 Shared with BCIL for mentorship." : "✅ Shared with BCIL for mentorship. Feedback will appear here."}</span>
-          <button className="btn ghost sm" onClick={async () => { if (!window.confirm("Make your plan private? BCIL mentors and staff will no longer be able to see it.")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: false }); load(); }}>🔒 Make private</button>
+          <span>{plan.feedback ? "💬 Shared with BCIL Foundation for mentorship." : "✅ Shared with BCIL Foundation for mentorship. Feedback will appear here."}</span>
+          <button className="btn ghost sm" onClick={async () => { if (!window.confirm("Make your plan private? BCIL Foundation mentors and staff will no longer be able to see it.")) return; await supabase.rpc("set_plan_sharing", { p_id: plan.id, p_share: false }); load(); }}>🔒 Make private</button>
         </div>
       )}
       {plan.feedback && <div className="card planfeedback"><span className="eyebrow">💬 Feedback from your mentor</span><p className="prewrap">{plan.feedback}</p></div>}
+      {plan.feedback ? <DonatePrompt where="feedback" /> : plan.shared && goals.length > 0 ? <DonatePrompt where="plan" /> : null}
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 14, gap: 8, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>Goals and targets</h2>

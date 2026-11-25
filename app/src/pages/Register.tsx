@@ -63,12 +63,12 @@ export default function Register({ slug }: { slug: string }) {
     <div className="regpage">
       <header className="reghead">{(window.history.state?.idx ?? 0) > 0 && <button className="topback regback" aria-label="Back" onClick={() => history.back()}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}<img src={`${base}logo-wordmark.webp`} alt="BCIL Foundation" /></header>
       {form === undefined ? <p className="muted">Loading…</p>
-        : form === null ? <div className="card"><b>This form is closed or the link is not valid.</b><p className="muted">Check the link with the BCIL team.</p></div>
+        : form === null ? <div className="card"><b>This form is closed or the link is not valid.</b><p className="muted">Check the link with the BCIL Foundation team.</p></div>
         : done && !isEvent ? (
           <div className="card regdone">
             <h2>🎉 Thank you, {done.name.split(" ")[0]}!</h2>
-            <p>We've received your form for <b>{form.title}</b>. The BCIL team will get in touch with you.</p>
-            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
+            <p>We've received your form for <b>{form.title}</b>. The BCIL Foundation team will get in touch with you.</p>
+            {!signedIn && <div className="regjoin"><b>Want more from BCIL Foundation?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
               <a className="btn primary" href={base}>Open the app</a></div>}
           </div>
         ) : done ? (
@@ -79,7 +79,7 @@ export default function Register({ slug }: { slug: string }) {
             <Ticket ticket={done.ticket} title={form.title} checkedIn={done.checked_in} />
             <p className="muted small">{mail || "Take a screenshot of your ticket now, or keep this link:"}</p>
             <a className="btn ghost" href={`${base}t/${done.ticket}`}>Open my ticket page</a>
-            {!signedIn && <div className="regjoin"><b>Want more from BCIL?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
+            {!signedIn && <div className="regjoin"><b>Want more from BCIL Foundation?</b><span className="muted">Get the BCIL Foundation app for live sessions, talks, the Daily Bite and the community.</span>
               <a className="btn primary" href={base}>Open the app</a></div>}
           </div>
         ) : (
@@ -139,7 +139,7 @@ export function CertificateBox({ ticket }: { ticket: string }) {
   );
 }
 
-/** live.bcilfoundation.org/c/<ticket>: anyone can check that a BCIL certificate is genuine */
+/** live.bcilfoundation.org/c/<ticket>: anyone can check that a BCIL Foundation certificate is genuine */
 export function CertificateCheck({ ticket }: { ticket: string }) {
   const [c, setC] = useState<CertInfo | null | undefined>(undefined);
   useEffect(() => { if (!/^[0-9a-f-]{36}$/i.test(ticket)) { setC(null); return; } certificateInfo(ticket).then(setC); }, [ticket]);

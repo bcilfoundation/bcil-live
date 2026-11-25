@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { EVENT_COLS, bgFor, countdown, img, nextSession, sessions, when, type Ev } from "../lib/events";
 
-// All BCIL programmes: upcoming (soonest first) and past. Staff can add a new one.
+// All BCIL Foundation programmes: upcoming (soonest first) and past. Staff can add a new one.
 export default function Events() {
   const { isStaff } = useAuth();
   const nav = useNavigate();

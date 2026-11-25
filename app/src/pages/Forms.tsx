@@ -3,9 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { TicketSheet } from "../components/Ticket";
+import DonatePrompt from "../components/DonatePrompt";
 import { PAYMENTS_ENABLED, TEST_NOTE, paymentsOn, startPayment } from "../lib/pay";
 
-// Question types, matching what BCIL uses in Google Forms
+// Question types, matching what BCIL Foundation uses in Google Forms
 export type Field = {
   key: string; label: string; required?: boolean; help?: string;
   type: "text" | "tel" | "email" | "date" | "number" | "textarea" | "select" | "radio" | "checkbox" | "section" | "file";
@@ -87,10 +88,15 @@ export default function Forms() {
     if (error) { setError("Could not send. Check your connection and try again."); return; }
     // email the QR ticket too (does nothing until the email service is connected, or if this form has no programme)
     if (sent?.ticket && eventForms[open!.slug]) supabase.functions.invoke("send-ticket", { body: { ticket: sent.ticket } }).catch(() => {});
-    if (open!.fee_pesewas && sent) setPayFor({ resp: sent.id, form: open! });
+    const payNow = sent && canPay && wantsPay(open!, answers);
+    const hasCertQ = open!.fields.some((x) => x.key === "certificate");
+    if (open!.fee_pesewas && sent && (!hasCertQ || answers.certificate === "Yes" || open!.fee_required)) setPayFor({ resp: sent.id, form: open! });
     setDone(open!.title); setDoneId(sent?.id ?? null); setOpen(null); setAnswers({}); load();
+    if (payNow) pay(sent!.id);   // Yes to the certificate: straight on to Paystack
   }
 
+  // a fee is paid now when it's required, or when the form asks "Do you want a certificate?" and the answer is Yes
+  const wantsPay = (f: Form, a: Record<string, string>) => !!f.fee_pesewas && (f.fee_required || (f.fields.some((x) => x.key === "certificate") ? a.certificate === "Yes" : true));
   async function pay(resp: number) {
     setPayBusy(true); setPayMsg("");
     try { await startPayment({ kind: "form_fee", response_id: resp }); setPayMsg("Finish on the Paystack page (Mobile Money or card). It shows as Paid here once it's done."); }
@@ -110,12 +116,12 @@ export default function Forms() {
           {open.description && <p>{open.description}</p>}
           {open.fee_pesewas && (open.fee_required
             ? <p className="feenote">💳 {open.fee_label || "Fee"}: <b>{cedis(open.fee_pesewas)}</b>. You can pay right after you submit.</p>
-            : <p className="muted">Attendance is free. If you'd like a certificate, it costs {cedis(open.fee_pesewas)}, and you can pay any time after registering (optional).</p>)}
+            : <p className="muted">Attendance is free. A certificate costs {cedis(open.fee_pesewas)}: choose Yes below to pay for it with Mobile Money or card when you submit, or No to just register.</p>)}
           <small className="muted">* Required</small>
         </div>
         <QuestionList fields={open.fields} answers={answers} set={set} toggle={toggle} />
         <p className="err" role="alert">{error}</p>
-        <button className="btn primary" disabled={busy}>{busy ? "Sending…" : "Submit"}</button>
+        <button className="btn primary" disabled={busy}>{busy ? "Sending…" : canPay && wantsPay(open, answers) ? `Submit and pay ${cedis(open.fee_pesewas!)}` : "Submit"}</button>
       </form>
     </section>
   );
@@ -127,6 +133,7 @@ export default function Forms() {
         return <div className="card donecard"><p className="ok" role="status" style={{ margin: 0 }}>Thank you! Your response to “{done}” has been received.</p>
           {r && t && <><small className="muted">Your QR ticket for {t} is ready. You'll show it at the registration desk.</small>
             <button className="btn primary" onClick={() => setTicketFor(r)}>🎟 Show my ticket</button></>}</div>; })()}
+      {done && !payFor && <DonatePrompt where="form" />}
       {payFor && !mine.find((r) => r.id === payFor.resp)?.paid_at && (
         <div className="card paycard">
           <b>{payFor.form.fee_required ? `💳 ${payFor.form.fee_label || "Fee"}: ${cedis(payFor.form.fee_pesewas!)}` : `🎓 Want a certificate? ${cedis(payFor.form.fee_pesewas!)} (optional)`}</b>
@@ -162,7 +169,7 @@ export default function Forms() {
           {ticketTitle(r) && r.ticket && <button className="btn ghost sm" onClick={() => setTicketFor(r)}>🎟 Ticket</button>}
           <span className={`pill ${r.status === "accepted" ? "paid" : r.status === "declined" ? "failed" : ""}`}>{STATUS[r.status] ?? r.status}</span></div>
       ))}</div> : <div className="empty"><b>You have not sent any forms yet</b></div>}
-      {ticketFor?.ticket && <TicketSheet ticket={ticketFor.ticket} title={ticketTitle(ticketFor) ?? "BCIL"} checkedIn={!!ticketFor.checked_in_at} close={() => setTicketFor(null)} />}
+      {ticketFor?.ticket && <TicketSheet ticket={ticketFor.ticket} title={ticketTitle(ticketFor) ?? "BCIL Foundation"} checkedIn={!!ticketFor.checked_in_at} close={() => setTicketFor(null)} />}
     </section>
   );
 }
@@ -203,7 +210,7 @@ export function QuestionList({ fields, answers, set, toggle }: { fields: Field[]
   </>);
 }
 
-/** A document upload (PDF or photo, up to 10 MB). Files go to private storage only BCIL staff can open; the answer keeps the file's path. */
+/** A document upload (PDF or photo, up to 10 MB). Files go to private storage only BCIL Foundation staff can open; the answer keeps the file's path. */
 function FileQuestion({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const name = value ? value.split("/").pop()!.replace(/^[0-9a-f-]{36}-/, "") : "";

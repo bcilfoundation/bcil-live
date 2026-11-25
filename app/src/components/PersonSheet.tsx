@@ -8,7 +8,7 @@ import Icon from "./Icon";
 
 type Person = { id: string; full_name: string; avatar_url: string | null; bio: string | null; role: string };
 type Link = { id: number; requester: string; addressee: string; status: "pending" | "accepted" };
-const ROLE_LABEL: Record<string, string> = { admin: "BCIL team", moderator: "Moderator", mentor: "Mentor" };
+const ROLE_LABEL: Record<string, string> = { admin: "BCIL Foundation team", moderator: "Moderator", mentor: "Mentor" };
 
 // Tap someone's name or photo in a chat or live room: see who they are, add them as a friend or message them.
 export default function PersonSheet({ userId, close }: { userId: string; close: () => void }) {
@@ -35,7 +35,7 @@ export default function PersonSheet({ userId, close }: { userId: string; close: 
     setBusy(true); setError("");
     const { error } = await run();
     setBusy(false);
-    if (error) setError(`${label} didn't work: ${/row-level security/i.test(error.message) ? "this connection isn't allowed. Under-18 members can connect with BCIL staff and mentors only." : /duplicate/i.test(error.message) ? "there is already a request between you." : error.message}`);
+    if (error) setError(`${label} didn't work: ${/row-level security/i.test(error.message) ? "this connection isn't allowed. Under-18 members can connect with BCIL Foundation staff and mentors only." : /duplicate/i.test(error.message) ? "there is already a request between you." : error.message}`);
     else load();
   }
   async function message() {

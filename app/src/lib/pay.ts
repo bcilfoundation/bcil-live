@@ -1,8 +1,8 @@
-// Giving to BCIL Foundation through Paystack (Mobile Money or card). All money goes to BCIL.
+// Giving to BCIL Foundation through Paystack (Mobile Money or card). All money goes to BCIL Foundation.
 import { supabase } from "./supabase";
 import { isNative } from "./native";
 
-// Switch on once Paystack has approved BCIL's account and the give + paystack-webhook functions have the secret key
+// Switch on once Paystack has approved BCIL Foundation's account and the give + paystack-webhook functions have the secret key
 export const PAYMENTS_ENABLED = true;
 // While Paystack is in test mode, only admins and moderators see paid gifts and Give (fake money, for testing)
 export const PAYMENTS_TEST_FOR_STAFF = true;
