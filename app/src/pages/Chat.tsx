@@ -16,6 +16,7 @@ import PersonSheet from "../components/PersonSheet";
 import { shrink } from "../lib/media";
 import { isNative } from "../lib/native";
 import { useLive } from "../lib/LiveContext";
+import { addToStatus } from "../components/AddToStatus";
 
 type Conv = { id: string; name: string; sub: string; avatar?: string | null; kind: "group" | "dm" | "announcements"; read_only: boolean; cover?: string | null; members?: number; otherId?: string; leader?: boolean;
   category?: string; at?: string | null; last?: { body: string | null; type: string | null; user: string | null; name: string | null } };
@@ -536,6 +537,7 @@ export default function Chat() {
                           <b>{quoted ? nameOf(quoted) : "Reply"}</b><span>{quoted ? quoted.body : "Earlier message"}</span></button>}
                         {m.attachment_url && m.attachment_type === "image" && (
                           <button className="plainbtn msgimg" onClick={() => setViewImg(m.attachment_url!)}><img src={m.attachment_url} alt={m.attachment_name ?? "Photo"} loading="lazy" /></button>)}
+                        {isBite(m) && !m.deleted_at && <BiteActions m={m} />}
                         {m.attachment_url && m.attachment_type === "audio" && (
                           <div className="msgvoice"><span aria-hidden="true">🎤</span><audio controls preload="none" src={m.attachment_url} aria-label={m.attachment_name ?? "Voice note"} /></div>)}
                         {m.attachment_url && m.attachment_type !== "image" && m.attachment_type !== "audio" && (
@@ -544,7 +546,7 @@ export default function Chat() {
                             <span className="grow"><b>{m.attachment_name || "File"}</b><small>{fileSize(m.attachment_size)}{fileSize(m.attachment_size) ? " · " : ""}Tap to open</small></span>
                           </button>)}
                         {m.deleted_at ? <p className="msgdeleted">🚫 {m.user_id === me ? "You deleted this message" : "This message was deleted"}</p>
-                          : m.body && <p className="prewrap">{withTags(m)}</p>}
+                          : m.body && !isBite(m) && <p className="prewrap">{withTags(m)}</p>}
                         <small className="mtime">{m.edited_at && !m.deleted_at ? "edited · " : ""}{new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
                           {mine && room.kind === "dm" && (seenBy(m) > 0 ? <span className="tick seen" title="Seen" aria-label="Seen"> ✓✓</span> : <span className="tick" title="Sent" aria-label="Sent"> ✓</span>)}</small>
                         {mine && room.kind !== "dm" && m.id === lastMine && seenBy(m) > 0 && <button className="plainbtn seenby" onClick={() => setInfoFor(m)}>Seen by {seenBy(m)} ›</button>}
@@ -698,4 +700,42 @@ function listTime(iso: string) {
   if (days === 1) return "Yesterday";
   if (days < 7) return d.toLocaleDateString("en-GB", { weekday: "short" });
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: d.getFullYear() === now.getFullYear() ? undefined : "2-digit" });
+}
+
+// Daily Bite posts: the branded image, with buttons to put it on your status, share it to other apps, or save it
+const isBite = (m: { attachment_url?: string | null; attachment_type?: string | null }) => m.attachment_type === "image" && !!m.attachment_url && m.attachment_url.includes("/bites/bite-");
+function BiteActions({ m }: { m: { body: string | null; attachment_url?: string | null; attachment_name?: string | null } }) {
+  const [note, setNote] = useState("");
+  const url = m.attachment_url!;
+  const quote = (m.body ?? "").split("\n").slice(1).join(" ").trim();
+  const fileName = url.split("/").pop() || "daily-bite.jpg";
+  const text = `${quote ? quote + "\n\n" : ""}Daily Bite from BCIL Foundation · live.bcilfoundation.org/quotes\n#BCILFoundation #DailyBite #GroomingGenerationalLeaders`;
+  async function share() {
+    setNote("");
+    try {
+      const blob = await (await fetch(url)).blob();
+      const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (nav.share && (!nav.canShare || nav.canShare({ files: [file] }))) { await nav.share({ files: [file], text }); return; }
+      if (nav.share) { await nav.share({ text, url }); return; }
+      await navigator.clipboard?.writeText(text + "\n" + url); setNote("Link copied. Paste it in WhatsApp or anywhere you like.");
+    } catch (e) { if ((e as Error)?.name !== "AbortError") setNote("Couldn't open sharing here. Use Save image, then share it from your photos."); }
+  }
+  async function save() {
+    try {
+      const blob = await (await fetch(url)).blob();
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch { window.open(url, "_blank"); }
+  }
+  return (
+    <div className="biteacts" onClick={(e) => e.stopPropagation()}>
+      <div className="biteacts-row">
+        <button type="button" className="btn ghost sm" onClick={() => addToStatus({ type: "bite", title: quote || "Today's Daily Bite", image: url, link: "/quotes" })}>＋ My status</button>
+        <button type="button" className="btn ghost sm" onClick={share}>↗ Share</button>
+        <button type="button" className="btn ghost sm" onClick={save}>⬇ Save image</button>
+      </div>
+      {note && <small className="muted">{note}</small>}
+    </div>
+  );
 }

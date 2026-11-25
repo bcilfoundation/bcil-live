@@ -1379,3 +1379,6 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .tobottom{position:absolute;right:14px;bottom:14px;width:42px;height:42px;border-radius:50%;border:0;background:var(--panel);color:var(--muted);box-shadow:0 2px 6px rgba(0,0,0,.2);display:grid;place-items:center;cursor:pointer;z-index:3}
 .tobottom .wa-count{position:absolute;top:-8px;right:-4px;min-width:20px;height:20px;font-size:.7rem}
 .tobottom-arrow{font-size:1.6rem;line-height:1;margin-top:-10px}
+.biteacts{clear:both;padding-top:6px}.biteacts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.biteacts .btn{justify-content:center;padding:6px 4px;font-size:.78rem;white-space:nowrap}
+.chatview .msg .bub .biteacts .btn{background:rgba(0,0,0,.04)}
