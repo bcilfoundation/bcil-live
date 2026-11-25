@@ -1412,3 +1412,6 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .fwdrow .grow{display:flex;flex-direction:column;min-width:0}.fwdrow .grow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chattoast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222c3b;color:#fff;padding:8px 16px;border-radius:999px;font-size:.88rem;z-index:1300}
 .chatview .msg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.editedcopy{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0;border:1px solid var(--accent)}
+.editedcopy>span{font-size:1.5rem}.editedcopy .grow{display:flex;flex-direction:column;min-width:0}
+.editednote{margin:8px 0}

@@ -11,7 +11,7 @@ import { useLive, type Session } from "../lib/LiveContext";
 import type { ICameraVideoTrack, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
 type DocRow = { id: number; owner_id: string | null; path: string; name: string; context: string; ref_id: number | null; created_at: string; root_id?: number | null; version?: number; uploaded_by?: string | null };
-type Ver = { id: number; version: number; name: string; created_at: string; uploaded_by: string | null };
+type Ver = { id: number; version: number; name: string; created_at: string; uploaded_by: string | null; path?: string; uploader?: string };
 type Comment = { id: number; document_id: number; user_id: string; parent_id: number | null; page: number | null; x: number | null; y: number | null; quote: string | null;
   body: string; resolved: boolean; created_at: string; profiles?: { full_name: string; avatar_url: string | null } | null };
 type Draft = { page: number | null; x: number | null; y: number | null; quote: string | null };
@@ -71,9 +71,24 @@ export default function Doc() {
   useEffect(() => {
     if (!doc) return;
     const root = doc.root_id ?? doc.id;
-    supabase.from("documents").select("id, version, name, created_at, uploaded_by").or(`id.eq.${root},root_id.eq.${root}`).order("version")
-      .then(({ data, error }) => setVersions(error ? [] : (data ?? []) as Ver[]));
+    supabase.from("documents").select("id, version, name, created_at, uploaded_by, path").or(`id.eq.${root},root_id.eq.${root}`).order("version")
+      .then(async ({ data, error }) => {
+        const vs = error ? [] : (data ?? []) as Ver[];
+        const ids = [...new Set(vs.map((v) => v.uploaded_by).filter(Boolean))] as string[];
+        if (ids.length) {
+          const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+          const nm = new Map(((ps ?? []) as { id: string; full_name: string }[]).map((x) => [x.id, x.full_name]));
+          vs.forEach((v) => { v.uploader = v.uploaded_by ? nm.get(v.uploaded_by) : undefined; });
+        }
+        setVersions(vs);
+      });
   }, [doc?.id]);
+  async function downloadVersion(v: Ver) {
+    if (!v.path) return;
+    const sgn = await supabase.storage.from("form-files").createSignedUrl(v.path, 600, { download: v.name });
+    if (sgn.error || !sgn.data) { setErr("Could not download the file. Try again in a moment."); return; }
+    window.location.href = sgn.data.signedUrl;
+  }
   async function uploadRevision(file?: File) {
     if (!file || !doc) return;
     setErr("");
@@ -202,7 +217,7 @@ export default function Doc() {
         <h1 className="docname">{doc.name}</h1>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {kind !== "other" && <button className={`btn sm ${pinMode ? "primary" : "ghost"}`} onClick={startComment}>{pinMode ? "Tap the document…" : "＋ Comment"}</button>}
-          {url && <a className="btn ghost sm" href={url} target="_blank" rel="noopener">⬇ Original</a>}
+          {url && <a className="btn ghost sm" href={url} target="_blank" rel="noopener" download={doc.name}>⬇ Download</a>}
           {url && <button className="btn primary sm" disabled={exporting} onClick={async () => {
             setExporting(true); setErr("");
             try {
@@ -221,13 +236,21 @@ export default function Doc() {
           </>}
         </div>
       </div>
-      {versions.length > 1 && <div className="docversions" role="navigation" aria-label="Versions">
-        <span className="muted small">Versions:</span>
-        {versions.map((v) => v.id === doc.id
-          ? <span key={v.id} className="pill on">v{v.version}{v.version === 1 ? " · original" : ""}</span>
-          : <Link key={v.id} className="pill" to={`/doc/${v.id}`}>v{v.version}{v.version === 1 ? " · original" : ""}</Link>)}
-        {versions[versions.length - 1].id !== doc.id && <Link className="linkbtn" to={`/doc/${versions[versions.length - 1].id}`}>Open the latest version →</Link>}
-      </div>}
+      {/* edited copies: the newest one is what people want; older copies stay reachable but out of the way */}
+      {versions.length > 1 && (() => {
+        const latest = versions[versions.length - 1];
+        const who = (v: Ver) => (v.uploaded_by === me ? "You" : v.uploader || "BCIL Foundation");
+        const when = (v: Ver) => new Date(v.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        if (latest.id !== doc.id) return (
+          <div className="card editedcopy">
+            <span aria-hidden="true">📄</span>
+            <div className="grow"><b>{who(latest)} {latest.uploaded_by === me ? "uploaded" : "sent back"} an edited copy</b><small className="muted">{latest.name} · {when(latest)}</small></div>
+            <button className="btn primary sm" onClick={() => downloadVersion(latest)}>⬇ Download</button>
+            <Link className="btn ghost sm" to={`/doc/${latest.id}`}>Open</Link>
+          </div>);
+        return (
+          <p className="muted small editednote">📄 Edited copy from {who(latest)} · {when(latest)}. <Link className="linkbtn" to={`/doc/${versions[0].id}`}>See the first copy</Link></p>);
+      })()}
       {pinMode && <p className="docnote">Tap the spot you want to comment on.{kind === "docx" ? " In a Word file you can also select some text first, then tap ＋ Comment." : ""} <button className="linkbtn" onClick={() => setPinMode(false)}>Cancel</button></p>}
       {err && <p className="err">{err}</p>}
       {docCall && !inCall && <div className="docnote callnote">📞 There's a call about this document right now.
