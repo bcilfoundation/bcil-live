@@ -102,7 +102,7 @@ export default function Chat() {
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const end = useRef<HTMLDivElement>(null);
   // scrolling: the message list scrolls on its own (never the page); it follows new messages only while you're at the bottom
-  const scroller = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
   const atBottom = useRef(true);
   const firstPaint = useRef(true);
   const prevLen = useRef(0);
