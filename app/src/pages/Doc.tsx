@@ -213,7 +213,7 @@ export default function Doc() {
             } catch { setErr("Could not make the download. Try again, or use Original to get the file."); }
             setExporting(false);
           }}>{exporting ? "Preparing…" : kind === "docx" ? "⬇ Word with comments" : "⬇ Download with comments"}</button>}
-          <label className="btn ghost sm" title="Upload an edited version of this document. The comments on this version stay here.">{uploading ? "Uploading…" : "⤴ Upload revised version"}
+          <label className="btn ghost sm" title={doc.owner_id && doc.owner_id !== me ? "Send back your edited copy as a new version. The owner gets a notification, and the comments on this version stay here." : "Upload an edited version of this document. The comments on this version stay here."}>{uploading ? "Uploading…" : doc.owner_id && doc.owner_id !== me ? "⤴ Send edited version" : "⤴ Upload revised version"}
             <input type="file" hidden disabled={uploading} accept="application/pdf,image/*,.docx" onChange={(e) => { uploadRevision(e.target.files?.[0]); e.target.value = ""; }} /></label>
           {canCall && other && !inCall && !docCall && !L.joined && <>
             <button className="btn ghost sm" disabled={calling} onClick={() => startCall("audio")} title={`Voice call ${other.name} to review this together`}>📞 Call</button>

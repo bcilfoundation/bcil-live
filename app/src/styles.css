@@ -928,7 +928,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .wa-list>button.unread .wa-time{color:#1fa855;font-weight:700}
 .wa-list>button.unread .wa-prev{color:var(--text);font-weight:600}
 .wa-count{min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:#25d366;color:#fff;font-size:.74rem;font-weight:800;display:inline-grid;place-items:center;flex:none;line-height:1}
-.wa-count.side{margin-left:auto}
+.wa-count.onside{margin-left:auto}
 .tabico{position:relative;display:inline-grid}
 .wa-count.tab{position:absolute;top:-6px;left:14px;min-width:19px;height:19px;font-size:.68rem;border:2px solid var(--panel)}
 .iconbtn .count.wa{background:#25d366;color:#fff}

@@ -15,6 +15,7 @@ const DOC_TYPES: Record<string, string> = { pdf: "application/pdf", doc: "applic
   xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", csv: "text/csv",
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
 const UNDO_SECONDS = 15;
+export const NO_MEETING = "No meeting · feedback only";
 export const when = (d: string) => new Date(d).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 // Meet Solomon: members ask for a meeting, say when suits them, and attach documents. Staff confirm a time.
@@ -37,6 +38,7 @@ export default function Meet() {
   // Solomon's open times (from his availability), shown in the member's own time zone
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
+  const [needMeet, setNeedMeet] = useState(true);
   const loadSlots = () => supabase.rpc("meeting_slots", { p_days: 28 }).then(({ data, error }) => setSlots(error ? [] : (data ?? []) as Slot[]));
   useEffect(() => { loadSlots(); }, []);
   const load = () => supabase.from("meeting_requests").select("*").eq("user_id", me)
@@ -63,7 +65,7 @@ export default function Meet() {
   function check() {   // first step of sending: check the form, then show what will be sent
     setErr("");
     if (!f.topic || !f.message.trim()) { setErr("Choose a topic and tell us a little about it."); return; }
-    if (slots && slots.length > 0 && !slot && !f.preferred.trim()) { setErr("Choose a time from the calendar."); return; }
+    if (needMeet && slots && slots.length > 0 && !slot && !f.preferred.trim()) { setErr("Choose a time from the calendar, or pick \u201cNo, just feedback\u201d."); return; }
     setReview(true);
   }
   async function undoSend() {
@@ -78,8 +80,8 @@ export default function Meet() {
     setReview(false); setErr("");
     setBusy("Sending…");
     const snap = { f, files, slot };
-    const { data: made, error } = await supabase.from("meeting_requests").insert({ user_id: me, topic: f.topic, message: f.message.trim(), mode: f.mode || null,
-      preferred: f.preferred.trim() || null, files: files.map((x) => x.path), ...(slot ? { slot_at: slot.slot_at, minutes: slot.minutes } : {}) }).select("id").single();
+    const { data: made, error } = await supabase.from("meeting_requests").insert({ user_id: me, topic: f.topic, message: f.message.trim(), mode: needMeet ? (f.mode || null) : NO_MEETING,
+      preferred: needMeet ? (f.preferred.trim() || null) : null, files: files.map((x) => x.path), ...(needMeet && slot ? { slot_at: slot.slot_at, minutes: slot.minutes } : {}) }).select("id").single();
     setBusy("");
     if (error) {
       if (/duplicate|unique/i.test(error.message)) { setErr("Someone has just booked that time. Please choose another."); setSlot(null); loadSlots(); }
@@ -96,14 +98,21 @@ export default function Meet() {
         <Avatar url={`${import.meta.env.BASE_URL}team/solomon-agbesi.jpg`} name="Solomon Agbesi" size={64} />
         <div><h1 style={{ margin: 0 }}>Meet Solomon</h1><span className="muted">Solomon Agbesi · Founder, BCIL Foundation</span></div>
       </div>
-      <p>Want to talk about mentorship, your plan for the year, your studies or career, or working with BCIL? Pick a time from Solomon's calendar, tell us what it's about and attach any documents. You'll get a notification when it's confirmed.</p>
+      <p>Want to talk about mentorship, your plan for the year, your studies or career, or working with BCIL? Pick a time from Solomon's calendar, or just send your question or documents for feedback without a meeting. You'll get a notification when Solomon replies.</p>
 
-      {sent ? <div className="card planbar"><span>✅ Request sent. You'll get a notification when a time is confirmed.</span>
+      {sent ? <div className="card planbar"><span>✅ Request sent. You'll get a notification when Solomon replies.</span>
         {undo ? <button className="btn primary sm" onClick={undoSend}>↩ Undo ({undo.left}s)</button>
           : <button className="btn ghost sm" disabled={!!busy} onClick={() => setSent(false)}>{busy === "Undoing…" ? busy : "New request"}</button>}</div> : (
         <div className="card meetform">
           <label className="field">What is it about?<select value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value })}><option value="">Choose…</option>{TOPICS.map((t) => <option key={t}>{t}</option>)}</select></label>
           <label className="field">Tell us a little more<textarea value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} placeholder="What would you like to talk about, and what would help most?" maxLength={1500} /></label>
+          <div className="field"><span>Do you need a meeting?</span>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="chip" aria-pressed={needMeet} onClick={() => setNeedMeet(true)}>Yes, pick a time</button>
+              <button type="button" className="chip" aria-pressed={!needMeet} onClick={() => { setNeedMeet(false); setSlot(null); }}>No, just feedback</button>
+            </div>
+            {!needMeet && <small className="muted">Solomon will reply with feedback under My requests, and comment on any documents you attach.</small>}</div>
+          {needMeet && <>
           <label className="field">How would you like to meet?<select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}><option value="">Any</option>{MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
           <div className="field"><span>Choose a time <small className="muted">(shown in your time: {tzName()})</small></span>
             {slots === null ? <small className="muted">Loading Solomon's calendar…</small>
@@ -112,6 +121,7 @@ export default function Meet() {
                 <input value={f.preferred} onChange={(e) => setF({ ...f, preferred: e.target.value })} placeholder="e.g. weekday evenings after 6 pm" maxLength={200} aria-label="When suits you" />
               </> : <SlotPicker slots={slots} value={slot} onPick={setSlot} />}
           </div>
+          </>}
           <div className="field"><span>Documents <small className="muted">(optional · CV, plan, proposal, budget · PDF, Word, Excel or pictures · up to 3, 10 MB each)</small></span>
             <div className="fileq">{files.map((x) => <span key={x.path} className="pill sent filepill">📎 {x.name}
                 <button type="button" className="filex" onClick={() => removeFile(x.path)} aria-label={`Remove ${x.name}`}>✕</button></span>)}
@@ -130,7 +140,7 @@ export default function Meet() {
             <dt>About</dt><dd>{f.topic}</dd>
             <dt>Message</dt><dd style={{ whiteSpace: "pre-wrap" }}>{f.message.trim()}</dd>
             <dt>How</dt><dd>{f.mode || "Any"}</dd>
-            <dt>When</dt><dd>{slot ? `${dayKey(slot.slot_at)}, ${timeOf(slot.slot_at)} (${slot.minutes} minutes)` : f.preferred.trim() || "—"}</dd>
+            <dt>When</dt><dd>{!needMeet ? "No meeting, feedback only" : slot ? `${dayKey(slot.slot_at)}, ${timeOf(slot.slot_at)} (${slot.minutes} minutes)` : f.preferred.trim() || "—"}</dd>
             <dt>Documents</dt><dd>{files.length ? files.map((x) => <div key={x.path}>📎 {x.name}</div>) : "None"}</dd>
           </dl>
           <button className="btn primary block" onClick={send}>Send request</button>

@@ -103,7 +103,7 @@ export default function App() {
       <aside className="side">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}logo-wordmark.webp`} alt="BCIL Foundation" /></div>
         <nav className="menu">
-          {nav.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={ICONS[to]} size={20} />{label}{to === "/chat" && unreadChats > 0 && <span className="wa-count side">{unreadChats > 99 ? "99+" : unreadChats}</span>}</NavLink>)}
+          {nav.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={ICONS[to]} size={20} />{label}{to === "/chat" && unreadChats > 0 && <span className="wa-count onside">{unreadChats > 99 ? "99+" : unreadChats}</span>}</NavLink>)}
           <hr className="menusep" />
           {NAV_MORE.map(([to, label]) => <NavLink key={to} to={to} className={() => (sideActive(to, pathname, search) ? "active" : "")}><Icon name={MORE_ICONS[to]} size={20} />{label}</NavLink>)}
           {isStaff && <NavLink to="/admin"><Icon name="shield" size={20} />Admin</NavLink>}
