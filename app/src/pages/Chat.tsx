@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Tick from "../components/Tick";
 import ChatTabs from "../components/ChatTabs";
 import Statuses from "../components/Statuses";
@@ -106,9 +106,11 @@ export default function Chat() {
   const atBottom = useRef(true);
   const firstPaint = useRef(true);
   const prevLen = useRef(0);
+  const userScrolled = useRef(false);
   const [newBelow, setNewBelow] = useState(0);
   const [showDown, setShowDown] = useState(false);
   const [scEl, setScEl] = useState<HTMLDivElement | null>(null);   // the list can appear after the messages arrive
+  const setScrollerEl = useCallback((el: HTMLDivElement | null) => { scroller.current = el; if (el) setScEl(el); }, []);
   const toBottom = (smooth = false) => { const el = scroller.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" }); atBottom.current = true; setNewBelow(0); setShowDown(false); };
   const readersOk = useRef<Set<string>>(new Set());
 
@@ -264,7 +266,14 @@ export default function Chat() {
   useEffect(() => {
     if (!msgs.length) return;
     const last = msgs[msgs.length - 1];
-    if (firstPaint.current) { if (!scEl) return; firstPaint.current = false; prevLen.current = msgs.length; requestAnimationFrame(() => toBottom()); return; }
+    if (firstPaint.current) {
+      if (!scEl) return;
+      firstPaint.current = false; prevLen.current = msgs.length;
+      // the chat may still be appearing and photos still loading: keep it at the latest message for a moment, unless you start scrolling
+      let n = 0; userScrolled.current = false;
+      const pin = () => { if (userScrolled.current) return; toBottom(); if (++n < 12) setTimeout(pin, 120); };
+      requestAnimationFrame(pin); return;
+    }
     const grew = msgs.length > prevLen.current; prevLen.current = msgs.length;
     if (!grew) return;
     if (atBottom.current || last.user_id === me) requestAnimationFrame(() => toBottom(true));
@@ -495,7 +504,7 @@ export default function Chat() {
               </div>
             )}
             <div className="msgswrap">
-            <div ref={(el) => { scroller.current = el; if (el !== scEl) setScEl(el); }} onScroll={onScroll} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+            <div ref={setScrollerEl} onScroll={onScroll} onTouchMove={() => { userScrolled.current = true; }} onWheel={() => { userScrolled.current = true; }} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
               <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
