@@ -9,8 +9,12 @@ export const PURPOSES = ["Where it's needed most", "Finding Campus Balance 2027"
 const AMOUNTS = [10, 20, 50, 100, 200, 500];
 // BCIL Foundation's MTN MoMo merchant number. People can send Mobile Money straight to it.
 export const MOMO: { number: string; network: string; name: string } | null = { number: "059 591 3265", network: "MTN Mobile Money", name: "BCIL FOUNDATION LBG" };
+export function visibleGifts<T extends { status: string; created_at: string }>(list: T[]): T[] {
+  const latestPending = list.find((g) => g.status === "pending" && Date.now() - Date.parse(g.created_at) < 30 * 60e3);
+  return list.filter((g) => g.status === "paid" || g.status === "recorded" || g === latestPending);
+}
 const cedis = (p: number) => `GH₵ ${(p / 100).toLocaleString("en-GH")}`;
-const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting", failed: "Not completed", recorded: "Recorded" };
+const STATUS: Record<string, string> = { paid: "Received", pending: "Waiting for payment", failed: "Not completed", recorded: "Recorded" };
 
 // Give any amount to BCIL Foundation (Mobile Money or card through Paystack). 100% goes to BCIL Foundation.
 export default function Give() {
@@ -43,6 +47,8 @@ export default function Give() {
     go();
   };
   const total = gifts.filter((g) => g.status === "paid").reduce((n, g) => n + g.amount_pesewas, 0);
+  // only gifts that went through, plus the one you may be paying right now (an abandoned checkout isn't a gift)
+  const shown = visibleGifts(gifts);
 
   return (
     <section className="view">
@@ -65,7 +71,7 @@ export default function Give() {
         </form>
       )}
       <h2>My donations {total > 0 && <span className="muted">· {cedis(total)} in total, thank you!</span>}</h2>
-      {gifts.length ? <div className="list">{gifts.map((g) => (
+      {shown.length ? <div className="list">{shown.map((g) => (
         <div key={g.id}><div className="grow"><b>{cedis(g.amount_pesewas)}</b> · {g.purpose}<br /><small className="muted">{new Date(g.created_at).toLocaleDateString("en-GB")}</small></div><span className={`pill ${g.status}`}>{STATUS[g.status] ?? g.status}</span></div>
       ))}</div> : <div className="empty"><b>No gifts yet</b></div>}
     </section>

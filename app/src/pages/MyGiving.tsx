@@ -1,3 +1,4 @@
+import { visibleGifts } from "./Give";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -66,7 +67,7 @@ export default function MyGiving() {
       </form>
       <h3 className="setsub">History</h3>
       <div className="card setlist">
-        {gifts === null ? <p className="muted pad">Loading…</p> : gifts.length === 0 ? <p className="muted pad small">Your gifts will show here.</p> : gifts.map((g) => (
+        {gifts === null ? <p className="muted pad">Loading…</p> : visibleGifts(gifts).length === 0 ? <p className="muted pad small">Your gifts will show here.</p> : visibleGifts(gifts).map((g) => (
           <div key={g.id} className="setrow"><span className="grow"><b>{cedis(g.amount_pesewas)}</b> · {g.purpose}
             <small className="muted">{new Date(g.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {METHODS.find((m) => m[0] === g.method)?.[1] ?? (g.method === "card" ? "Card" : g.method)}{g.note ? ` · ${g.note}` : ""}</small></span>
             <span className={`pill ${g.status}`}>{STATUS[g.status] ?? g.status}</span></div>))}
