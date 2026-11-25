@@ -101,6 +101,13 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  // scrolling: the message list scrolls on its own (never the page); it follows new messages only while you're at the bottom
+  const scroller = useRef<HTMLDivElement>(null);
+  const atBottom = useRef(true);
+  const firstPaint = useRef(true);
+  const [newBelow, setNewBelow] = useState(0);
+  const [showDown, setShowDown] = useState(false);
+  const toBottom = (smooth = false) => { const el = scroller.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" }); atBottom.current = true; setNewBelow(0); setShowDown(false); };
   const readersOk = useRef<Set<string>>(new Set());
 
   async function loadConvs() {
@@ -251,7 +258,22 @@ export default function Chat() {
     return () => { supabase.removeChannel(ch); supabase.removeChannel(all); };
   }, [roomId]);
 
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [msgs.length]);
+  useEffect(() => { firstPaint.current = true; atBottom.current = true; setNewBelow(0); setShowDown(false); }, [roomId]);
+  useEffect(() => {
+    if (!msgs.length) return;
+    const last = msgs[msgs.length - 1];
+    if (firstPaint.current) { firstPaint.current = false; requestAnimationFrame(() => toBottom()); return; }
+    if (atBottom.current || last.user_id === me) requestAnimationFrame(() => toBottom(true));
+    else setNewBelow((n) => n + 1);
+  }, [msgs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // photos loading, the keyboard opening or a reply bar appearing change the height: stay pinned to the bottom if you were there
+  useEffect(() => {
+    const el = scroller.current; if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { if (atBottom.current) el.scrollTop = el.scrollHeight; });
+    ro.observe(el); if (el.firstElementChild) Array.from(el.children).forEach((c) => ro.observe(c));
+    return () => ro.disconnect();
+  }, [roomId, msgs.length]);
+  const onScroll = () => { const el = scroller.current; if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120; atBottom.current = near; if (near !== !showDown) setShowDown(!near); if (near && newBelow) setNewBelow(0); };
   useEffect(() => {
     const upd = () => setWallState(getWall(me, roomId));
     upd(); setFindQ(null); setEmojiOpen(false); setShowInfo(false);
@@ -396,7 +418,7 @@ export default function Chat() {
   const lastMine = [...msgs].reverse().find((m) => m.user_id === me)?.id;
   const startReply = (m: Msg) => { if (!canPost) return; setReplyTo(m); setTimeout(() => inputRef.current?.focus(), 0); };
   const nameOf = (m: Msg) => (m.user_id === me ? "You" : m.profiles?.full_name || "Member");
-  const jumpTo = (id: number) => { const el = document.getElementById(`m${id}`); if (!el) return; el.scrollIntoView({ block: "center", behavior: "smooth" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); };
+  const jumpTo = (id: number) => { const el = document.getElementById(`m${id}`); if (!el) return; const sc = scroller.current; if (sc) sc.scrollTo({ top: sc.scrollTop + el.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); };
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 
   return (
@@ -468,7 +490,8 @@ export default function Chat() {
                 <button className="linkbtn" onClick={() => setFindQ(null)}>Done</button>
               </div>
             )}
-            <div className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+            <div className="msgswrap">
+            <div ref={scroller} onScroll={onScroll} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
               <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
@@ -520,6 +543,8 @@ export default function Chat() {
                 );
               })}
               <div ref={end} />
+            </div>
+            {showDown && <button className="tobottom" onClick={() => toBottom(true)} aria-label="Go to the latest message">{newBelow > 0 && <span className="wa-count">{newBelow > 99 ? "99+" : newBelow}</span>}<span className="tobottom-arrow" aria-hidden="true">⌄</span></button>}
             </div>
             {editing && (
               <div className="replybar"><div className="grow"><b>✏️ Editing message</b><span>{editing.body}</span></div>

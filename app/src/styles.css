@@ -1373,3 +1373,9 @@ button.seenby{background:none;border:0;padding:0;cursor:pointer;color:var(--mute
 .mreview dt { color: var(--muted); font-size: .88rem; }
 .mreview dd { margin: 0; }
 .ats-back{z-index:1000}
+/* chat scrolling: only the message list scrolls, and a button jumps back to the latest message */
+.msgswrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.room{min-height:0}.msgs{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;overflow-anchor:none}
+.tobottom{position:absolute;right:14px;bottom:14px;width:42px;height:42px;border-radius:50%;border:0;background:var(--panel);color:var(--muted);box-shadow:0 2px 6px rgba(0,0,0,.2);display:grid;place-items:center;cursor:pointer;z-index:3}
+.tobottom .wa-count{position:absolute;top:-8px;right:-4px;min-width:20px;height:20px;font-size:.7rem}
+.tobottom-arrow{font-size:1.6rem;line-height:1;margin-top:-10px}
