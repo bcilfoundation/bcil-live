@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import { isNative } from "./native";
 
 // Switch on once Paystack has approved BCIL's account and the give + paystack-webhook functions have the secret key
-export const PAYMENTS_ENABLED = false;
+export const PAYMENTS_ENABLED = true;
 // While Paystack is in test mode, only admins and moderators see paid gifts and Give (fake money, for testing)
 export const PAYMENTS_TEST_FOR_STAFF = true;
 export const paymentsOn = (isStaff: boolean) => PAYMENTS_ENABLED || (PAYMENTS_TEST_FOR_STAFF && isStaff);
