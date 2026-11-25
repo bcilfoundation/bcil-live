@@ -105,8 +105,10 @@ export default function Chat() {
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const firstPaint = useRef(true);
+  const prevLen = useRef(0);
   const [newBelow, setNewBelow] = useState(0);
   const [showDown, setShowDown] = useState(false);
+  const [scEl, setScEl] = useState<HTMLDivElement | null>(null);   // the list can appear after the messages arrive
   const toBottom = (smooth = false) => { const el = scroller.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" }); atBottom.current = true; setNewBelow(0); setShowDown(false); };
   const readersOk = useRef<Set<string>>(new Set());
 
@@ -258,21 +260,23 @@ export default function Chat() {
     return () => { supabase.removeChannel(ch); supabase.removeChannel(all); };
   }, [roomId]);
 
-  useEffect(() => { firstPaint.current = true; atBottom.current = true; setNewBelow(0); setShowDown(false); }, [roomId]);
+  useEffect(() => { firstPaint.current = true; prevLen.current = 0; atBottom.current = true; setNewBelow(0); setShowDown(false); }, [roomId]);
   useEffect(() => {
     if (!msgs.length) return;
     const last = msgs[msgs.length - 1];
-    if (firstPaint.current) { firstPaint.current = false; requestAnimationFrame(() => toBottom()); return; }
+    if (firstPaint.current) { if (!scEl) return; firstPaint.current = false; prevLen.current = msgs.length; requestAnimationFrame(() => toBottom()); return; }
+    const grew = msgs.length > prevLen.current; prevLen.current = msgs.length;
+    if (!grew) return;
     if (atBottom.current || last.user_id === me) requestAnimationFrame(() => toBottom(true));
     else setNewBelow((n) => n + 1);
-  }, [msgs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [msgs.length, scEl]); // eslint-disable-line react-hooks/exhaustive-deps
   // photos loading, the keyboard opening or a reply bar appearing change the height: stay pinned to the bottom if you were there
   useEffect(() => {
     const el = scroller.current; if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => { if (atBottom.current) el.scrollTop = el.scrollHeight; });
     ro.observe(el); if (el.firstElementChild) Array.from(el.children).forEach((c) => ro.observe(c));
     return () => ro.disconnect();
-  }, [roomId, msgs.length]);
+  }, [roomId, msgs.length, scEl]);
   const onScroll = () => { const el = scroller.current; if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120; atBottom.current = near; if (near !== !showDown) setShowDown(!near); if (near && newBelow) setNewBelow(0); };
   useEffect(() => {
     const upd = () => setWallState(getWall(me, roomId));
@@ -491,7 +495,7 @@ export default function Chat() {
               </div>
             )}
             <div className="msgswrap">
-            <div ref={scroller} onScroll={onScroll} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+            <div ref={(el) => { scroller.current = el; if (el !== scEl) setScEl(el); }} onScroll={onScroll} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
               <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
