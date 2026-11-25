@@ -107,6 +107,7 @@ export default function Chat() {
   const firstPaint = useRef(true);
   const prevLen = useRef(0);
   const userScrolled = useRef(false);
+  const lastGesture = useRef(0);
   const [newBelow, setNewBelow] = useState(0);
   const [showDown, setShowDown] = useState(false);
   const [scEl, setScEl] = useState<HTMLDivElement | null>(null);   // the list can appear after the messages arrive
@@ -279,14 +280,22 @@ export default function Chat() {
     if (atBottom.current || last.user_id === me) requestAnimationFrame(() => toBottom(true));
     else setNewBelow((n) => n + 1);
   }, [msgs.length, scEl]); // eslint-disable-line react-hooks/exhaustive-deps
-  // photos loading, the keyboard opening or a reply bar appearing change the height: stay pinned to the bottom if you were there
+  // content changes (messages arriving, photos loading, the chat appearing, the keyboard opening): stay pinned to the bottom if you were there
   useEffect(() => {
-    const el = scroller.current; if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => { if (atBottom.current) el.scrollTop = el.scrollHeight; });
-    ro.observe(el); if (el.firstElementChild) Array.from(el.children).forEach((c) => ro.observe(c));
-    return () => ro.disconnect();
-  }, [roomId, msgs.length, scEl]);
-  const onScroll = () => { const el = scroller.current; if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120; atBottom.current = near; if (near !== !showDown) setShowDown(!near); if (near && newBelow) setNewBelow(0); };
+    const el = scEl; if (!el) return;
+    const pinNow = () => { if (atBottom.current) el.scrollTop = el.scrollHeight; };
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(pinNow) : null;
+    ro?.observe(el);
+    const mo = new MutationObserver(() => { pinNow(); ro && Array.from(el.children).forEach((c) => ro.observe(c)); });
+    mo.observe(el, { childList: true, subtree: true });
+    ro && Array.from(el.children).forEach((c) => ro.observe(c));
+    el.addEventListener("load", pinNow, true);   // a photo finished loading
+    pinNow();
+    return () => { ro?.disconnect(); mo.disconnect(); el.removeEventListener("load", pinNow, true); };
+  }, [scEl]);
+  const onScroll = () => { const el = scroller.current; if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (!near && Date.now() - lastGesture.current > 1200) return;   // only your own scrolling moves you away from the bottom
+    atBottom.current = near; if (near !== !showDown) setShowDown(!near); if (near && newBelow) setNewBelow(0); };
   useEffect(() => {
     const upd = () => setWallState(getWall(me, roomId));
     upd(); setFindQ(null); setEmojiOpen(false); setShowInfo(false);
@@ -504,7 +513,7 @@ export default function Chat() {
               </div>
             )}
             <div className="msgswrap">
-            <div ref={setScrollerEl} onScroll={onScroll} onTouchMove={() => { userScrolled.current = true; }} onWheel={() => { userScrolled.current = true; }} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
+            <div ref={setScrollerEl} onScroll={onScroll} onTouchMove={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onWheel={() => { userScrolled.current = true; lastGesture.current = Date.now(); }} onKeyDown={() => { lastGesture.current = Date.now(); }} onMouseDown={() => { lastGesture.current = Date.now(); }} className={`msgs${isDarkWall(wall) ? " darkwall" : ""}${wall !== "none" ? " haswall" : ""}`} style={wallStyle(wall)}>
               <div className="sysmsg kindnote">🛡 Be kind here. Never send money to anyone in chat. You can report a message or a person.</div>
               {msgs.map((m, i) => {
                 const mine = m.user_id === me;
