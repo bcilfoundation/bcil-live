@@ -56,7 +56,7 @@ export default function Give() {
       <p className="muted">Your gift helps students through Finding Campus Balance, mentorship, Campus Sync and more. 100% goes to BCIL Foundation. GH₵ 20 covers one student's refreshment at FCB, and GH₵ 5,000 buys a laptop for a student.</p>
       <p className="npo-line">✅ Licensed National Non-Profit Organisation in Ghana · Licence No. NPOS/CR02/LN04364/26 · <button className="linkbtn" onClick={() => setLic(true)}>View licence</button>{lic && <LicenceViewer onClose={() => setLic(false)} />}</p>
       {canPay && !PAYMENTS_ENABLED && <p className="testnote">{TEST_NOTE}</p>}
-      {MOMO && <MomoCard />}
+      {!paymentsOn(isStaff) && MOMO && <MomoCard />}
       {!canPay ? (
         !MOMO && <div className="card"><b>Donating in the app opens soon.</b><p className="muted">We're finishing setup with our payment provider. Thank you for wanting to help!</p></div>
       ) : (
