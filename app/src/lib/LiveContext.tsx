@@ -310,6 +310,13 @@ function useLiveEngine() {
       // if the connection drops (phone slept, network switched), get back in automatically
       c.on("connection-state-change", (cur) => { if (cur === "DISCONNECTED" && stayIn.current) reconnectRef.current(); });
       client.current = c;
+      // passes last 2 hours: fetch a fresh one shortly before it runs out, so long calls and sessions keep going without a break
+      const renew = async () => {
+        const r = await supabase.functions.invoke("live-token", { body: { session_id: sess.id } }).catch(() => null);
+        const tk = r?.data?.token as string | undefined;
+        if (tk && client.current === c) await c.renewToken(tk).catch(() => {});
+      };
+      c.on("token-privilege-will-expire", renew);
       // video sessions: each camera also sends a small copy, so people watching a grid of cameras
       // receive the small copies (less data for them, and far fewer billed video minutes)
       if (sess.kind === "video") {
