@@ -1,6 +1,6 @@
 name: Build Android app
 
-# Builds the BCIL Live Android app and publishes it as a download:
+# Builds the BCIL Foundation Android app and publishes it as a download:
 # https://github.com/bcilfoundation/bcil-live/releases/latest/download/bcil-live.apk
 on:
   workflow_dispatch:
@@ -49,5 +49,5 @@ jobs:
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest bcil-live.apk $(ls bcil-live.aab 2>/dev/null) \
-            --title "BCIL Live for Android (build ${{ github.run_number }})" \
-            --notes "Download bcil-live.apk on an Android phone and open it to install." --latest
+            --title "BCIL Foundation for Android (build ${{ github.run_number }})" \
+            --notes "Download bcil-live.apk on an Android phone and open it to install. bcil-live.aab is the file for Google Play." --latest
